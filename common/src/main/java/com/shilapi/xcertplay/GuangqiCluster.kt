@@ -28,8 +28,8 @@ internal object GuangqiCluster {
     const val STATE_EXIT = 2
     const val STATE_FOREGROUND = 3
 
-    /** Cluster stream rate; the cluster shows about half the main screen's frames. */
-    const val CLUSTER_FPS = 15
+    /** Cluster stream rate; the Presentation display refreshes slowly, no need for more. */
+    const val CLUSTER_FPS = 4
 
     /** Cluster stream size in percent of the panel (856x480 on 1280x720). */
     const val CLUSTER_SCALE_PERCENT = 67
