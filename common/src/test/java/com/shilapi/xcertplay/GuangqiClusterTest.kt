@@ -75,13 +75,13 @@ class GuangqiClusterTest {
         assertEquals(100, AirPlayPersistence.loadDisplayScalePercent(context))
     }
 
-    @Test fun clusterStreamIsRequestedAt4FpsAnd856x480() {
+    @Test fun clusterStreamIsRequestedAt4FpsAndNativeResolution() {
         val config = CarPlayClusterDisplay.config(
             1280, 720, GuangqiCluster.CLUSTER_SCALE_PERCENT, fps = GuangqiCluster.CLUSTER_FPS,
         )
         assertEquals(4, config.fps)
-        assertEquals(856, config.widthPixels)
-        assertEquals(480, config.heightPixels)
+        assertEquals(1280, config.widthPixels)
+        assertEquals(720, config.heightPixels)
         assertEquals(CarPlayClusterDisplay.FPS, CarPlayClusterDisplay.config(1280, 720).fps)
     }
 

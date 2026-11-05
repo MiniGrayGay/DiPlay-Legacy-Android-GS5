@@ -21,6 +21,10 @@
     <string name="cluster_size_larger">Más grande · predeterminado</string>
     <string name="cluster_size_largest">El más grande</string>
     <string name="cluster_size_smallest">Más pequeño · más mapa y detalle fino</string>
+    <string name="cluster_resolution">Resolución del panel</string>
+    <string name="cluster_resolution_hint">Introduce un porcentaje de 30 a 160. Se aplica al reconectar CarPlay.</string>
+    <string name="cluster_frame_rate">Velocidad de fotogramas del panel</string>
+    <string name="cluster_fps_value">%1$d fps</string>
     <string name="marker_left">Izquierda</string>
     <string name="marker_right">Derecha</string>
     <string name="marker_up">Arriba</string>

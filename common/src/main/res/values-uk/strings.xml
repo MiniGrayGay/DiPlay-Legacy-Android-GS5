@@ -22,6 +22,10 @@
     <string name="cluster_size_larger">Більший · типовий</string>
     <string name="cluster_size_largest">Найбільший</string>
     <string name="cluster_size_smallest">Менше · більше карти та дрібніші деталі</string>
+    <string name="cluster_resolution">Роздільна здатність приладової панелі</string>
+    <string name="cluster_resolution_hint">Введіть відсоток від 30 до 160. Застосовується при перепідключенні CarPlay.</string>
+    <string name="cluster_frame_rate">Частота кадрів приладової панелі</string>
+    <string name="cluster_fps_value">%1$d кадр/с</string>
     <string name="marker_left">Ліворуч</string>
     <string name="marker_right">Праворуч</string>
     <string name="marker_up">Угору</string>

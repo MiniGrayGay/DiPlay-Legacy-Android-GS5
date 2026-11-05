@@ -1592,9 +1592,9 @@ class CarPlayHostActivity : ComponentActivity() {
                         AirPlayPersistence.loadClusterSafeAreaRect(this),
                     ).also { MapMirrors.streamAspect = it.widthPixels.toDouble() / it.heightPixels }
                 }
-                val requestedScale = AirPlayPersistence.loadClusterMapScalePercent(this)
+                val requestedScale = AirPlayPersistence.loadClusterResolutionPercent(this)
                 val guangqi = GuangqiCluster.present(this)
-                val clusterFps = if (guangqi) GuangqiCluster.CLUSTER_FPS else CarPlayClusterDisplay.FPS
+                val clusterFps = AirPlayPersistence.loadClusterFps(this)
                 fun streamAt(scale: Int) = CarPlayClusterDisplay.config(
                     size.x,
                     size.y,
@@ -1614,7 +1614,7 @@ class CarPlayHostActivity : ComponentActivity() {
                         val native = streamAt(100)
                         val fallback = if (largerCanvasSupport(native).supported) 100
                             else CarPlayClusterDisplay.STREAM_SCALE_PERCENT
-                        AirPlayPersistence.saveClusterMapScalePercent(this, fallback)
+                        AirPlayPersistence.saveClusterResolutionPercent(this, fallback)
                         appendLog("Cluster map: scale $requestedScale% refused (${support.reason}); using $fallback%")
                         streamAt(fallback)
                     }

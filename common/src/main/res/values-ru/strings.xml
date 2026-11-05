@@ -21,6 +21,10 @@
     <string name="cluster_size_larger">Крупнее · по умолчанию</string>
     <string name="cluster_size_largest">Самый крупный</string>
     <string name="cluster_size_smallest">Меньше · больше карты и мельче детали</string>
+    <string name="cluster_resolution">Разрешение приборной панели</string>
+    <string name="cluster_resolution_hint">Введите процент от 30 до 160. Применяется при переподключении CarPlay.</string>
+    <string name="cluster_frame_rate">Частота кадров приборной панели</string>
+    <string name="cluster_fps_value">%1$d кадр/с</string>
     <string name="marker_left">Влево</string>
     <string name="marker_right">Вправо</string>
     <string name="marker_up">Вверх</string>

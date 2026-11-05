@@ -21,6 +21,10 @@
     <string name="cluster_size_larger">Larger · default</string>
     <string name="cluster_size_largest">Largest</string>
     <string name="cluster_size_smallest">Smaller · more map, finer detail</string>
+    <string name="cluster_resolution">Dashboard resolution</string>
+    <string name="cluster_resolution_hint">Enter 30–160 percent. Apply to reconnect CarPlay.</string>
+    <string name="cluster_frame_rate">Dashboard frame rate</string>
+    <string name="cluster_fps_value">%1$d fps</string>
     <string name="marker_left">Left</string>
     <string name="marker_right">Right</string>
     <string name="marker_up">Up</string>

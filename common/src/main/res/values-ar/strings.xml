@@ -21,6 +21,10 @@
     <string name="cluster_size_larger">أكبر · الافتراضي</string>
     <string name="cluster_size_largest">الأكبر</string>
     <string name="cluster_size_smallest">أصغر · خريطة أكثر وتفاصيل أدق</string>
+    <string name="cluster_resolution">دقة لوحة العدادات</string>
+    <string name="cluster_resolution_hint">أدخل نسبة من 30 إلى 160. يتم التطبيق عند إعادة الاتصال بـ CarPlay.</string>
+    <string name="cluster_frame_rate">معدل إطارات لوحة العدادات</string>
+    <string name="cluster_fps_value">%1$d إطار/ث</string>
     <string name="marker_left">يسار</string>
     <string name="marker_right">يمين</string>
     <string name="marker_up">أعلى</string>

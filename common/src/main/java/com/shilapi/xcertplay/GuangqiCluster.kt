@@ -31,11 +31,11 @@ internal object GuangqiCluster {
     /** Cluster stream rate; the Presentation display refreshes slowly, no need for more. */
     const val CLUSTER_FPS = 4
 
-    /** Cluster stream size in percent of the panel (856x480 on 1280x720). */
-    const val CLUSTER_SCALE_PERCENT = 67
+    /** Cluster stream size default: native resolution of the 1280x720 panel. */
+    const val CLUSTER_SCALE_PERCENT = 100
 
-    /** Main-screen resolution default (1024x576 on 1280x720), leaving VPU room for the cluster. */
-    const val MAIN_RESOLUTION_PERCENT = 80
+    /** Main-screen resolution default: native 1280x720. */
+    const val MAIN_RESOLUTION_PERCENT = 100
 
     /** The cluster layer the safe area was measured on. */
     const val LAYER_WIDTH = 1280

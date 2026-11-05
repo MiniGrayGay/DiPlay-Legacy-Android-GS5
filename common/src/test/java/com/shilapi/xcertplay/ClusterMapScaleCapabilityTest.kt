@@ -111,7 +111,7 @@ class ClusterMapScaleCapabilityTest {
     }
 
     private fun cluster(scale: Int): AirPlayDisplayConfig {
-        AirPlayPersistence.saveClusterMapScalePercent(activity, scale)
+        AirPlayPersistence.saveClusterResolutionPercent(activity, scale)
         return activity.javaClass.getDeclaredMethod("clusterDisplayConfig")
             .apply { isAccessible = true }.invoke(activity) as AirPlayDisplayConfig
     }
@@ -126,7 +126,7 @@ class ClusterMapScaleCapabilityTest {
     private fun assertSize(scale: Int, width: Int, height: Int, config: AirPlayDisplayConfig) {
         assertEquals(width, config.widthPixels)
         assertEquals(height, config.heightPixels)
-        assertEquals(scale, AirPlayPersistence.loadClusterMapScalePercent(activity))
+        assertEquals(scale, AirPlayPersistence.loadClusterResolutionPercent(activity))
         assertEquals(true, config.safeAreaDrawOutside)
         assertEquals(CarPlayClusterDisplay.MAP_URL, config.initialUrl)
     }

@@ -1768,6 +1768,20 @@ class DiPlayActivity : ComponentActivity() {
                 render()
             }
             if (clusterMapEnabled) {
+                resolutionSettingControl(
+                    card, R.string.cluster_resolution, R.string.cluster_resolution_hint,
+                    CarPlayDisplayScale.MIN_PERCENT..CarPlayDisplayScale.MAX_PERCENT, 100,
+                    R.string.custom_resolution_summary,
+                    { AirPlayPersistence.loadClusterResolutionPercent(this) }, reconnects = true,
+                    save = { AirPlayPersistence.saveClusterResolutionPercent(this, it) },
+                )
+                val clusterFpsList = listOf(2, 4, 8, 15, 30)
+                val currentClusterFps = AirPlayPersistence.loadClusterFps(this)
+                choice(card, getString(R.string.cluster_frame_rate),
+                    clusterFpsList.map { getString(R.string.cluster_fps_value, it) },
+                    clusterFpsList.indexOf(currentClusterFps).coerceAtLeast(0)) {
+                    AirPlayPersistence.saveClusterFps(this, clusterFpsList[it])
+                }
                 toggle(card, getString(R.string.center_map_card),
                     if (clusterDisplay != null || adbCluster) getString(R.string.center_map_card_description)
                     else getString(R.string.center_map_card_virtual_description),

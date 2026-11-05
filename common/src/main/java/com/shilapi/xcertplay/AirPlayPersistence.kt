@@ -109,6 +109,8 @@ object AirPlayPersistence {
     private const val KEY_CENTER_MAP_AUTO_HIDE = "center_map_auto_hide"
     private const val KEY_LAUNCHER_MAP_SHARING = "launcher_map_sharing"
     private const val KEY_CLUSTER_MAP_SCALE = "cluster_map_scale_percent"
+    private const val KEY_CLUSTER_FPS = "cluster_fps"
+    private const val KEY_CLUSTER_RESOLUTION = "cluster_resolution_percent"
     private const val KEY_CLUSTER_CONTENT = "cluster_content"
     private const val KEY_CLUSTER_MARKER_X = "cluster_marker_horizontal_step"
     private const val KEY_CLUSTER_MARKER_Y = "cluster_marker_vertical_step"
@@ -1114,6 +1116,34 @@ object AirPlayPersistence {
     fun saveClusterMapScalePercent(context: Context, percent: Int) {
         if (percent !in CarPlayClusterDisplay.scalePresets) return
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putInt(KEY_CLUSTER_MAP_SCALE, percent).apply()
+    }
+
+    fun loadClusterResolutionPercent(context: Context): Int {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        if (prefs.contains(KEY_CLUSTER_RESOLUTION)) {
+            return prefs.getInt(KEY_CLUSTER_RESOLUTION, 100)
+                .coerceIn(CarPlayDisplayScale.MIN_PERCENT, CarPlayDisplayScale.MAX_PERCENT)
+        }
+        return loadClusterMapScalePercent(context)
+    }
+
+    fun saveClusterResolutionPercent(context: Context, percent: Int) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putInt(KEY_CLUSTER_RESOLUTION, percent.coerceIn(CarPlayDisplayScale.MIN_PERCENT, CarPlayDisplayScale.MAX_PERCENT))
+            .commit()
+    }
+
+    fun loadClusterFps(context: Context): Int {
+        val default = if (GuangqiCluster.present(context)) GuangqiCluster.CLUSTER_FPS else CarPlayClusterDisplay.FPS
+        return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getInt(KEY_CLUSTER_FPS, default)
+            .coerceIn(1, 30)
+    }
+
+    fun saveClusterFps(context: Context, fps: Int) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putInt(KEY_CLUSTER_FPS, fps.coerceIn(1, 30))
+            .apply()
     }
 
     fun loadClusterMarkerHorizontalStep(context: Context): Int =
