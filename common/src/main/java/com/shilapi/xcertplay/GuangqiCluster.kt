@@ -43,10 +43,12 @@ internal object GuangqiCluster {
     const val LAYER_HEIGHT = 720
 
     /**
-     * The area the gauges, clock and trip row leave clear, in pixels of the 1280x720 cluster layer.
-     * Measured on the car with a ClusterTest grid: 976x549, exactly 16:9.
+     * The area shown in full, in pixels of the 1280x720 cluster layer: outside it the cluster lays a
+     * gradient over the layer. Measured on the car with a ClusterTest grid: 964x550.
+     * The phone receives it as a rectangle (origin and size); insets keep it valid when the stream
+     * is scaled.
      */
-    val SAFE_AREA = AirPlayInsets(top = 82, bottom = 89, left = 152, right = 152)
+    val SAFE_AREA = AirPlayInsets(top = 82, bottom = 88, left = 158, right = 158)
 
     /** [SAFE_AREA] scaled to a cluster stream of [width]x[height]. */
     fun safeArea(width: Int, height: Int): AirPlayInsets {

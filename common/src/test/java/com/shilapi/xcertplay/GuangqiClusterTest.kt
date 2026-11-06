@@ -85,13 +85,12 @@ class GuangqiClusterTest {
         assertEquals(CarPlayClusterDisplay.FPS, CarPlayClusterDisplay.config(1280, 720).fps)
     }
 
-    @Test fun clusterSafeAreaIsTheMeasured16x9AreaScaledToTheStream() {
-        assertEquals(AirPlayInsets(top = 82, bottom = 89, left = 152, right = 152), GuangqiCluster.safeArea(1280, 720))
-        val stream = GuangqiCluster.safeArea(856, 480)
-        assertEquals(AirPlayInsets(top = 55, bottom = 59, left = 102, right = 102), stream)
-        val width = 856 - stream.left - stream.right
-        val height = 480 - stream.top - stream.bottom
-        assertEquals(16.0 / 9, width.toDouble() / height, 0.02)
+    @Test fun clusterSafeAreaIsTheMeasuredAreaScaledToTheStream() {
+        val full = GuangqiCluster.safeArea(1280, 720)
+        assertEquals(AirPlayInsets(top = 82, bottom = 88, left = 158, right = 158), full)
+        assertEquals(964, 1280 - full.left - full.right)
+        assertEquals(550, 720 - full.top - full.bottom)
+        assertEquals(AirPlayInsets(top = 55, bottom = 59, left = 106, right = 106), GuangqiCluster.safeArea(856, 480))
     }
 
     @Test fun testOverridesChangeOnlyWhatIsSet() {
@@ -103,7 +102,7 @@ class GuangqiClusterTest {
         val props = mapOf(
             GuangqiCluster.Tuning.MM to "155",
             GuangqiCluster.Tuning.URL to "instruments",
-            GuangqiCluster.Tuning.SAFE to "152,82,152,89",
+            GuangqiCluster.Tuning.SAFE to "158,82,158,88",
         )
         val (tuned, used) = GuangqiCluster.Tuning.apply(base) { props[it] ?: "" }
         assertEquals(155, tuned.widthPhysicalMm)
