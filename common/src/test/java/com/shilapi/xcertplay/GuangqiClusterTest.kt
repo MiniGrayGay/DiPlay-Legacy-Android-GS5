@@ -94,6 +94,26 @@ class GuangqiClusterTest {
         assertEquals(16.0 / 9, width.toDouble() / height, 0.02)
     }
 
+    @Test fun testOverridesChangeOnlyWhatIsSet() {
+        val base = CarPlayClusterDisplay.config(1280, 720, 67, fps = 15)
+        val none = GuangqiCluster.Tuning.apply(base) { "" }
+        assertEquals(base, none.first)
+        assertEquals("", none.second)
+
+        val props = mapOf(
+            GuangqiCluster.Tuning.MM to "155",
+            GuangqiCluster.Tuning.URL to "instruments",
+            GuangqiCluster.Tuning.SAFE to "152,82,152,89",
+        )
+        val (tuned, used) = GuangqiCluster.Tuning.apply(base) { props[it] ?: "" }
+        assertEquals(155, tuned.widthPhysicalMm)
+        assertEquals(87, tuned.heightPhysicalMm)
+        assertEquals("maps:/car/instrumentcluster", tuned.initialUrl)
+        assertEquals(base.fps, tuned.fps)
+        assertEquals(GuangqiCluster.safeArea(856, 480), tuned.safeArea)
+        assertTrue(used.contains("mm=155") && used.contains("url=maps:/car/instrumentcluster"))
+    }
+
     private fun installClusterService() {
         shadowOf(context.packageManager).installPackage(PackageInfo().apply {
             packageName = GuangqiCluster.SERVICE_PACKAGE

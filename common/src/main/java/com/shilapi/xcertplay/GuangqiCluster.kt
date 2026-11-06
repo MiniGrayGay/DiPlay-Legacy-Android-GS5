@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.util.Log
 import android.view.Display
+import com.shilapi.xcertplay.airplay.AirPlayDisplayConfig
 import com.shilapi.xcertplay.airplay.AirPlayInsets
 
 /**
@@ -53,6 +54,53 @@ internal object GuangqiCluster {
         fun y(value: Int) = Math.round(value * height.toDouble() / LAYER_HEIGHT).toInt()
         return AirPlayInsets(top = y(SAFE_AREA.top), bottom = y(SAFE_AREA.bottom),
             left = x(SAFE_AREA.left), right = x(SAFE_AREA.right))
+    }
+
+    /**
+     * Cluster declaration overrides for testing on the car without a new build. Set as root, e.g.
+     * `setprop debug.diplay.cl.mm 155`, then reconnect CarPlay; `setprop debug.diplay.cl.mm ""` clears.
+     * They apply only on the Guangqi head unit and are logged at connection.
+     */
+    object Tuning {
+        const val MM = "debug.diplay.cl.mm"         // physical width in mm, 50..400
+        const val URL = "debug.diplay.cl.url"       // map | card | instruments | a maps:/ URL
+        const val SAFE = "debug.diplay.cl.safe"     // "left,top,right,bottom" on the 1280x720 layer
+        val ALL = listOf(MM, URL, SAFE)
+
+        fun systemProperty(name: String): String = try {
+            Class.forName("android.os.SystemProperties").getMethod("get", String::class.java)
+                .invoke(null, name) as? String ?: ""
+        } catch (_: Exception) {
+            ""
+        }
+
+        /** [config] with the overrides that are set; the overrides listed in the second value. */
+        fun apply(config: AirPlayDisplayConfig, props: (String) -> String): Pair<AirPlayDisplayConfig, String> {
+            var out = config
+            val used = mutableListOf<String>()
+            props(MM).trim().toIntOrNull()?.coerceIn(50, 400)?.let { mm ->
+                out = out.copy(widthPhysicalMm = mm,
+                    heightPhysicalMm = Math.round(mm * out.heightPixels.toDouble() / out.widthPixels).toInt())
+                used += "mm=$mm"
+            }
+            props(URL).trim().takeIf { it.isNotEmpty() }?.let { value ->
+                val url = when (value) {
+                    "map" -> "maps:/car/instrumentcluster/map"
+                    "card" -> "maps:/car/instrumentcluster/instructioncard"
+                    "instruments" -> "maps:/car/instrumentcluster"
+                    else -> value.takeIf { it.startsWith("maps:/") }
+                }
+                if (url != null) { out = out.copy(initialUrl = url); used += "url=$url" }
+            }
+            props(SAFE).split(',').map { it.trim().toIntOrNull() }.takeIf { it.size == 4 && it.all { v -> v != null && v >= 0 } }
+                ?.let { (l, t, r, b) ->
+                    fun x(v: Int?) = Math.round(v!! * out.widthPixels.toDouble() / LAYER_WIDTH).toInt()
+                    fun y(v: Int?) = Math.round(v!! * out.heightPixels.toDouble() / LAYER_HEIGHT).toInt()
+                    out = out.copy(safeArea = AirPlayInsets(top = y(t), bottom = y(b), left = x(l), right = x(r)))
+                    used += "safe=$l,$t,$r,$b"
+                }
+            return out to used.joinToString(" ")
+        }
     }
 
     private const val TAG = "DiPlay-GuangqiCluster"

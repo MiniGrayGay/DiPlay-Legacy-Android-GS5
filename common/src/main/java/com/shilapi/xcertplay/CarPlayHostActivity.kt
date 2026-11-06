@@ -1594,6 +1594,7 @@ class CarPlayHostActivity : ComponentActivity() {
                 }
                 val requestedScale = AirPlayPersistence.loadClusterResolutionPercent(this)
                 val guangqi = GuangqiCluster.present(this)
+                val tuning = GuangqiCluster.Tuning::systemProperty
                 val clusterFps = AirPlayPersistence.loadClusterFps(this)
                 fun streamAt(scale: Int) = CarPlayClusterDisplay.config(
                     size.x,
@@ -1603,7 +1604,13 @@ class CarPlayHostActivity : ComponentActivity() {
                     AirPlayPersistence.loadClusterMarkerVerticalStep(this),
                     AirPlayPersistence.loadClusterContent(this),
                     fps = clusterFps,
-                ).let { if (guangqi) it.copy(safeArea = GuangqiCluster.safeArea(it.widthPixels, it.heightPixels)) else it }
+                ).let { config ->
+                    if (!guangqi) return@let config
+                    val (tuned, used) = GuangqiCluster.Tuning.apply(
+                        config.copy(safeArea = GuangqiCluster.safeArea(config.widthPixels, config.heightPixels)), tuning)
+                    if (used.isNotEmpty()) appendLog("Cluster map: test overrides $used")
+                    tuned
+                }
                 val requested = streamAt(requestedScale)
                 // The smaller-map preset enlarges the encoded canvas beyond this panel. Probe
                 // the same selected hardware decoder as the main-screen enlargement guard.
@@ -1621,7 +1628,8 @@ class CarPlayHostActivity : ComponentActivity() {
                 } else requested
                 return effective.also {
                     MapMirrors.streamAspect = it.widthPixels.toDouble() / it.heightPixels
-                    appendLog("Cluster map: requesting ${it.widthPixels}x${it.heightPixels}@${it.fps}fps on ${size.x}x${size.y} safeArea=${it.safeArea} url=${it.initialUrl}")
+                    appendLog("Cluster map: requesting ${it.widthPixels}x${it.heightPixels}@${it.fps}fps on ${size.x}x${size.y} " +
+                        "physical=${it.widthPhysicalMm}x${it.heightPhysicalMm}mm safeArea=${it.safeArea} url=${it.initialUrl}")
                 }
             }
         }

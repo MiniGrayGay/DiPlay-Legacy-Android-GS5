@@ -97,6 +97,8 @@ This fork targets a Guangqi (GAEI) head unit: Freescale i.MX6 SABRESD, Android 4
   Send `EXTRA_STATE=2` when the cluster content stops.
   Do not use the Tencent path (`WECARNAVIAUTO_STANDARD_BROADCAST_SEND`, `KEY_TYPE=2000`, `TYPE`): `gaei.cluster.service` launches `com.tencent.wecarnavi`, which must be force-stopped before our window can take the cluster.
 - The VPU decodes about 37 fps of 720p High in total. Never run a second decoder for the same stream: show the CarPlay cluster stream (type 111) on the cluster, or draw one decoded frame to both screens with GL.
+- The cluster path shows only 4-5 fps continuously (a 30 fps feed bursts to 30 fps for 1-2 s about every 15 s, then falls back), and the stock AMap and Tencent clusters push 4-5 fps. The cluster stream defaults to 4 fps; frames beyond that are decoded and never shown.
+- Cluster declaration overrides for testing (`debug.diplay.cl.mm`, `debug.diplay.cl.url`, `debug.diplay.cl.safe`) are set with root `setprop` and apply at the next CarPlay connection; see `GuangqiCluster.Tuning`.
 - Build car APKs in CI, not locally: `.github/workflows/guangqi-build.yml` takes the platform keystore and the MFi certificate and identity from repository secrets, and uploads the signed release APK as an artifact.
   Unit test failures do not block that build. Neither the platform key nor the MFi assets are checked into this repository.
 - Changing the app between a normal uid and `android.uid.system` cannot be installed as an update. The installed DiPlay must be uninstalled first, which clears its data.
