@@ -24,7 +24,10 @@
     <string name="cluster_resolution">仪表盘分辨率</string>
     <string name="cluster_resolution_hint">输入 30–160 百分比，保存后重连 CarPlay 生效。</string>
     <string name="cluster_frame_rate">仪表盘帧率</string>
+    <string name="cluster_fps_hint">输入 1–30 帧率，保存后重连 CarPlay 生效。</string>
     <string name="cluster_fps_value">%1$d 帧</string>
+    <string name="fps_hint">输入 1–60 帧率，保存后重连 CarPlay 生效。</string>
+    <string name="fps_summary">%1$d 帧</string>
     <string name="marker_left">左</string>
     <string name="marker_right">右</string>
     <string name="marker_up">上</string>

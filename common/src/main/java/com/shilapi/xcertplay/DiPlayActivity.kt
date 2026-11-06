@@ -1465,14 +1465,12 @@ class DiPlayActivity : ComponentActivity() {
                 { AirPlayPersistence.loadDisplayScalePercent(this) }, reconnects = true,
                 save = { AirPlayPersistence.saveDisplayScalePercent(this, it) },
             )
-            choice(card, getString(R.string.frame_rate), listOf(
-                getString(R.string.s_15_fps_lightest_load),
-                getString(R.string.s_30_fps_lighter_load),
-                getString(R.string.s_45_fps_balanced),
-                getString(R.string.s_60_fps_smoother_motion),
-            ), when (AirPlayPersistence.loadFps(this)) {
-                15 -> 0; 45 -> 2; 60 -> 3; else -> 1
-            }) { AirPlayPersistence.saveFps(this, listOf(15, 30, 45, 60)[it]) }
+            resolutionSettingControl(
+                card, R.string.frame_rate, R.string.fps_hint,
+                1..60, 30, R.string.fps_summary,
+                { AirPlayPersistence.loadFps(this) }, reconnects = true,
+                save = { AirPlayPersistence.saveFps(this, it) },
+            )
             carPlayDockControl(card)
             toggle(card, getString(R.string.settings_dock_auto_hide),
                 getString(R.string.settings_dock_auto_hide_description),
@@ -1775,13 +1773,12 @@ class DiPlayActivity : ComponentActivity() {
                     { AirPlayPersistence.loadClusterResolutionPercent(this) }, reconnects = true,
                     save = { AirPlayPersistence.saveClusterResolutionPercent(this, it) },
                 )
-                val clusterFpsList = listOf(2, 4, 8, 15, 30)
-                val currentClusterFps = AirPlayPersistence.loadClusterFps(this)
-                choice(card, getString(R.string.cluster_frame_rate),
-                    clusterFpsList.map { getString(R.string.cluster_fps_value, it) },
-                    clusterFpsList.indexOf(currentClusterFps).coerceAtLeast(0)) {
-                    AirPlayPersistence.saveClusterFps(this, clusterFpsList[it])
-                }
+                resolutionSettingControl(
+                    card, R.string.cluster_frame_rate, R.string.cluster_fps_hint,
+                    1..30, GuangqiCluster.CLUSTER_FPS, R.string.fps_summary,
+                    { AirPlayPersistence.loadClusterFps(this) }, reconnects = true,
+                    save = { AirPlayPersistence.saveClusterFps(this, it) },
+                )
                 toggle(card, getString(R.string.center_map_card),
                     if (clusterDisplay != null || adbCluster) getString(R.string.center_map_card_description)
                     else getString(R.string.center_map_card_virtual_description),

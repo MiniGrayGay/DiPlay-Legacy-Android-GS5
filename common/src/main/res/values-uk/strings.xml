@@ -25,7 +25,10 @@
     <string name="cluster_resolution">Роздільна здатність приладової панелі</string>
     <string name="cluster_resolution_hint">Введіть відсоток від 30 до 160. Застосовується при перепідключенні CarPlay.</string>
     <string name="cluster_frame_rate">Частота кадрів приладової панелі</string>
+    <string name="cluster_fps_hint">Введіть 1–30 кадр/с. Застосовується при перепідключенні CarPlay.</string>
     <string name="cluster_fps_value">%1$d кадр/с</string>
+    <string name="fps_hint">Введіть 1–60 кадр/с. Застосовується при перепідключенні CarPlay.</string>
+    <string name="fps_summary">%1$d кадр/с</string>
     <string name="marker_left">Ліворуч</string>
     <string name="marker_right">Праворуч</string>
     <string name="marker_up">Угору</string>

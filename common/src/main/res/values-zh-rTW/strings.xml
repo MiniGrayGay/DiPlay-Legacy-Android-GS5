@@ -688,7 +688,10 @@
     <string name="cluster_resolution">儀表板解析度</string>
     <string name="cluster_resolution_hint">輸入 30–160 百分比，儲存後重新連線 CarPlay 生效。</string>
     <string name="cluster_frame_rate">儀表板幀率</string>
+    <string name="cluster_fps_hint">輸入 1–30 幀率，儲存後重新連線 CarPlay 生效。</string>
     <string name="cluster_fps_value">%1$d 幀</string>
+    <string name="fps_hint">輸入 1–60 幀率，儲存後重新連線 CarPlay 生效。</string>
+    <string name="fps_summary">%1$d 幀</string>
     <string name="main_buffered_audio">緩衝音樂（實驗性）</string>
     <string name="main_buffered_audio_description">支援此功能的應用程式（例如 Apple Music）可預先傳送約兩分鐘的音樂，因此短暫的 Wi-Fi 中斷不會影響播放。其他應用程式仍使用一般串流。變更後會重新連線至 CarPlay。</string>
     <string name="settings_car_bluetooth_audio">透過車輛藍牙播放 CarPlay 音訊（實驗性）</string>
