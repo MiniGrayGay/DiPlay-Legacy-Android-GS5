@@ -1436,7 +1436,8 @@ class CarPlayHostActivity : ComponentActivity() {
             presentation.setStreamActive(SCREEN_TYPE_ALT in activeScreenStreamTypes)
             applyClusterTurnOverlay()
             Log.i(ClusterMapPresentation.TAG, "cluster presentation shown display=${display.displayId} name=${display.name}")
-            appendLog("Cluster map: presentation shown display=${display.displayId} name=${display.name}")
+            // Not "name=": DiagnosticRedactor drops lines that look like a device name.
+            appendLog("Cluster map: presentation shown display=${display.displayId} \"${display.name}\"")
         } catch (error: RuntimeException) {
             Log.w(ClusterMapPresentation.TAG, "cluster presentation failed", error)
             appendLog("Cluster map: presentation failed ${error.javaClass.simpleName}: ${error.message}")
@@ -1848,7 +1849,9 @@ class CarPlayHostActivity : ComponentActivity() {
 
     /** Guangqi: the cluster composites our layer only while a navigation source reports ready. */
     private fun syncGuangqiClusterReady() {
-        guangqiClusterReady.update(clusterPresentation?.isShowing == true && SCREEN_TYPE_ALT in activeScreenStreamTypes)
+        // The cluster takes DiPlay's layer as soon as it shows, with the dark placeholder until the
+        // CarPlay map arrives; it goes back to its own screen when the layer goes away.
+        guangqiClusterReady.update(clusterPresentation?.isShowing == true)
     }
 
     // The dashboard map pause must not stop the stream while a copy of the map is on screen.

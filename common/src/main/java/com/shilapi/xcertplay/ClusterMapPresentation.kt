@@ -59,8 +59,11 @@ internal class ClusterMapPresentation(
         val plan = if (adaptive) DiLink51ClusterLayout.plan(size.x, size.y, theme) else null
         val dark = DiLink51ClusterLayout.dark(context, theme)
         val backdrop = if (dark) Color.rgb(15, 22, 30) else Color.rgb(207, 218, 229)
+        // Guangqi: the placeholder shows on the cluster from DiPlay's start, also at night, so it is dark.
+        val guangqi = GuangqiCluster.present(context)
+        val placeholder = if (guangqi) GUANGQI_PLACEHOLDER else Color.rgb(233, 238, 246)
         val root = FrameLayout(context).apply {
-            setBackgroundColor(if (plan == null) Color.rgb(233, 238, 246) else if (plan.fullMap) backdrop else Color.TRANSPARENT)
+            setBackgroundColor(if (plan == null) placeholder else if (plan.fullMap) backdrop else Color.TRANSPARENT)
         }
         if (plan != null) {
             window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
@@ -124,8 +127,8 @@ internal class ClusterMapPresentation(
         }
         waitingLabel = TextView(context).apply {
             text = context.getString(R.string.cluster_waiting_for_map)
-            setTextColor(if (plan != null && dark) Color.WHITE else Color.DKGRAY)
-            if (plan == null) setBackgroundColor(Color.rgb(233, 238, 246))
+            setTextColor(if (guangqi) GUANGQI_PLACEHOLDER_TEXT else if (plan != null && dark) Color.WHITE else Color.DKGRAY)
+            if (plan == null) setBackgroundColor(placeholder)
             textSize = 26f
             gravity = Gravity.CENTER
         }
@@ -192,6 +195,8 @@ internal class ClusterMapPresentation(
 
     companion object {
         const val TAG = "DiPlay-Cluster"
+        private val GUANGQI_PLACEHOLDER = Color.rgb(8, 10, 14)
+        private val GUANGQI_PLACEHOLDER_TEXT = Color.rgb(96, 104, 116)
 
         /** Keep the 5/5.1 selection order, then try the measured DiLink 4 projection display. */
         fun findDisplay(context: Context, theme: DiLink51ClusterLayout.Theme = DiLink51ClusterLayout.theme(context)): Display? {

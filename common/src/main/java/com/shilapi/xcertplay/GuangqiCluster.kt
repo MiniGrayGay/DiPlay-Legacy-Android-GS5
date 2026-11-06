@@ -125,7 +125,7 @@ internal object GuangqiCluster {
         .putExtra("KEY_TYPE", KEY_TYPE_NAVI_STATE)
         .putExtra("EXTRA_STATE", state)
 
-    /** Reports ready while the cluster shows the CarPlay stream, and exit when it stops. Main thread. */
+    /** Reports ready while DiPlay's cluster layer shows, and exit when it goes away. Main thread. */
     class ReadyReporter(private val context: Context, private val log: (String) -> Unit) {
         var reported = false
             private set
