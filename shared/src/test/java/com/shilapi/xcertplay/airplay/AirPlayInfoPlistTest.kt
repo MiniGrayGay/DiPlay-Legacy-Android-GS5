@@ -89,7 +89,7 @@ class AirPlayInfoPlistTest {
         assertEquals(true, info["rightHandDrive"])
         assertEquals("Example", info["manufacturer"])
         assertEquals("HeadUnit", info["model"])
-        assertEquals(45, display["maxFPS"])
+        assertEquals(52, display["maxFPS"])
         assertEquals(125, display["widthPhysical"])
         assertEquals(70, display["heightPhysical"])
     }

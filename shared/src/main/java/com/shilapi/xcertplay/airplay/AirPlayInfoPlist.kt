@@ -208,7 +208,7 @@ object AirPlayInfoPlist {
                     widthPhysical * display.heightPixels.toDouble() / display.widthPixels,
                 ).toInt(),
         )
-        val fps = AirPlayDisplaySettings.sanitizeFps(display.fps)
+        val fps = display.fps.coerceIn(1, AirPlayDisplaySettings.MAX_FPS)
 
         val entry = linkedMapOf<String, Any?>(
             "uuid" to uuid,
