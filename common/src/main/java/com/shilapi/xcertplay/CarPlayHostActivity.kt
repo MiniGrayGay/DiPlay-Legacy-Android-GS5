@@ -1416,11 +1416,26 @@ class CarPlayHostActivity : ComponentActivity() {
             return
         }
         if (clusterPresentation != null) return
+        val guangqi = GuangqiCluster.present(this)
+        // Guangqi: reclaim the Presentation that survived a previous Activity destroy.
+        if (guangqi) {
+            ClusterMapPresentation.reclaimGuangqi()?.let { retained ->
+                retained.rebindSurfaceCallback { surface -> runOnUiThread { onClusterSurface(surface) } }
+                clusterPresentation = retained
+                updateClusterMapShown()
+                retained.setStreamActive(SCREEN_TYPE_ALT in activeScreenStreamTypes)
+                applyClusterTurnOverlay()
+                appendLog("Cluster map: reclaimed retained guangqi presentation")
+                return
+            }
+        }
         val display = ClusterMapPresentation.findDisplay(this, theme) ?: run {
             appendLog("Cluster map: no cluster projection display among ${ClusterMapPresentation.describeDisplays(this)}")
             return
         }
-        val presentation = ClusterMapPresentation(this, display, theme) { surface -> runOnUiThread { onClusterSurface(surface) } }
+        // Guangqi: use applicationContext so the Presentation window outlives this Activity.
+        val ctx = if (guangqi) applicationContext else this
+        val presentation = ClusterMapPresentation(ctx, display, theme) { surface -> runOnUiThread { onClusterSurface(surface) } }
         // The system dismisses a presentation when its display goes away; allow a new one on resume.
         presentation.setOnDismissListener {
             if (clusterPresentation === presentation) {
@@ -1428,10 +1443,12 @@ class CarPlayHostActivity : ComponentActivity() {
                 com.shilapi.xcertplay.hud.BydNavigationOutputs.setClusterMapShown(false)
                 updateClusterMapShown()
             }
+            if (guangqi) ClusterMapPresentation.releaseGuangqi()
         }
         try {
             presentation.show()
             clusterPresentation = presentation
+            if (guangqi) ClusterMapPresentation.retainGuangqi(presentation)
             updateClusterMapShown()
             presentation.setStreamActive(SCREEN_TYPE_ALT in activeScreenStreamTypes)
             applyClusterTurnOverlay()
@@ -1504,17 +1521,29 @@ class CarPlayHostActivity : ComponentActivity() {
         }
     }
 
-    private fun dismissClusterPresentation() {
+    /**
+     * @param retain true when the Activity is being destroyed but the cluster should keep showing
+     *   (Guangqi: the process stays alive, the Presentation outlives the Activity).
+     */
+    private fun dismissClusterPresentation(retain: Boolean = false) {
         ClusterActivityOutput.stop(this)
+        val guangqiRetained = retain && GuangqiCluster.present(this) && clusterPresentation != null
         val presentations = (clusterLayers.values + listOfNotNull(clusterPresentation)).distinct()
         clusterLayers.clear()
         clusterPresentation = null
         clusterSurface?.let { sink?.clearSurface(SCREEN_TYPE_ALT, it) }
         clusterSurface = null
-        presentations.forEach { runCatching { it.dismiss() } }
+        if (guangqiRetained) {
+            // Keep the Presentation showing on the cluster; the static holder already has it.
+            // Clear only the decoder surface binding so the Activity can be GC'd.
+            presentations.forEach { it.rebindSurfaceCallback {} }
+        } else {
+            presentations.forEach { runCatching { it.dismiss() } }
+            if (GuangqiCluster.present(this)) ClusterMapPresentation.releaseGuangqi()
+        }
         com.shilapi.xcertplay.hud.BydNavigationOutputs.setClusterMapShown(false)
         controller?.setDashboardMapOutputVisible(false)
-        syncGuangqiClusterReady()
+        if (!guangqiRetained) syncGuangqiClusterReady()
     }
 
     private fun onClusterSurface(surface: Surface?) {
@@ -1923,7 +1952,7 @@ class CarPlayHostActivity : ComponentActivity() {
             MapMirrors.setStreamActive(false)
         }
         if (MapMirrors.onChanged === mirrorsChanged) MapMirrors.onChanged = null
-        dismissClusterPresentation()
+        dismissClusterPresentation(retain = CarPlayBackgroundSession.hasSession())
         mainHandler.removeCallbacks(applyDisplaySize)
         mainHandler.removeCallbacks(expireOldLogLines)
         mainHandler.removeCallbacks(pollConfiguration)

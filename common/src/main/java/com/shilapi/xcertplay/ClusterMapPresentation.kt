@@ -41,8 +41,13 @@ internal class ClusterMapPresentation(
     context: Context,
     display: Display,
     private val theme: DiLink51ClusterLayout.Theme = DiLink51ClusterLayout.theme(context),
-    private val onSurface: (Surface?) -> Unit,
+    private var onSurface: (Surface?) -> Unit,
 ) : Presentation(context, display) {
+
+    fun rebindSurfaceCallback(callback: (Surface?) -> Unit) {
+        onSurface = callback
+        outputSurface?.let(callback)
+    }
     private var waitingLabel: TextView? = null
     private var turnCardView: ClusterTurnCardView? = null
     private var videoView: View? = null
@@ -197,6 +202,18 @@ internal class ClusterMapPresentation(
         const val TAG = "DiPlay-Cluster"
         private val GUANGQI_PLACEHOLDER = Color.rgb(8, 10, 14)
         private val GUANGQI_PLACEHOLDER_TEXT = Color.rgb(96, 104, 116)
+
+        /**
+         * Guangqi: the cluster Presentation outlives the Activity so it keeps showing when the
+         * user presses Home. The process stays alive (system uid + lwIP), so a static reference
+         * is safe. [retainGuangqi] stores the Presentation here; [reclaimGuangqi] hands it back
+         * to a new Activity; [releaseGuangqi] dismisses it for real (CarPlay session ended).
+         */
+        @Volatile private var retainedGuangqi: ClusterMapPresentation? = null
+
+        fun retainGuangqi(presentation: ClusterMapPresentation) { retainedGuangqi = presentation }
+        fun reclaimGuangqi(): ClusterMapPresentation? = retainedGuangqi?.takeIf { it.isShowing }
+        fun releaseGuangqi() { retainedGuangqi?.let { runCatching { it.dismiss() } }; retainedGuangqi = null }
 
         /** Keep the 5/5.1 selection order, then try the measured DiLink 4 projection display. */
         fun findDisplay(context: Context, theme: DiLink51ClusterLayout.Theme = DiLink51ClusterLayout.theme(context)): Display? {
