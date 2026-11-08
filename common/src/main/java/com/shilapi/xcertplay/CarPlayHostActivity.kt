@@ -5041,6 +5041,10 @@ class CarPlayHostActivity : ComponentActivity() {
         val locationProvider: Iap2LocationProvider? =
             when {
                 !config.locationReportingEnabled -> null
+                GuangqiCluster.present(this) -> VehicleSpeedLocationProvider(
+                    com.shilapi.xcertplay.location.GuangqiNmeaLocationProvider(),
+                    com.shilapi.xcertplay.hud.GuangqiVehicleSpeedSource,
+                )
                 config.identification.vehicleSpeedEnabled -> VehicleSpeedLocationProvider(
                     AndroidCarPlayLocationProvider(this),
                     com.shilapi.xcertplay.hud.BydNavigationOutputs.wheelSpeed(applicationContext),
@@ -5057,7 +5061,7 @@ class CarPlayHostActivity : ComponentActivity() {
                 "decoder=${if (airPlayConfig.hevc && hevcSoftwareDecoderEnabled) "software" else "hardware"} " +
                 "microphone=${airPlayConfig.microphone} " +
                 "location=${if (config.locationReportingEnabled) "enabled" else "disabled"}" +
-                "${if (config.identification.vehicleSpeedEnabled) "+wheel-speed" else ""} " +
+                "${if (GuangqiCluster.present(this@CarPlayHostActivity)) "+guangqi-nmea+can-speed" else if (config.identification.vehicleSpeedEnabled) "+wheel-speed" else ""} " +
                 "mfi=${mfiTargetLabel(config.mfiTarget)}",
         )
         Log.i(
