@@ -145,8 +145,11 @@ class LockdownPlistChannel(
     private fun parse(xml: ByteArray): LockdownPlistValue.Dictionary {
         try {
             val parser = Xml.newPullParser().apply {
-                setFeature(XmlPullParser.FEATURE_PROCESS_DOCDECL, false)
-                setFeature(XmlPullParser.FEATURE_PROCESS_NAMESPACES, false)
+                // Android's parser accepts these flags, while the desktop kXML parser already
+                // has both disabled and reports them as unsupported. Keep the secure defaults
+                // without rejecting an otherwise valid Lockdown response on desktop.
+                runCatching { setFeature(XmlPullParser.FEATURE_PROCESS_DOCDECL, false) }
+                runCatching { setFeature(XmlPullParser.FEATURE_PROCESS_NAMESPACES, false) }
                 setInput(StringReader(xml.toString(StandardCharsets.UTF_8)))
             }
             if (parser.nextTag() != XmlPullParser.START_TAG || parser.name != "plist") {

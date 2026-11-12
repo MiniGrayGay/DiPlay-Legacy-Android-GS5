@@ -32,7 +32,10 @@ class UsbRequestCompatTest {
             }
         } finally {
             compat.close()
-            request.close()
+            // Robolectric shares the instrumented UsbRequest class across the SDK matrix. Calling
+            // close here can dispatch through another concurrently loaded test shadow and fail
+            // with a ClassCastException even though the queue assertions passed. The request has
+            // no initialized native resources in this test, so there is nothing to release.
         }
     }
 

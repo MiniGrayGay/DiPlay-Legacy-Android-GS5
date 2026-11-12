@@ -2,6 +2,14 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
+#ifdef _WIN32
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#include <windows.h>
+#include <pthread.h>
+#include <stdatomic.h>
+#else
 #include <unistd.h>
 #include <pthread.h>
 #include <stdatomic.h>
@@ -13,7 +21,10 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <arpa/inet.h>
+#ifdef __ANDROID__
 #include <android/log.h>
+#endif
+#endif
 
 #include "lwip/init.h"
 #include "lwip/netif.h"
@@ -26,9 +37,40 @@
 #include "netif/ethernet.h"
 
 #define TAG "xcertplay-lwip"
+#ifdef _WIN32
+#define LOGI(...) do { fprintf(stderr, TAG " I: "); fprintf(stderr, __VA_ARGS__); fputc('\n', stderr); } while (0)
+#define LOGW(...) do { fprintf(stderr, TAG " W: "); fprintf(stderr, __VA_ARGS__); fputc('\n', stderr); } while (0)
+#define LOGE(...) do { fprintf(stderr, TAG " E: "); fprintf(stderr, __VA_ARGS__); fputc('\n', stderr); } while (0)
+typedef SOCKET relay_socket_t;
+#define RELAY_INVALID_SOCKET INVALID_SOCKET
+#define relay_socket_valid(fd) ((fd) != INVALID_SOCKET)
+#define relay_socket_close(fd) closesocket(fd)
+#define relay_last_error() WSAGetLastError()
+#define relay_would_block(error) ((error) == WSAEWOULDBLOCK)
+#define relay_interrupted(error) ((error) == WSAEINTR)
+#define relay_set_nonblocking(fd) do { u_long mode = 1; ioctlsocket((fd), FIONBIO, &mode); } while (0)
+#ifndef MSG_NOSIGNAL
+#define MSG_NOSIGNAL 0
+#endif
+#elif defined(__ANDROID__)
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, TAG, __VA_ARGS__)
 #define LOGW(...) __android_log_print(ANDROID_LOG_WARN, TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, TAG, __VA_ARGS__)
+#else
+#define LOGI(...) do { fprintf(stderr, TAG " I: "); fprintf(stderr, __VA_ARGS__); fputc('\n', stderr); } while (0)
+#define LOGW(...) do { fprintf(stderr, TAG " W: "); fprintf(stderr, __VA_ARGS__); fputc('\n', stderr); } while (0)
+#define LOGE(...) do { fprintf(stderr, TAG " E: "); fprintf(stderr, __VA_ARGS__); fputc('\n', stderr); } while (0)
+#endif
+#ifndef _WIN32
+typedef int relay_socket_t;
+#define RELAY_INVALID_SOCKET (-1)
+#define relay_socket_valid(fd) ((fd) >= 0)
+#define relay_socket_close(fd) close(fd)
+#define relay_last_error() errno
+#define relay_would_block(error) ((error) == EAGAIN || (error) == EWOULDBLOCK)
+#define relay_interrupted(error) ((error) == EINTR)
+#define relay_set_nonblocking(fd) do { int flags = fcntl((fd), F_GETFL, 0); fcntl((fd), F_SETFL, flags | O_NONBLOCK); } while (0)
+#endif
 
 #define MAX_RELAY_CONNS 32
 #define MAX_UDP_RELAYS 32
@@ -54,7 +96,15 @@ _Static_assert(TCP_WND <= 0xffff, "tcp_recved credit must fit in u16_t");
 // Reinitializing those globals for another USB session corrupts next_timeout.
 static pthread_once_t lwip_once = PTHREAD_ONCE_INIT;
 static pthread_mutex_t lwip_core_lock = PTHREAD_MUTEX_INITIALIZER;
-static void initialize_lwip_once(void) { lwip_init(); }
+static void initialize_lwip_once(void) {
+#ifdef _WIN32
+    WSADATA data;
+    if (WSAStartup(MAKEWORD(2, 2), &data) != 0) {
+        LOGE("WSAStartup failed");
+    }
+#endif
+    lwip_init();
+}
 
 struct LwipContext;
 
@@ -62,7 +112,7 @@ typedef struct {
     int active;
     struct LwipContext *ctx;
     struct tcp_pcb *lwip_pcb;
-    int loopback_fd;
+    relay_socket_t loopback_fd;
     uint8_t loopback_to_lwip_buf[LOOPBACK_TO_LWIP_BUFFER_SIZE];
     int loopback_to_lwip_len;
     uint8_t lwip_to_loopback_buf[LWIP_TO_LOOPBACK_BUFFER_SIZE];
@@ -73,7 +123,7 @@ typedef struct {
     int active;
     int port;
     struct udp_pcb *lwip_pcb;
-    int loopback_fd;
+    relay_socket_t loopback_fd;
     ip_addr_t peer_ip;
     u16_t peer_port;
     int has_peer;
@@ -124,7 +174,7 @@ typedef struct LwipContext {
 
     pthread_t thread;
     atomic_int running;
-    int wake_pipe[2];
+    int wake_pipe[2]; /* POSIX-only; Windows worker uses a 2 ms wait. */
 
     uint32_t stats_rx_frames;
     uint32_t stats_rx_bytes;
@@ -159,7 +209,11 @@ static err_t ncm_linkoutput(struct netif *netif, struct pbuf *p) {
     JNIEnv *env = NULL;
     int attached = 0;
     if ((*ctx->jvm)->GetEnv(ctx->jvm, (void **)&env, JNI_VERSION_1_6) != JNI_OK) {
+#if defined(_WIN32) || !defined(__ANDROID__)
+        if ((*ctx->jvm)->AttachCurrentThread(ctx->jvm, (void **)&env, NULL) != 0) {
+#else
         if ((*ctx->jvm)->AttachCurrentThread(ctx->jvm, &env, NULL) != 0) {
+#endif
             return ERR_VAL;
         }
         attached = 1;
@@ -209,9 +263,9 @@ static void close_tcp_relay_conn(LwipContext *ctx, TcpRelayConn *conn) {
     if (!conn->active) return;
     conn->active = 0;
     ctx->stats_tcp_conns_closed++;
-    if (conn->loopback_fd >= 0) {
-        close(conn->loopback_fd);
-        conn->loopback_fd = -1;
+    if (relay_socket_valid(conn->loopback_fd)) {
+        relay_socket_close(conn->loopback_fd);
+        conn->loopback_fd = RELAY_INVALID_SOCKET;
     }
     if (conn->lwip_pcb != NULL) {
         tcp_arg(conn->lwip_pcb, NULL);
@@ -232,9 +286,9 @@ static void close_udp_relay(LwipContext *ctx, UdpRelay *relay) {
     (void)ctx;
     if (!relay->active) return;
     relay->active = 0;
-    if (relay->loopback_fd >= 0) {
-        close(relay->loopback_fd);
-        relay->loopback_fd = -1;
+    if (relay_socket_valid(relay->loopback_fd)) {
+        relay_socket_close(relay->loopback_fd);
+        relay->loopback_fd = RELAY_INVALID_SOCKET;
     }
     if (relay->lwip_pcb != NULL) {
         udp_recv(relay->lwip_pcb, NULL, NULL);
@@ -251,7 +305,7 @@ static void udp_relay_recv(void *arg, struct udp_pcb *upcb, struct pbuf *p,
     if (p == NULL) return;
 
     UdpRelay *relay = (UdpRelay *)arg;
-    if (relay == NULL || !relay->active || relay->loopback_fd < 0) {
+    if (relay == NULL || !relay->active || !relay_socket_valid(relay->loopback_fd)) {
         pbuf_free(p);
         return;
     }
@@ -281,7 +335,7 @@ static void udp_relay_recv(void *arg, struct udp_pcb *upcb, struct pbuf *p,
             }
             if (buf != NULL) {
                 pbuf_copy_partial(p, buf, (u16_t)tot_len, 0);
-                sendto(relay->loopback_fd, buf, (size_t)tot_len, 0,
+                sendto(relay->loopback_fd, (const char *)buf, (size_t)tot_len, 0,
                        (struct sockaddr *)&sin, sizeof(sin));
                 if (buf != stack_buf) {
                     free(buf);
@@ -298,9 +352,9 @@ static void tcp_relay_err(void *arg, err_t err) {
     TcpRelayConn *conn = (TcpRelayConn *)arg;
     if (conn != NULL) {
         conn->lwip_pcb = NULL; // PCB is already freed by lwIP before err callback
-        if (conn->loopback_fd >= 0) {
-            close(conn->loopback_fd);
-            conn->loopback_fd = -1;
+        if (relay_socket_valid(conn->loopback_fd)) {
+            relay_socket_close(conn->loopback_fd);
+            conn->loopback_fd = RELAY_INVALID_SOCKET;
         }
         conn->active = 0;
     }
@@ -349,8 +403,12 @@ static err_t tcp_relay_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err
 
     if (p == NULL) {
         // Peer closed connection
-        if (conn->loopback_fd >= 0) {
+        if (relay_socket_valid(conn->loopback_fd)) {
+#ifdef _WIN32
+            shutdown(conn->loopback_fd, SD_SEND);
+#else
             shutdown(conn->loopback_fd, SHUT_WR);
+#endif
         }
         return ERR_OK;
     }
@@ -401,17 +459,17 @@ static err_t tcp_relay_accept(void *arg, struct tcp_pcb *newpcb, err_t err) {
         return ERR_MEM;
     }
 
-    int fd = socket(AF_INET, SOCK_STREAM, 0);
-    if (fd < 0) {
-        LOGE("Failed to create loopback socket: %d", errno);
+    relay_socket_t fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (!relay_socket_valid(fd)) {
+        LOGE("Failed to create loopback socket: %d", relay_last_error());
         return ERR_CLSD;
     }
 
     int one = 1;
     int socket_buffer = LOOPBACK_SOCKET_BUFFER_SIZE;
-    setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one));
-    setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &socket_buffer, sizeof(socket_buffer));
-    setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &socket_buffer, sizeof(socket_buffer));
+    setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, (const char *)&one, sizeof(one));
+    setsockopt(fd, SOL_SOCKET, SO_RCVBUF, (const char *)&socket_buffer, sizeof(socket_buffer));
+    setsockopt(fd, SOL_SOCKET, SO_SNDBUF, (const char *)&socket_buffer, sizeof(socket_buffer));
 
     struct sockaddr_in sin;
     memset(&sin, 0, sizeof(sin));
@@ -421,13 +479,12 @@ static err_t tcp_relay_accept(void *arg, struct tcp_pcb *newpcb, err_t err) {
 
     int res = connect(fd, (struct sockaddr *)&sin, sizeof(sin));
     if (res < 0) {
-        LOGE("Failed to connect to 127.0.0.1:%d, errno=%d", port, errno);
-        close(fd);
+        LOGE("Failed to connect to 127.0.0.1:%d, errno=%d", port, relay_last_error());
+        relay_socket_close(fd);
         return ERR_CONN;
     }
 
-    int flags = fcntl(fd, F_GETFL, 0);
-    fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+    relay_set_nonblocking(fd);
 
     conn->active = 1;
     conn->ctx = ctx;
@@ -449,19 +506,19 @@ static err_t tcp_relay_accept(void *arg, struct tcp_pcb *newpcb, err_t err) {
 static void check_and_forward_loopback(LwipContext *ctx) {
     for (int i = 0; i < MAX_RELAY_CONNS; i++) {
         TcpRelayConn *conn = &ctx->tcp_conns[i];
-        if (!conn->active || conn->loopback_fd < 0 || conn->lwip_pcb == NULL) continue;
+        if (!conn->active || !relay_socket_valid(conn->loopback_fd) || conn->lwip_pcb == NULL) continue;
 
         while (conn->lwip_to_loopback_len > 0) {
-            ssize_t sent = send(conn->loopback_fd, conn->lwip_to_loopback_buf,
+            ssize_t sent = send(conn->loopback_fd, (const char *)conn->lwip_to_loopback_buf,
                                 (size_t)conn->lwip_to_loopback_len, MSG_NOSIGNAL);
             if (sent > 0) {
                 conn->lwip_to_loopback_len -= (int)sent;
                 memmove(conn->lwip_to_loopback_buf, conn->lwip_to_loopback_buf + sent,
                         (size_t)conn->lwip_to_loopback_len);
                 tcp_recved(conn->lwip_pcb, (u16_t)sent);
-            } else if (sent < 0 && errno == EINTR) {
+            } else if (sent < 0 && relay_interrupted(relay_last_error())) {
                 continue;
-            } else if (sent < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+            } else if (sent < 0 && relay_would_block(relay_last_error())) {
                 ctx->perf[PERF_LOOPBACK_EAGAIN]++;
                 break;
             } else {
@@ -474,15 +531,15 @@ static void check_and_forward_loopback(LwipContext *ctx) {
 
         int space = LOOPBACK_TO_LWIP_BUFFER_SIZE - conn->loopback_to_lwip_len;
         if (space > 0) {
-            ssize_t n = read(conn->loopback_fd, conn->loopback_to_lwip_buf + conn->loopback_to_lwip_len, (size_t)space);
+            ssize_t n = recv(conn->loopback_fd, (char *)conn->loopback_to_lwip_buf + conn->loopback_to_lwip_len, space, 0);
             if (n > 0) {
                 conn->loopback_to_lwip_len += (int)n;
                 flush_loopback_to_lwip(conn);
             } else if (n == 0) {
                 LOGI("loopback_fd EOF for port %d", conn->lwip_pcb ? conn->lwip_pcb->local_port : 0);
                 close_tcp_relay_conn(ctx, conn);
-            } else if (n < 0 && errno != EAGAIN && errno != EWOULDBLOCK) {
-                LOGW("loopback_fd read error %d", errno);
+            } else if (n < 0 && !relay_would_block(relay_last_error())) {
+                LOGW("loopback_fd read error %d", relay_last_error());
                 close_tcp_relay_conn(ctx, conn);
             }
         }
@@ -492,12 +549,12 @@ static void check_and_forward_loopback(LwipContext *ctx) {
 static void check_and_forward_udp_loopback(LwipContext *ctx) {
     for (int i = 0; i < MAX_UDP_RELAYS; i++) {
         UdpRelay *relay = &ctx->udp_relays[i];
-        if (!relay->active || relay->loopback_fd < 0 || relay->lwip_pcb == NULL) continue;
+        if (!relay->active || !relay_socket_valid(relay->loopback_fd) || relay->lwip_pcb == NULL) continue;
         if (!relay->has_peer) continue;
 
         uint8_t buf[2048];
         while (1) {
-            ssize_t n = recvfrom(relay->loopback_fd, buf, sizeof(buf), 0, NULL, NULL);
+            ssize_t n = recvfrom(relay->loopback_fd, (char *)buf, sizeof(buf), 0, NULL, NULL);
             if (n > 0) {
                 struct pbuf *p = pbuf_alloc(PBUF_TRANSPORT, (u16_t)n, PBUF_RAM);
                 if (p != NULL) {
@@ -511,8 +568,8 @@ static void check_and_forward_udp_loopback(LwipContext *ctx) {
                     LOGW("pbuf_alloc failed for udp forwarding on port %d, len=%zd", relay->port, n);
                 }
             } else {
-                if (n < 0 && errno != EAGAIN && errno != EWOULDBLOCK) {
-                    LOGW("loopback_fd udp recvfrom error %d for port %d", errno, relay->port);
+                if (n < 0 && !relay_would_block(relay_last_error())) {
+                    LOGW("loopback_fd udp recvfrom error %d for port %d", relay_last_error(), relay->port);
                 }
                 break;
             }
@@ -602,20 +659,19 @@ static void register_listeners_locked(LwipContext *ctx) {
                 continue;
             }
 
-            int fd = socket(AF_INET, SOCK_DGRAM, 0);
-            if (fd < 0) {
-                LOGE("Failed to create loopback UDP socket for port %d: %d", port, errno);
+            relay_socket_t fd = socket(AF_INET, SOCK_DGRAM, 0);
+            if (!relay_socket_valid(fd)) {
+                LOGE("Failed to create loopback UDP socket for port %d: %d", port, relay_last_error());
                 udp_remove(pcb);
                 continue;
             }
 
-            int flags = fcntl(fd, F_GETFL, 0);
-            fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+            relay_set_nonblocking(fd);
 
             int rcvbuf = 256 * 1024;
             int sndbuf = 256 * 1024;
-            setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(rcvbuf));
-            setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(sndbuf));
+            setsockopt(fd, SOL_SOCKET, SO_RCVBUF, (const char *)&rcvbuf, sizeof(rcvbuf));
+            setsockopt(fd, SOL_SOCKET, SO_SNDBUF, (const char *)&sndbuf, sizeof(sndbuf));
 
             relay->active = 1;
             relay->port = port;
@@ -635,10 +691,17 @@ static void *lwip_worker_thread(void *arg) {
     LwipContext *ctx = (LwipContext *)arg;
     // Audio priority (nice -16), like the Java NCM threads. Platform-signed
     // builds are allowed to; others keep the default and log why.
+#ifdef _WIN32
+    if (!SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST)) {
+        LOGW("lwIP worker priority boost failed error=%lu", (unsigned long)GetLastError());
+    }
+    LOGI("lwIP worker thread started");
+#else
     if (setpriority(PRIO_PROCESS, 0, -16) != 0) {
         LOGW("lwIP worker priority boost failed errno=%d", errno);
     }
     LOGI("lwIP worker thread started nice=%d", getpriority(PRIO_PROCESS, 0));
+#endif
 
     while (ctx->running) {
         pthread_mutex_lock(&lwip_core_lock);
@@ -648,6 +711,7 @@ static void *lwip_worker_thread(void *arg) {
         check_and_forward_loopback(ctx);
         check_and_forward_udp_loopback(ctx);
 
+#ifndef _WIN32
         fd_set rfds;
         FD_ZERO(&rfds);
         int max_fd = ctx->wake_pipe[0];
@@ -682,6 +746,10 @@ static void *lwip_worker_thread(void *arg) {
             char ch;
             while (read(ctx->wake_pipe[0], &ch, 1) > 0);
         }
+#else
+        pthread_mutex_unlock(&lwip_core_lock);
+        Sleep(2);
+#endif
     }
 
     LOGI("lwIP worker thread stopping");
@@ -689,10 +757,14 @@ static void *lwip_worker_thread(void *arg) {
 }
 
 static void trigger_wake(LwipContext *ctx) {
+#ifdef _WIN32
+    (void)ctx;
+#else
     if (ctx->wake_pipe[1] >= 0) {
         char ch = 'w';
         (void)write(ctx->wake_pipe[1], &ch, 1);
     }
+#endif
 }
 
 JNIEXPORT jlong JNICALL
@@ -704,6 +776,14 @@ Java_com_shilapi_xcertplay_network_LwipNcmNative_nativeCreate(
     LwipContext *ctx = (LwipContext *)calloc(1, sizeof(LwipContext));
     if (ctx == NULL) return 0;
     atomic_init(&ctx->running, 0);
+    ctx->wake_pipe[0] = -1;
+    ctx->wake_pipe[1] = -1;
+    for (int i = 0; i < MAX_RELAY_CONNS; i++) {
+        ctx->tcp_conns[i].loopback_fd = RELAY_INVALID_SOCKET;
+    }
+    for (int i = 0; i < MAX_UDP_RELAYS; i++) {
+        ctx->udp_relays[i].loopback_fd = RELAY_INVALID_SOCKET;
+    }
 
     (*env)->GetJavaVM(env, &ctx->jvm);
     ctx->bridge_obj_global = (*env)->NewGlobalRef(env, thiz);
@@ -724,6 +804,7 @@ Java_com_shilapi_xcertplay_network_LwipNcmNative_nativeCreate(
     ip6addr_aton(ll_str, &ctx->host_ip6);
     (*env)->ReleaseStringUTFChars(env, linkLocalStr, ll_str);
 
+#ifndef _WIN32
     if (pipe(ctx->wake_pipe) != 0) {
         (*env)->DeleteGlobalRef(env, ctx->bridge_obj_global);
         free(ctx);
@@ -733,6 +814,7 @@ Java_com_shilapi_xcertplay_network_LwipNcmNative_nativeCreate(
         int flags = fcntl(ctx->wake_pipe[end], F_GETFL, 0);
         fcntl(ctx->wake_pipe[end], F_SETFL, flags | O_NONBLOCK);
     }
+#endif
 
     pthread_mutex_lock(&lwip_core_lock);
     pthread_once(&lwip_once, initialize_lwip_once);
@@ -904,6 +986,39 @@ Java_com_shilapi_xcertplay_network_LwipNcmNative_nativeRegisterPort(
     trigger_wake(ctx);
 }
 
+JNIEXPORT jboolean JNICALL
+Java_com_shilapi_xcertplay_network_LwipNcmNative_nativeSendUdp(
+        JNIEnv *env, jobject thiz, jlong handle, jint localPort, jint remotePort,
+        jbyteArray payloadArr) {
+    (void)thiz;
+    LwipContext *ctx = (LwipContext *)(intptr_t)handle;
+    if (ctx == NULL || !ctx->running || payloadArr == NULL ||
+        localPort <= 0 || localPort > 65535 || remotePort <= 0 || remotePort > 65535) return JNI_FALSE;
+    jsize length = (*env)->GetArrayLength(env, payloadArr);
+    if (length <= 0 || length > 65535) return JNI_FALSE;
+    jbyte *bytes = (*env)->GetByteArrayElements(env, payloadArr, NULL);
+    if (bytes == NULL) return JNI_FALSE;
+
+    jboolean sent = JNI_FALSE;
+    pthread_mutex_lock(&lwip_core_lock);
+    for (int i = 0; i < MAX_UDP_RELAYS; i++) {
+        UdpRelay *relay = &ctx->udp_relays[i];
+        if (!relay->active || relay->port != localPort || relay->lwip_pcb == NULL || !relay->has_peer) continue;
+        struct pbuf *p = pbuf_alloc(PBUF_TRANSPORT, (u16_t)length, PBUF_RAM);
+        if (p != NULL) {
+            pbuf_take(p, bytes, (u16_t)length);
+            sent = udp_sendto(relay->lwip_pcb, p, &relay->peer_ip, (u16_t)remotePort) == ERR_OK
+                ? JNI_TRUE : JNI_FALSE;
+            pbuf_free(p);
+        }
+        break;
+    }
+    pthread_mutex_unlock(&lwip_core_lock);
+    (*env)->ReleaseByteArrayElements(env, payloadArr, bytes, JNI_ABORT);
+    trigger_wake(ctx);
+    return sent;
+}
+
 JNIEXPORT void JNICALL
 Java_com_shilapi_xcertplay_network_LwipNcmNative_nativeDestroy(
         JNIEnv *env, jobject thiz, jlong handle) {
@@ -935,8 +1050,10 @@ Java_com_shilapi_xcertplay_network_LwipNcmNative_nativeDestroy(
 
     netif_remove(&ctx->ncm_netif);
 
+#ifndef _WIN32
     if (ctx->wake_pipe[0] >= 0) close(ctx->wake_pipe[0]);
     if (ctx->wake_pipe[1] >= 0) close(ctx->wake_pipe[1]);
+#endif
 
     pthread_mutex_unlock(&lwip_core_lock);
 

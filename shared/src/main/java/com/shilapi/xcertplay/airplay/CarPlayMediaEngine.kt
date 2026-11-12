@@ -291,6 +291,7 @@ class CarPlayMediaEngine(
         val capture = audioCaptureDirectory?.let { AudioPacketCapture(it, type) }
         if (capture != null) audioCaptures[streamKey] = capture
         val audio = AudioStream(key, type, session::logDebug, session.localAddress)
+        var localDataPort = 0
         val (dataPort, controlPort) = audio.listen(
             object : AudioStream.Listener {
                 override fun onStarted(firstSample: Int) {
@@ -298,7 +299,7 @@ class CarPlayMediaEngine(
                     meta.firstSample = firstSample
                     meta.originNs = System.nanoTime()
                     sink.onAudioStarted(streamId, format, firstSample)
-                    microphone?.let { sink.onMicrophoneStarted(streamId, it) }
+                    microphone?.let { sink.onMicrophoneStarted(streamId, it.copy(relayPort = localDataPort)) }
                 }
 
                 override fun onRtp(rtp: ByteArray, sample: Int) =
@@ -314,6 +315,7 @@ class CarPlayMediaEngine(
                 }
             },
         )
+        localDataPort = dataPort
         streams[streamKey] = audio
         audioMeta[streamKey] = meta
         return linkedMapOf(

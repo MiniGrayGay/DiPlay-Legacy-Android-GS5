@@ -21,6 +21,8 @@ data class MicrophoneConfig(
      * keep the standard 48 kHz Opus RTP clock until equivalent packet evidence is available.
      */
     val opusClockRate: Int = OPUS_CAPTURE_RATE,
+    /** Desktop userspace-lwIP UDP relay port; null on a normal kernel-network transport. */
+    val relayPort: Int? = null,
 ) {
     val samplesPerPacket: Int
         get() = if (codec == AudioCodecKind.OPUS) {

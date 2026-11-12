@@ -10,7 +10,12 @@ class LwipNcmNative(
 
     init {
         try {
-            System.loadLibrary("lwip_ncm_relay")
+            val explicitLibrary = System.getProperty("diplay.lwip.path")
+            if (explicitLibrary.isNullOrBlank()) {
+                System.loadLibrary("lwip_ncm_relay")
+            } else {
+                System.load(java.io.File(explicitLibrary).absolutePath)
+            }
         } catch (_: UnsatisfiedLinkError) {
             // Expected in host-side unit tests without NDK shared library loaded
         }
@@ -67,6 +72,14 @@ class LwipNcmNative(
         }
     }
 
+    /** Sends one UDP payload through a relay that has already learned the phone's IPv6 address. */
+    @Synchronized
+    fun sendUdp(localPort: Int, remotePort: Int, payload: ByteArray): Boolean {
+        val handle = nativeHandle
+        if (handle == 0L || payload.isEmpty()) return false
+        return nativeSendUdp(handle, localPort, remotePort, payload)
+    }
+
     @Synchronized
     fun destroy() {
         val handle = nativeHandle
@@ -97,6 +110,7 @@ class LwipNcmNative(
     private external fun nativeInputFrameRange(handle: Long, frame: ByteArray, offset: Int, length: Int)
     private external fun nativeGetPerfCounters(handle: Long, out: LongArray): Int
     private external fun nativeRegisterPort(handle: Long, port: Int, isTcp: Boolean)
+    private external fun nativeSendUdp(handle: Long, localPort: Int, remotePort: Int, payload: ByteArray): Boolean
     private external fun nativeGetSnapshot(handle: Long): String
     private external fun nativeDestroy(handle: Long)
 

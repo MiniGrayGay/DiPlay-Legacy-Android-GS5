@@ -6,6 +6,17 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#ifdef _WIN32
+#ifndef LITTLE_ENDIAN
+#define LITTLE_ENDIAN 1234
+#endif
+#ifndef BIG_ENDIAN
+#define BIG_ENDIAN 4321
+#endif
+#ifndef BYTE_ORDER
+#define BYTE_ORDER LITTLE_ENDIAN
+#endif
+#else
 #include <endian.h>
 
 #ifndef BYTE_ORDER
@@ -13,6 +24,7 @@
 #define BYTE_ORDER BIG_ENDIAN
 #else
 #define BYTE_ORDER LITTLE_ENDIAN
+#endif
 #endif
 #endif
 
@@ -47,9 +59,15 @@ typedef uintptr_t mem_ptr_t;
 #define LWIP_RAND() ((u32_t)rand())
 
 static inline u32_t sys_now(void) {
+#ifdef _WIN32
+    struct timespec ts;
+    timespec_get(&ts, TIME_UTC);
+    return (u32_t)(ts.tv_sec * 1000 + ts.tv_nsec / 1000000);
+#else
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
     return (u32_t)(ts.tv_sec * 1000 + ts.tv_nsec / 1000000);
+#endif
 }
 
 typedef int sys_prot_t;
