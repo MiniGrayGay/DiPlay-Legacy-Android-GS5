@@ -1,84 +1,121 @@
-# DiPlay Legacy Android
+# DiPlay Legacy Android — 广汽 GS5 适配版
 
-[English](README.md) · [简体中文](README.zh-CN.md)
+[简体中文](README.md) · [English](README_EN.md)
 
-> This project is modified from [shihabal3amri/DiPlay](https://github.com/shihabal3amri/DiPlay) with deep compatibility refactoring.
+> 本项目基于 [DiPlay Legacy Android](https://github.com/programmerguohuajing/DiPlay-Legacy-Android)（[shihabal3amri/DiPlay](https://github.com/shihabal3amri/DiPlay) 的低版本 Android 适配分支）进行二次深度适配，专门针对 **广汽传祺 2019–2022 款车机（GAEI AVNTG2A10）** 进行定制。
 >
-> **Scope difference with upstream**:
-> - Upstream DiPlay supports **Android 7.0+ (API 24)** in latest releases, primarily targeting modern 64-bit platforms.
-> - This project focuses on **Android 4.4 KitKat (API 19) through Android 6.0**, as well as legacy 32-bit automotive hardware architectures (`armeabi-v7a`, `x86`, Allwinner T3, MediaTek, AC8227L), low-level Linux usbfs driver hardening, and proprietary Bluetooth stacks (e.g., Hangsheng HSAE for Dongfeng Nissan).
+> **与上游的定位差异**：
+> - 上游 DiPlay Legacy Android 面向通用老车机（Android 4.4–6.0、32 位芯片），以普通 APK 形式安装。
+> - 本分支专为广汽 AVNTG2A10 车机深度适配：使用 **平台证书签名 + SYSTEM APP 权限** 运行，绕过该车机 ROM 裁剪导致的 USB 授权弹窗和 VPN 授权弹窗无法弹出的问题；并采用 **用户态 lwIP 网络栈** 替代不可用的内核 TUN/VPN 通道，实现有线 CarPlay 数据链路。
 >
-> Upstream project: https://github.com/shihabal3amri/DiPlay
+> 上游项目：[DiPlay Legacy Android](https://github.com/programmerguohuajing/DiPlay-Legacy-Android) · [DiPlay 原版](https://github.com/shihabal3amri/DiPlay)
 
-**CarPlay for compatible BYD and legacy Android head units.** Wired and wireless, with the familiar DiAuto interface. Independent app: `com.shihab.diplay`.
+---
 
-> **BYD support scope:** These projects focus on BYD cars. They may work on other brands, but other brands are unsupported and there are no plans to add support or fix brand-specific incompatibilities.
+## 广汽车机专属适配
 
-[Download & website](https://programmerguohuajing.github.io/DiPlay-Legacy-Android/) · [Releases](https://github.com/programmerguohuajing/DiPlay-Legacy-Android/releases) · [Report a problem](https://github.com/programmerguohuajing/DiPlay-Legacy-Android/issues/new/choose)
+### 目标平台
 
-![DiPlay home](site/assets/home.png)
+| 项目 | 详情 |
+| :--- | :--- |
+| 车型 | 广汽传祺 GS5 / GS4 / GS8 / GM6 等 2019–2022 款 |
+| 车机型号 | GAEI AVNTG2A10 |
+| SoC | Freescale (NXP) i.MX6 SABRESD |
+| 系统 | Android 4.4.2 (API 19)，内核 3.0.35 |
+| 架构 | ARMv7 (armeabi-v7a) |
 
-## Current release — 0.2.88
+### 平台签名 & SYSTEM APP 权限
 
-Install on the **car**, not the iPhone. No jailbreak, dongle, Mac, account or authentication server is required for use. Core CarPlay does not require ADB; optional dashboard, battery, wheel-speed and parked-video features do. Your head unit must permit APK installation. The APK installs on Android 4.2+ (API 17); the tested legacy baseline is Android 4.4 through 6.0, and it also runs on current Android versions. Wireless supports Wi-Fi Direct, the car's own hotspot, Existing Wi-Fi / Same LAN, and — on rooted units whose framework cannot open a hotspot at all — an experimental root hostapd mode (Settings → Advanced). Android 9 Wi-Fi Direct uses a firmware-dependent legacy path with generated group credentials and unverified requested frequency; see [Android 9 Wi-Fi Direct](docs/ANDROID9_WIFI_DIRECT.md). Android 10+ verifies its negotiated group frequency. See [Releases](https://github.com/programmerguohuajing/DiPlay-Legacy-Android/releases) for the current version and its notes.
+广汽车机 ROM 裁剪了 USB 设备授权和 VPN 授权的系统 Activity，普通第三方 APP 在请求 USB 权限或建立 VPN 隧道时会因为找不到授权界面而静默失败。本分支的解决方案：
 
-- Wired USB and wireless CarPlay with local authentication.
-- BYD HUD navigation with arrows, distance and street names on verified firmware.
-- Car hotspot support, improved audio buffering and saved receive diagnostics.
-- Automatic address discovery, fixed-channel Wi-Fi fallbacks and successful-configuration memory.
-- Icon/text size, resolution and frame rate; applying a display change reconnects CarPlay.
-- Local diagnostic export. Reports are sent only if you choose to share them.
-- Separate installation alongside DiAuto. Run one projection app at a time.
-- Legacy Android fallbacks for media keys, notification/services, USB configuration and requests, audio/video codecs, multidex and Java library APIs.
+- **使用广平台证书签名** (`android@freescale.com`，SHA-256: `7fbae817...`)，APK 以系统应用身份安装。
+- **声明 `android:sharedUserId=”android.uid.system”`**，进程以 `uid=1000 (system)` 运行，自动获得 USB Host 权限，无需弹窗授权。
+- 该签名 + uid 组合使 APP 运行在 `system_app` SELinux 域，可直接访问 USB 设备节点，绕过了 ROM 中被移除的 `UsbPermissionActivity`。
 
-This is **not an Apple-certified product**. The APK bundles an experimental accessory identity recovered from public Carlinkit firmware, not a newly provisioned MFi identity for DiPlay. A bundled private key is extractable. Acceptance after future iOS updates, reliability across head units and suitability of that identity for general distribution are unresolved. This release invites community testing; it is not a guarantee of universal compatibility.
+> [!WARNING]
+> 本版本 **无法与通用版 DiPlay 互相覆盖安装**。安装前必须先卸载已有版本，切换版本时数据会丢失。
 
-Earlier releases were tested on the development DiLink5.1 car: live windshield guidance and street names work, Car hotspot now starts CarPlay, and Wi-Fi Direct performance is substantially improved. Occasional audio cutouts remain and are deferred to a later update. The floating-map test build was installed on the development DiLink 5.1 car; feedback led to the pinch corrections in 0.2.9. Earlier wheel-speed and video contributions were tested on a BYD Tang with DiLink 5.0 and an iPhone 15 Pro on iOS 27; wheel-speed dead reckoning in tunnels remains unverified. Broader head-unit and iOS compatibility is not guaranteed. The HUD firmware scope and cleanup limits are documented in [BYD navigation](docs/BYD_NAVIGATION.md).
+### 用户态 lwIP 网络栈（替代 VPN/TUN）
 
-## What’s new in 0.2.14 (historical)
+该车机内核 3.0.35 的 TUN 驱动不可用，系统 VPN 框架也因缺少授权 Activity 而无法使用。本分支采用完全不同的网络方案：
 
-- Searchable Settings, clear categories, quick controls and reconnect notices, with layouts for short screens and Arabic RTL.
-- **Interface size** from Automatic to 200% for DiPlay's own controls, separate from CarPlay picture sizing.
-- Default automatic connection choice: Last used, Wireless or USB; scheduled day/night appearance; more reliable car-button image selection.
-- Targeted USB/Bluetooth recovery, hotspot address discovery, video output on windows without hardware acceleration, and safer wireless handoff.
-- **Smooth video (experimental)**, off by default, with a latency tradeoff and no picture adjustments on its SurfaceView path.
-- Configurable wheel-key Siri, microphone-source fallback, optional audio-focus handling and BYD call-watcher repairs.
-- **Call echo cancellation** and **Clearer call voices**, experimental and off by default; opt-in changes apply at the next connection.
-- Album artwork proportions, system-bar-aware rotation/split-screen areas and recognition of an observed DiLink 3 cluster surface.
+- **用户态 lwIP**：在 JNI 层运行完整的 lwIP TCP/IP 协议栈 (`lwip_ncm_relay.c`)，直接解析 iPhone NCM（USB 网卡）的以太网帧。
+- **Loopback Relay**：lwIP 将 iPhone 的 TCP/UDP 连接中继到本机 `127.0.0.1` 上的对应端口，上层 Java 代码通过标准 Socket 与 iPhone 通信，无需内核网络栈参与。
+- 该方案完全工作在用户空间，不依赖 TUN/TAP 设备、VPN Service 或任何内核模块。
 
-See [0.2.14 release notes](docs/RELEASE-NOTES-0.2.14.md) and [validation](docs/VALIDATION.md) for contribution links and remaining physical tests. General stutter, calls/Siri, decoder and model-specific reports still need current-device evidence. [0.2.13 notes](docs/RELEASE-NOTES-0.2.13.md) remain available as historical guidance.
+### 仪表盘 CarPlay（Presentation 显示）
 
-If a problem remains, reproduce it on **the current release**, then use **Settings → Diagnostics → Save diagnostic report**. Android 10+ normally saves to **Downloads/DiPlay**; Android 9 uses the document picker. If unavailable, use **View report** or **Share** from the confirmation, which identifies external/private fallback storage. Review the `.txt` and add it to a matching [existing issue](https://github.com/programmerguohuajing/DiPlay-Legacy-Android/issues), or [create one](https://github.com/programmerguohuajing/DiPlay-Legacy-Android/issues/new/choose). Include vehicle/head-unit model, exact firmware and Android/DiLink, phone/iOS, connection backend, relevant settings, steps and failure time. Reports are shared only when you choose; never post your hotspot password.
+- 车机拥有副屏（display 1, 1280×720），通过 LVDS 连接仪表盘中央区域。
+- DiPlay 启动后自动接管仪表盘，将 CarPlay 仪表流（stream type 111）渲染到 `Presentation` 窗口。
+- 通过广播 `AUTONAVI_STANDARD_BROADCAST_SEND` 通知仪表 MCU 切换到导航图层，无需安装高德地图。
 
-## Documentation
+---
 
-[Existing Wi-Fi / Same LAN](docs/EXISTING_WIFI.md) keeps the iPhone and head unit
-on an external router. See the guide for setup, build requirements and the
-BYD DiLink 4.0 / Android 10 clean-install validation result.
+## 继承自上游的核心改进
 
-- [Install and connect](docs/INSTALL.md)
-- [Compatibility and troubleshooting](docs/COMPATIBILITY.md)
-- [Smooth wireless CarPlay](docs/SMOOTH_WIRELESS.md)
-- [Privacy and diagnostic reports](docs/PRIVACY.md)
-- [Build from source](docs/BUILD.md) — select `mobile` for the main DiPlay app; `maphost` is a map sample.
-- [Validation](docs/VALIDATION.md)
-- [Release notes](CHANGELOG.md)
-- [Credits and licenses](docs/THIRD_PARTY_NOTICES.md)
+以下特性继承自 [DiPlay Legacy Android](https://github.com/programmerguohuajing/DiPlay-Legacy-Android) 上游通用版：
 
-The app and release website are available in English, Arabic, Russian, Ukrainian, Spanish, Simplified Chinese and Traditional Chinese (Taiwan). Traditional Chinese uses Taiwan wording; the app also recognizes Hong Kong/Macao and explicit Hant selections without claiming separate regional translations. Choose the app language in Settings; on Android 13+, it stays synchronized with Android’s per-app language setting.
+### 1. 深度适配低版本 Android 系统 (Android 4.4 ~ Android 7.0)
+- **系统门槛下探至 Android 4.4 (API 19)**：
+  - 修复 Android 7.0 以下 `Configuration.locales` 引发的 `NoSuchFieldError` 启动闪退。
+  - 修复 Android 6.0 以下 `Context.getSystemService(Class)` 引发的 `NoSuchMethodError` 闪退。
+  - 修复 Android 5.0 以下 `Theme.Material` 主题缺失，回退兼容 Holo 主题。
+  - 修复无 `BluetoothLeScanner` 低版本系统的蓝牙扫描，支持手动输入蓝牙 MAC 地址连接。
 
-## Source and credits
+### 2. 解决安装与解析包失败问题
+- **双重签名机制 (v1 JAR + v2 APK Signature)**：满足 Android 4.4 / 6.0 老车机的签名格式要求，避免”无法解析安装包”。
 
-Based on [xcertplay](https://github.com/shilapi/xcertplay), GPL-3.0. The home/settings UI and website adapt [DiAuto](https://github.com/shihabal3amri/DiAuto), AGPL-3.0; that license is included in `docs/licenses`. Preserve those notices when distributing modifications. CarPlay and its icon belong to Apple Inc.; no Apple or BYD affiliation or endorsement is implied.
+### 3. 全架构 CPU 支持
+- 原生编译 `armeabi-v7a`、`x86`、`arm64-v8a`、`x86_64` 四种架构。
 
-This repository starts with a clean public source snapshot. Local research, tester reports and release-signing secrets are excluded. The source corresponding to the APK is provided with every release, with one explicit exception: the two experimental runtime identity files bundled in the APK are provisioned locally at release time and are not part of the source archive, so a source-only build does not reproduce the release APK's authentication function. Those assets are described in the build instructions and notices.
+### 4. 内置离线 MFi 认证证书
+- 独立构建带入本地私有认证材料，无需外部认证服务器。该身份是实验性的，**不是 Apple 官方认证**。
 
-## Community & Feedback
+### 5. USB 底层连接优化
+- 自动驱动脱钩（解决 `EBUSY` / errno 16）；单 fd 共享避免二次 `openDevice`。
 
-- **Issues & Discussions**: Feel free to discuss questions and issues in [GitHub Issues](https://github.com/programmerguohuajing/DiPlay-Legacy-Android/issues). We will reply whenever time permits.
-- **Check Real Android OS Version**: If installation fails (e.g. "There was a problem parsing the package"), your aftermarket head unit may have a spoofed system version (such as fake Android 10/11/12 on top of real Android 4.4/5.1). You can use this head unit inspection tool provided by [@493330227-wq](https://github.com/493330227-wq) to check your genuine Android version and API level:  
-  👉 **[headunit-version-inspector](https://github.com/493330227-wq/headunit-version-inspector)**
-- **Attach Diagnostic Logs**: When reporting a specific problem, attaching detailed diagnostic logs (via **Settings → Diagnostics → Save diagnostic report**, automatically exported to USB/SD cards since v0.2.27) and environment details (head-unit model, Android version, iPhone/iOS version) is strongly recommended.
-- **Contributions Welcome**: Pull Requests (PRs) from experienced developers are warmly welcomed to help improve compatibility across various legacy automotive hardware!
-- ⭐ **Support**: If this project is helpful to you, please give it a **Star**!
+---
 
+## 安装与升级重要说明
+
+> [!IMPORTANT]
+> **必须先卸载旧版本！**
+> 
+> 本分支使用 **平台证书签名**，与上游通用版及其他第三方版本的签名完全不同：
+> 1. 上游原版、第三方修改版与本分支的 **签名证书不同**（本分支为 Freescale 平台证书，非个人开发者证书）。
+> 2. 如果车机上已安装其他版本的 DiPlay，直接安装会被系统拒绝（签名冲突）。
+> 3. **解决方法**：在车机【应用管理】中**完全卸载旧版 DiPlay**，然后再安装本分支的 APK。后续升级本分支的新版本可直接覆盖安装。
+> 4. 同理，从本分支切换回通用版也需要先卸载。
+
+---
+
+## 连接使用
+
+### 有线 (USB) 连接
+1. 打开 DiPlay 进入等待连接界面；
+2. 将 iPhone 插入车机 USB 数据口；
+3. iPhone 弹出”信任此电脑”时点击**【信任】**。
+
+由于本分支以 SYSTEM APP 运行，USB 权限自动获取，不需要手动授权弹窗。
+
+> 广汽车机出厂自带 CarLife，开机后可能抢占 USB。建议在【应用管理】中将 CarLife **强行停止** 或禁用自启动。
+
+### 无线连接
+- 支持车机热点（Car Hotspot）、Wi-Fi Direct 以及局域网（Same LAN）三种模式。
+- 广汽车机蓝牙模块为 Parrot FC6050（仅 HFP/A2DP/AVRCP/PBAP，无 BLE），需在设置中手动填入蓝牙 MAC 地址完成握手配对。
+
+---
+
+## 问题反馈
+
+- **Issues**：[GitHub Issues](https://github.com/MiniGrayGay/DiPlay-Legacy-Android-GS5/issues)
+- **提供日志**：DiPlay【设置】→【诊断】→【保存诊断报告】，将 `.txt` 文件附在 Issue 中，注明车型、车机固件版本、iPhone 型号及 iOS 版本。
+- 日志路径：`/data/data/com.shihab.diplay/files/logs/diplay.log`
+
+---
+
+## 开源协议与鸣谢
+
+- 基于 [xcertplay](https://github.com/shilapi/xcertplay) (GPL-3.0) 与 [shihabal3amri/DiPlay](https://github.com/shihabal3amri/DiPlay) 开发。
+- UI 交互衍生自 [DiAuto](https://github.com/shihabal3amri/DiAuto) (AGPL-3.0)。
+- CarPlay 为 Apple Inc. 的注册商标，本项目仅供技术学习与车载兼容性研究。

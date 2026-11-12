@@ -43,6 +43,9 @@ release-signing.properties
 *.apk
 *.aab
 
+# Windows desktop simulator (local-only, not part of the Android build)
+/windows-simulator/
+
 # Pinned libopus dependency retrieved by scripts/prepare-libopus.py
 /shared/src/main/jni/libopus/
 
