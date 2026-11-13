@@ -31,4 +31,5 @@ include(":maphost")
 project(":maphost").projectDir = file("samples/maphost")
 include(":home")
 project(":home").projectDir = file("samples/home")
-include(":windows-simulator")
+// The simulator sources are local-only (see .gitignore); a clean checkout and CI build without them.
+if (file("windows-simulator").isDirectory) include(":windows-simulator")

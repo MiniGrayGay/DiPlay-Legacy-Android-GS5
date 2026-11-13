@@ -111,6 +111,22 @@ class UsbBtPairingTest {
     }
 
     @Test
+    fun eventMasksEnablePairingEventsWithoutReservedBits() {
+        // Bits 62 and 63 are reserved; a CSR8510 rejects a mask that sets them (0x12).
+        val reserved = 0x3L shl 62
+        for (mask in listOf(HciProtocol.EVENT_MASK_FULL, HciProtocol.EVENT_MASK_DEFAULT_WITH_SSP)) {
+            assertEquals(0L, mask and reserved)
+            assertEquals(HciProtocol.EVENT_MASK_SSP_REQUIRED, mask and HciProtocol.EVENT_MASK_SSP_REQUIRED)
+            // Link Key Request (bit 22) and Link Key Notification (bit 23).
+            assertEquals(0xC00000L, mask and 0xC00000L)
+        }
+        assertEquals(
+            listOf(0xFF, 0xFF, 0xFB, 0xFF, 0x07, 0xF8, 0xBF, 0x3D),
+            HciProtocol.encodeSetEventMask().map { it.toInt() and 0xFF },
+        )
+    }
+
+    @Test
     fun ioCapabilityAuthReqValues() {
         // Just Works (NoInputNoOutput = 3): General Bonding, MITM not required (0x04)
         val justWorksAuthReq = if (HciProtocol.IO_CAP_NO_INPUT_NO_OUTPUT == 3) 0x04 else 0x05
