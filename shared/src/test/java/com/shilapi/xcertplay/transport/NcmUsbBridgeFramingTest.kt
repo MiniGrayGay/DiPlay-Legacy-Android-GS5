@@ -186,6 +186,32 @@ class NcmUsbBridgeFramingTest {
         }
     }
 
+    @Test fun framesStayValidUntilTheSinkIsToldTheBatchEnded() {
+        val second = ByteArray(996) { (it * 17).toByte() }
+        NcmFramingReplay.chunks.add(Ntb16Codec.build(smallFrame, 1) + Ntb16Codec.build(second, 2))
+        NcmFramingReplay.chunks.add(Ntb16Codec.build(smallFrame, 3))
+        withBridge { ncm ->
+            val received = ArrayList<ByteArray>()
+            // Collects (buffer, offset, length) and only reads the bytes at the batch end, the
+            // way the lwIP bridge injects them.
+            val sink = object : NcmUsbBridge.FrameSink {
+                val pending = ArrayList<Triple<ByteArray, Int, Int>>()
+                override fun onFrame(buffer: ByteArray, offset: Int, length: Int) {
+                    pending += Triple(buffer, offset, length)
+                }
+                override fun onBatchEnd() {
+                    pending.forEach { (buffer, offset, length) -> received += buffer.copyOfRange(offset, offset + length) }
+                    pending.clear()
+                }
+            }
+            while (received.size < 3) ncm.recvInto(50, sink)
+            assertEquals(0, sink.pending.size)
+            assertArrayEquals(smallFrame, received[0])
+            assertArrayEquals(second, received[1])
+            assertArrayEquals(smallFrame, received[2])
+        }
+    }
+
     @Test fun aRefusedConcurrentReadFallsBackToOneRequest() {
         NcmFramingReplay.refuseWhenPending = 1
         repeat(3) { NcmFramingReplay.chunks.add(Ntb16Codec.build(byteArrayOf(it.toByte(), 9), it)) }

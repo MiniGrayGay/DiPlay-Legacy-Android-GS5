@@ -50,6 +50,20 @@ class LwipNcmNative(
     }
 
     /**
+     * Injects [count] frames that all live in [buffer]; [ranges] holds an (offset, length) pair
+     * per frame. The whole batch takes the native core lock once, reaches the app in one
+     * loopback write per connection and is acknowledged once. [count] is at most
+     * [MAX_BATCH_FRAMES].
+     */
+    @Synchronized
+    fun inputFrames(buffer: ByteArray, ranges: IntArray, count: Int) {
+        val handle = nativeHandle
+        if (handle != 0L && count > 0) {
+            nativeInputFrames(handle, buffer, ranges, count)
+        }
+    }
+
+    /**
      * Reads the native performance counters into [out] (indexes are [PERF_RX_FRAMES] and
      * friends) and restarts the per-window totals. Returns false when the stack is gone.
      */
@@ -108,6 +122,7 @@ class LwipNcmNative(
     private external fun nativeCreate(hostMac: ByteArray, linkLocal: String): Long
     private external fun nativeInputFrame(handle: Long, frame: ByteArray, length: Int)
     private external fun nativeInputFrameRange(handle: Long, frame: ByteArray, offset: Int, length: Int)
+    private external fun nativeInputFrames(handle: Long, buffer: ByteArray, ranges: IntArray, count: Int)
     private external fun nativeGetPerfCounters(handle: Long, out: LongArray): Int
     private external fun nativeRegisterPort(handle: Long, port: Int, isTcp: Boolean)
     private external fun nativeSendUdp(handle: Long, localPort: Int, remotePort: Int, payload: ByteArray): Boolean
@@ -115,6 +130,9 @@ class LwipNcmNative(
     private external fun nativeDestroy(handle: Long)
 
     companion object {
+        /** Must match MAX_INPUT_BATCH_FRAMES in lwip_ncm_relay.c. */
+        const val MAX_BATCH_FRAMES = 64
+
         // Must match the PERF_* enum in lwip_ncm_relay.c.
         const val PERF_RX_FRAMES = 0
         const val PERF_RX_DROPS = 1

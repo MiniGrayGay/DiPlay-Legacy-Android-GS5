@@ -5,14 +5,17 @@
 #define SYS_LIGHTWEIGHT_PROT            0
 #define LWIP_DONT_PROVIDE_BYTEORDER_FUNCTIONS 1
 #define MEM_ALIGNMENT                   4
-#define MEM_SIZE                        (128 * 1024)
+/* Inbound frames, out-of-order segments (up to one receive window) and
+ * outbound segments of every connection share this heap. */
+#define MEM_SIZE                        (1024 * 1024)
 
 #define MEMP_NUM_PBUF                   64
 #define MEMP_NUM_RAW_PCB                4
 #define MEMP_NUM_UDP_PCB                32
 #define MEMP_NUM_TCP_PCB                32
 #define MEMP_NUM_TCP_PCB_LISTEN         16
-#define MEMP_NUM_TCP_SEG                128
+/* One per queued outbound segment and per out-of-order inbound segment. */
+#define MEMP_NUM_TCP_SEG                256
 
 #define PBUF_POOL_SIZE                  128
 #define PBUF_POOL_BUFSIZE               1600
@@ -41,7 +44,10 @@
 
 #define LWIP_TCP                        1
 #define TCP_MSS                         1440
-#define TCP_WND                         (32 * 1024)
+/* 44 segments: the largest whole-segment window that fits the 16-bit field
+ * without window scaling, so a keyframe needs half as many round trips. The
+ * relay buffer in lwip_ncm_relay.c must cover it (checked there). */
+#define TCP_WND                         (44 * TCP_MSS)
 #define TCP_SND_BUF                     (32 * 1024)
 #define TCP_SND_QUEUELEN                64
 #define TCP_LISTEN_BACKLOG              1
@@ -62,6 +68,8 @@
 #define CHECKSUM_GEN_ICMP6              1
 #define CHECKSUM_CHECK_IP               1
 #define CHECKSUM_CHECK_UDP              1
+/* Keep verifying inbound checksums: Android hands over a bulk transfer that
+ * failed part way as if it were complete, and this is what makes TCP resend it. */
 #define CHECKSUM_CHECK_TCP              1
 #define CHECKSUM_CHECK_ICMP6            1
 

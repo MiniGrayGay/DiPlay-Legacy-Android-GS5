@@ -140,16 +140,27 @@ class NcmUsbBridge internal constructor(
     }
 
     /** Wraps one Ethernet frame in one NTB16 block and writes it to bulk OUT. */
-    fun send(frame: ByteArray, timeoutMillis: Int) = synchronized(writeLock) {
+    fun send(frame: ByteArray, timeoutMillis: Int) =
+        sendBlock(1, timeoutMillis) { sequence -> Ntb16Codec.build(frame, sequence) }
+
+    /**
+     * Writes the first [count] of [frames] as one NTB16 block, so a burst of small frames (TCP
+     * ACKs) costs one bulk OUT transfer. The caller keeps the block within the phone's
+     * dwNtbOutMaxSize; see [Ntb16Codec.aggregateLength].
+     */
+    fun sendAggregated(frames: List<ByteArray>, count: Int, timeoutMillis: Int) =
+        sendBlock(count, timeoutMillis) { sequence -> Ntb16Codec.build(frames, count, sequence) }
+
+    private inline fun sendBlock(frameCount: Int, timeoutMillis: Int, build: (Int) -> ByteArray) = synchronized(writeLock) {
         if (closed || isAbortedOrDetached) return@synchronized
-        ncmWriteEnqueuedFrames++
+        ncmWriteEnqueuedFrames += frameCount
         checkOpen()
         require(timeoutMillis > 0) { "timeoutMillis must be positive" }
         val sequence = synchronized(stateLock) {
             checkOpenLocked()
             this.sequence.also { this.sequence = (this.sequence + 1) and 0xffff }
         }
-        val block = Ntb16Codec.build(frame, sequence)
+        val block = build(sequence)
         val perfStarted = System.nanoTime()
         ensureWriteWatchdog()
         ensureStallWatchdog()
@@ -393,8 +404,18 @@ class NcmUsbBridge internal constructor(
 
     /** Receives Ethernet frames without allocating; see [recvInto]. */
     fun interface FrameSink {
-        /** [buffer] is only valid during the call; copy anything that must outlive it. */
+        /**
+         * [buffer] stays valid until the next [onBatchEnd]; copy anything that must outlive
+         * that.
+         */
         fun onFrame(buffer: ByteArray, offset: Int, length: Int)
+
+        /**
+         * Called before the frames handed out since the previous call stop being valid, and at
+         * least once after every group of frames read together from USB. A sink may collect
+         * frames in [onFrame] and process them here in one go.
+         */
+        fun onBatchEnd() {}
     }
 
     /**
@@ -413,7 +434,10 @@ class NcmUsbBridge internal constructor(
                 sink.onFrame(frame, 0, frame.size)
                 delivered++
             }
-            if (delivered > 0) return delivered
+            if (delivered > 0) {
+                sink.onBatchEnd()
+                return delivered
+            }
 
             val deadline = System.nanoTime() + timeoutMillis * NANOS_PER_MILLISECOND
             while (true) {
@@ -594,6 +618,11 @@ class NcmUsbBridge internal constructor(
     private fun drainFrames(sink: FrameSink? = null): Int {
         var produced = 0
         var start = 0
+        // Compacting the buffer moves the frames the sink was handed; let it finish them first.
+        fun release(count: Int) {
+            sink?.onBatchEnd()
+            discard(count)
+        }
         try {
             while (true) {
                 // wBlockLength describes the complete NTB. A packet-aligned USB transfer may end
@@ -606,7 +635,7 @@ class NcmUsbBridge internal constructor(
                         0 -> start += 1
                         Ntb16Codec.NTH16_SIG and 0xff -> Unit // The next header is validated below.
                         else -> {
-                            discard(start)
+                            release(start)
                             start = 0
                             if (!resynchronize("Invalid NTB16 short-packet pad")) return produced
                         }
@@ -615,13 +644,13 @@ class NcmUsbBridge internal constructor(
                 if (bufferedSize - start < NTH16_LENGTH) return produced
                 val blockLength = readU16(buffered, start + 8)
                 if (readU32(buffered, start) != Ntb16Codec.NTH16_SIG) {
-                    discard(start)
+                    release(start)
                     start = 0
                     if (!resynchronize("NCM read buffer does not begin with an NTB16 header")) return produced
                     continue
                 }
                 if (blockLength < 28) {
-                    discard(start)
+                    release(start)
                     start = 0
                     if (!resynchronize("Invalid NTB16 block length $blockLength")) return produced
                     continue
@@ -645,7 +674,7 @@ class NcmUsbBridge internal constructor(
                 finishResync()
             }
         } finally {
-            discard(start)
+            release(start)
         }
     }
 

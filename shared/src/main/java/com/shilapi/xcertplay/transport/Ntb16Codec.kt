@@ -4,8 +4,9 @@ package com.shilapi.xcertplay.transport
  * Minimal NTB16 codec for the iPhone NCM data link.
  *
  * Only the 16-bit transfer-block layout used by LIVI's `iap2-usbmux/src/ntb.rs` is implemented:
- * one NTH16 header, one NDP16 table with one datagram, and the USB short-packet pad byte. There
- * is no NTB32, alignment, CRC, or NCM control-plane handling here.
+ * one NTH16 header, one NDP16 table and the USB short-packet pad byte. Datagrams start on
+ * 4-byte boundaries, which is what the iPhone asks for (wNdpOutDivisor=4, remainder 0). There
+ * is no NTB32, CRC, or NCM control-plane handling here.
  */
 object Ntb16Codec {
     const val NTH16_SIG = 0x484d434e
@@ -42,6 +43,64 @@ object Ntb16Codec {
         // A transfer that ends exactly on a USB packet boundary is read as a short packet.
         return if (block.size % USB_PACKET_SIZE == 0) block + byteArrayOf(0) else block
     }
+
+    /**
+     * Wraps [count] Ethernet frames in one NTB16 block so they cost one USB transfer. A single
+     * frame produces the same bytes as [build] for one frame. The caller keeps the block within
+     * the phone's dwNtbOutMaxSize with [aggregateLength].
+     */
+    fun build(frames: List<ByteArray>, count: Int, sequence: Int): ByteArray {
+        require(count in 1..frames.size) { "count must select at least one frame" }
+        if (count == 1) return build(frames[0], sequence)
+        require(sequence in 0..0xffff) { "sequence must fit in u16" }
+
+        // NDP16: 8-byte header, one 4-byte entry per datagram and the zero terminator entry.
+        val ndpLength = 8 + 4 * (count + 1)
+        var blockLength = align4(NTH_LENGTH + ndpLength)
+        for (index in 0 until count) {
+            require(frames[index].isNotEmpty()) { "frame must not be empty" }
+            blockLength = align4(blockLength) + frames[index].size
+        }
+        require(blockLength <= 0xffff) { "frames exceed the NTB16 length field" }
+
+        val pad = if (blockLength % USB_PACKET_SIZE == 0) 1 else 0
+        val block = ByteArray(blockLength + pad)
+        putU32(block, 0, NTH16_SIG)
+        putU16(block, 4, NTH_LENGTH)
+        putU16(block, 6, sequence)
+        putU16(block, 8, blockLength)
+        putU16(block, 10, NTH_LENGTH)
+
+        putU32(block, 12, NDP16_SIG)
+        putU16(block, 16, ndpLength)
+        putU16(block, 18, 0)
+        var entry = NTH_LENGTH + 8
+        var offset = align4(NTH_LENGTH + ndpLength)
+        for (index in 0 until count) {
+            val frame = frames[index]
+            offset = align4(offset)
+            putU16(block, entry, offset)
+            putU16(block, entry + 2, frame.size)
+            frame.copyInto(block, offset)
+            offset += frame.size
+            entry += 4
+        }
+        return block
+    }
+
+    /**
+     * wBlockLength of a block once a frame of [nextBytes] joins the [count] frames it holds.
+     * [payloadBytes] is the length of those frames including the padding between them: 0 for
+     * none, then `align4(payloadBytes) + size` per frame, which is [appendPayload]. Lets a
+     * sender stop before the phone's dwNtbOutMaxSize.
+     */
+    fun aggregateLength(count: Int, payloadBytes: Int, nextBytes: Int): Int =
+        align4(NTH_LENGTH + 8 + 4 * (count + 2)) + align4(payloadBytes) + nextBytes
+
+    /** Running payload length after a frame of [frameBytes] is added; see [aggregateLength]. */
+    fun appendPayload(payloadBytes: Int, frameBytes: Int): Int = align4(payloadBytes) + frameBytes
+
+    private fun align4(value: Int): Int = (value + 3) and 3.inv()
 
     /**
      * Extracts the Ethernet frames carried by one NTB16 block.

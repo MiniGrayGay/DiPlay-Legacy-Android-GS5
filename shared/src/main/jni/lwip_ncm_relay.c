@@ -76,10 +76,10 @@ typedef int relay_socket_t;
 #define MAX_UDP_RELAYS 32
 /* Phone-bound bytes waiting for tcp_write. One window is enough. */
 #define LOOPBACK_TO_LWIP_BUFFER_SIZE 16384
-/* Phone-to-app bytes. Must cover TCP_WND (32 KiB) plus one more flight,
- * otherwise recv returns ERR_MEM while the advertised window is still open
- * and the iPhone waits for a retransmit. */
-#define LWIP_TO_LOOPBACK_BUFFER_SIZE (64 * 1024)
+/* Phone-to-app bytes. Must cover TCP_WND (just under 64 KiB) plus one more
+ * flight, otherwise recv returns ERR_MEM while the advertised window is still
+ * open and the iPhone waits for a retransmit. */
+#define LWIP_TO_LOOPBACK_BUFFER_SIZE (128 * 1024)
 #define LOOPBACK_SOCKET_BUFFER_SIZE (256 * 1024)
 
 /* lwIP hands tcp_relay_recv a whole reassembled out-of-order chain (up to the
@@ -89,8 +89,8 @@ typedef int relay_socket_t;
  * stalls while small UDP traffic still flows. */
 _Static_assert(LWIP_TO_LOOPBACK_BUFFER_SIZE >= TCP_WND,
                "the phone-to-app relay buffer must cover the whole receive window");
-/* The relay credits at most one window per send() through tcp_recved(u16_t). */
-_Static_assert(TCP_WND <= 0xffff, "tcp_recved credit must fit in u16_t");
+/* No window scaling: the window is announced in the 16-bit TCP field. */
+_Static_assert(TCP_WND <= 0xffff, "TCP_WND must fit the unscaled window field");
 
 // NO_SYS lwIP owns process-global heaps, PCB lists and cyclic timers.
 // Reinitializing those globals for another USB session corrupts next_timeout.
@@ -117,11 +117,15 @@ typedef struct {
     int loopback_to_lwip_len;
     uint8_t lwip_to_loopback_buf[LWIP_TO_LOOPBACK_BUFFER_SIZE];
     int lwip_to_loopback_len;
+    /* The phone sent FIN while bytes were still waiting here; the loopback
+     * write side is shut down once they have been delivered. */
+    int fin_pending;
 } TcpRelayConn;
 
 typedef struct {
     int active;
     int port;
+    struct LwipContext *ctx;
     struct udp_pcb *lwip_pcb;
     relay_socket_t loopback_fd;
     ip_addr_t peer_ip;
@@ -175,6 +179,9 @@ typedef struct LwipContext {
     pthread_t thread;
     atomic_int running;
     int wake_pipe[2]; /* POSIX-only; Windows worker uses a 2 ms wait. */
+    /* Set under the core lock when a USB-side call leaves work only the worker
+     * can pick up; the call writes the wake pipe after it drops the lock. */
+    int wake_needed;
 
     uint32_t stats_rx_frames;
     uint32_t stats_rx_bytes;
@@ -313,6 +320,8 @@ static void udp_relay_recv(void *arg, struct udp_pcb *upcb, struct pbuf *p,
     if (addr != NULL) {
         ip_addr_copy(relay->peer_ip, *addr);
         relay->peer_port = port;
+        // The worker only watches relays that have a peer; let it pick this one up.
+        if (!relay->has_peer && relay->ctx != NULL) relay->ctx->wake_needed = 1;
         relay->has_peer = 1;
     }
 
@@ -372,6 +381,11 @@ static void flush_loopback_to_lwip(TcpRelayConn *conn) {
             err_t wr_err = tcp_write(conn->lwip_pcb, conn->loopback_to_lwip_buf, to_send, TCP_WRITE_FLAG_COPY);
             if (wr_err == ERR_OK) {
                 tcp_output(conn->lwip_pcb);
+                // A full buffer keeps its socket out of the worker's select set;
+                // tell the worker to start reading it again.
+                if (conn->loopback_to_lwip_len == LOOPBACK_TO_LWIP_BUFFER_SIZE && conn->ctx != NULL) {
+                    conn->ctx->wake_needed = 1;
+                }
                 conn->loopback_to_lwip_len -= (int)to_send;
                 if (conn->loopback_to_lwip_len > 0) {
                     memmove(conn->loopback_to_lwip_buf, conn->loopback_to_lwip_buf + to_send, (size_t)conn->loopback_to_lwip_len);
@@ -393,6 +407,16 @@ static err_t tcp_relay_sent(void *arg, struct tcp_pcb *tpcb, u16_t len) {
     return ERR_OK;
 }
 
+static void shutdown_loopback_write(TcpRelayConn *conn) {
+    conn->fin_pending = 0;
+    if (!relay_socket_valid(conn->loopback_fd)) return;
+#ifdef _WIN32
+    shutdown(conn->loopback_fd, SD_SEND);
+#else
+    shutdown(conn->loopback_fd, SHUT_WR);
+#endif
+}
+
 static err_t tcp_relay_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err) {
     (void)err;
     TcpRelayConn *conn = (TcpRelayConn *)arg;
@@ -402,13 +426,12 @@ static err_t tcp_relay_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err
     }
 
     if (p == NULL) {
-        // Peer closed connection
-        if (relay_socket_valid(conn->loopback_fd)) {
-#ifdef _WIN32
-            shutdown(conn->loopback_fd, SD_SEND);
-#else
-            shutdown(conn->loopback_fd, SHUT_WR);
-#endif
+        // Peer closed connection. Bytes of the same USB batch may still be
+        // waiting for loopback; shutting down first would lose them.
+        if (conn->lwip_to_loopback_len > 0) {
+            conn->fin_pending = 1;
+        } else {
+            shutdown_loopback_write(conn);
         }
         return ERR_OK;
     }
@@ -430,11 +453,13 @@ static err_t tcp_relay_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err
         ctx->perf[PERF_RELAY_PEAK_BYTES] = (uint64_t)conn->lwip_to_loopback_len;
     }
     pbuf_free(p);
-    // ACK this segment immediately. lwIP otherwise delays the odd segment
-    // (the tail of a ~7-segment video frame) until the 250 ms TCP timer, and
-    // the phone does not send the next frame. The receive window stays closed
-    // until the worker copies these bytes to loopback and calls tcp_recved.
-    tcp_ack_now(tpcb);
+    // No ACK here: lwIP already ACKs every second segment, and
+    // finish_input_batch sends the pending one when the USB batch ends. The
+    // odd segment (the tail of a ~7-segment video frame) would otherwise wait
+    // for the 250 ms TCP timer and the phone would hold the next frame. The
+    // receive window stays closed until finish_input_batch (or the worker)
+    // copies these bytes to loopback and calls tcp_recved.
+    (void)tpcb;
     return ERR_OK;
 }
 
@@ -492,7 +517,11 @@ static err_t tcp_relay_accept(void *arg, struct tcp_pcb *newpcb, err_t err) {
     conn->loopback_fd = fd;
     conn->loopback_to_lwip_len = 0;
     conn->lwip_to_loopback_len = 0;
+    conn->fin_pending = 0;
     ctx->stats_tcp_conns_accepted++;
+    // The worker has to add this socket to its select set before it can relay
+    // the app's first reply.
+    ctx->wake_needed = 1;
 
     tcp_arg(newpcb, conn);
     tcp_recv(newpcb, tcp_relay_recv);
@@ -503,34 +532,75 @@ static err_t tcp_relay_accept(void *arg, struct tcp_pcb *newpcb, err_t err) {
     return ERR_OK;
 }
 
-static void check_and_forward_loopback(LwipContext *ctx) {
+/* Sends the phone-to-app bytes waiting on [conn] to its loopback socket without
+ * blocking and reopens the receive window for what was taken. Closes the
+ * connection on a socket error. Must not run inside an lwIP callback. */
+static void forward_to_loopback(LwipContext *ctx, TcpRelayConn *conn) {
+    int done = 0;
+    while (done < conn->lwip_to_loopback_len) {
+        ssize_t sent = send(conn->loopback_fd, (const char *)conn->lwip_to_loopback_buf + done,
+                            (size_t)(conn->lwip_to_loopback_len - done), MSG_NOSIGNAL);
+        if (sent > 0) {
+            done += (int)sent;
+        } else if (sent < 0 && relay_interrupted(relay_last_error())) {
+            continue;
+        } else if (sent < 0 && relay_would_block(relay_last_error())) {
+            ctx->perf[PERF_LOOPBACK_EAGAIN]++;
+            break;
+        } else {
+            close_tcp_relay_conn(ctx, conn);
+            return;
+        }
+    }
+    if (done == 0) return;
+    conn->lwip_to_loopback_len -= done;
+    if (conn->lwip_to_loopback_len > 0) {
+        memmove(conn->lwip_to_loopback_buf, conn->lwip_to_loopback_buf + done,
+                (size_t)conn->lwip_to_loopback_len);
+    }
+    /* tcp_recved takes u16_t; the buffer can hold more than that. */
+    while (done > 0) {
+        u16_t credit = done > 0xffff ? 0xffff : (u16_t)done;
+        tcp_recved(conn->lwip_pcb, credit);
+        done -= credit;
+    }
+    if (conn->fin_pending && conn->lwip_to_loopback_len == 0) shutdown_loopback_write(conn);
+}
+
+/* Runs once after a batch of USB frames went through lwIP, still under the
+ * core lock. One loopback send per connection carries the whole batch to the
+ * app, and one ACK covers whatever lwIP left delayed, so neither costs a
+ * worker wakeup or a USB transfer per segment. */
+static void finish_input_batch(LwipContext *ctx) {
+    for (int i = 0; i < MAX_RELAY_CONNS; i++) {
+        TcpRelayConn *conn = &ctx->tcp_conns[i];
+        if (!conn->active || conn->lwip_pcb == NULL) continue;
+        if (conn->lwip_to_loopback_len > 0 && relay_socket_valid(conn->loopback_fd)) {
+            forward_to_loopback(ctx, conn);
+            if (!conn->active || conn->lwip_pcb == NULL) continue;
+            // The app reader is behind: the worker waits for the socket to
+            // become writable again.
+            if (conn->lwip_to_loopback_len > 0) ctx->wake_needed = 1;
+        }
+        if (conn->lwip_pcb->flags & TF_ACK_DELAY) {
+            tcp_ack_now(conn->lwip_pcb);
+            tcp_output(conn->lwip_pcb);
+        }
+    }
+}
+
+/* [readable] is the worker's last select result, or NULL to try every socket. */
+static void check_and_forward_loopback(LwipContext *ctx, const fd_set *readable) {
     for (int i = 0; i < MAX_RELAY_CONNS; i++) {
         TcpRelayConn *conn = &ctx->tcp_conns[i];
         if (!conn->active || !relay_socket_valid(conn->loopback_fd) || conn->lwip_pcb == NULL) continue;
 
-        while (conn->lwip_to_loopback_len > 0) {
-            ssize_t sent = send(conn->loopback_fd, (const char *)conn->lwip_to_loopback_buf,
-                                (size_t)conn->lwip_to_loopback_len, MSG_NOSIGNAL);
-            if (sent > 0) {
-                conn->lwip_to_loopback_len -= (int)sent;
-                memmove(conn->lwip_to_loopback_buf, conn->lwip_to_loopback_buf + sent,
-                        (size_t)conn->lwip_to_loopback_len);
-                tcp_recved(conn->lwip_pcb, (u16_t)sent);
-            } else if (sent < 0 && relay_interrupted(relay_last_error())) {
-                continue;
-            } else if (sent < 0 && relay_would_block(relay_last_error())) {
-                ctx->perf[PERF_LOOPBACK_EAGAIN]++;
-                break;
-            } else {
-                close_tcp_relay_conn(ctx, conn);
-                break;
-            }
-        }
+        if (conn->lwip_to_loopback_len > 0) forward_to_loopback(ctx, conn);
         if (!conn->active) continue;
         flush_loopback_to_lwip(conn);
 
         int space = LOOPBACK_TO_LWIP_BUFFER_SIZE - conn->loopback_to_lwip_len;
-        if (space > 0) {
+        if (space > 0 && (readable == NULL || FD_ISSET(conn->loopback_fd, readable))) {
             ssize_t n = recv(conn->loopback_fd, (char *)conn->loopback_to_lwip_buf + conn->loopback_to_lwip_len, space, 0);
             if (n > 0) {
                 conn->loopback_to_lwip_len += (int)n;
@@ -546,11 +616,12 @@ static void check_and_forward_loopback(LwipContext *ctx) {
     }
 }
 
-static void check_and_forward_udp_loopback(LwipContext *ctx) {
+static void check_and_forward_udp_loopback(LwipContext *ctx, const fd_set *readable) {
     for (int i = 0; i < MAX_UDP_RELAYS; i++) {
         UdpRelay *relay = &ctx->udp_relays[i];
         if (!relay->active || !relay_socket_valid(relay->loopback_fd) || relay->lwip_pcb == NULL) continue;
         if (!relay->has_peer) continue;
+        if (readable != NULL && !FD_ISSET(relay->loopback_fd, readable)) continue;
 
         uint8_t buf[2048];
         while (1) {
@@ -675,6 +746,7 @@ static void register_listeners_locked(LwipContext *ctx) {
 
             relay->active = 1;
             relay->port = port;
+            relay->ctx = ctx;
             relay->lwip_pcb = pcb;
             relay->loopback_fd = fd;
             relay->has_peer = 0;
@@ -686,6 +758,11 @@ static void register_listeners_locked(LwipContext *ctx) {
         }
     }
 }
+
+/* Upper bound for one worker sleep. lwIP's own timers are due sooner while a
+ * connection is open (250 ms TCP timer); this only bounds the retry of a
+ * tcp_write that failed for lack of memory, which no event announces. */
+#define WORKER_MAX_SLEEP_MS 50
 
 static void *lwip_worker_thread(void *arg) {
     LwipContext *ctx = (LwipContext *)arg;
@@ -703,50 +780,70 @@ static void *lwip_worker_thread(void *arg) {
     LOGI("lwIP worker thread started nice=%d", getpriority(PRIO_PROCESS, 0));
 #endif
 
+#ifndef _WIN32
+    /* Sockets select reported readable; NULL until the first select, and after
+     * a failed one, so that pass tries every socket. */
+    fd_set ready;
+    const fd_set *readable = NULL;
+#endif
+
     while (ctx->running) {
         pthread_mutex_lock(&lwip_core_lock);
 
+        ctx->wake_needed = 0;
         sys_check_timeouts();
         register_listeners_locked(ctx);
-        check_and_forward_loopback(ctx);
-        check_and_forward_udp_loopback(ctx);
-
 #ifndef _WIN32
-        fd_set rfds;
-        FD_ZERO(&rfds);
+        check_and_forward_loopback(ctx, readable);
+        check_and_forward_udp_loopback(ctx, readable);
+
+        /* Sleep until a socket or a USB-side call has work, or the next lwIP
+         * timer is due. Nothing here needs a fixed poll: app-to-phone bytes make
+         * a socket readable, a slow app reader makes one writable again, and the
+         * USB side writes the wake pipe for the rest. */
+        fd_set wfds;
+        FD_ZERO(&ready);
+        FD_ZERO(&wfds);
         int max_fd = ctx->wake_pipe[0];
-        FD_SET(ctx->wake_pipe[0], &rfds);
+        FD_SET(ctx->wake_pipe[0], &ready);
 
         for (int i = 0; i < MAX_RELAY_CONNS; i++) {
-            if (ctx->tcp_conns[i].active && ctx->tcp_conns[i].loopback_fd >= 0) {
-                if (ctx->tcp_conns[i].loopback_to_lwip_len < LOOPBACK_TO_LWIP_BUFFER_SIZE) {
-                    FD_SET(ctx->tcp_conns[i].loopback_fd, &rfds);
-                    if (ctx->tcp_conns[i].loopback_fd > max_fd) {
-                        max_fd = ctx->tcp_conns[i].loopback_fd;
-                    }
-                }
+            TcpRelayConn *conn = &ctx->tcp_conns[i];
+            if (!conn->active || conn->loopback_fd < 0) continue;
+            if (conn->loopback_to_lwip_len < LOOPBACK_TO_LWIP_BUFFER_SIZE) {
+                FD_SET(conn->loopback_fd, &ready);
+                if (conn->loopback_fd > max_fd) max_fd = conn->loopback_fd;
+            }
+            if (conn->lwip_to_loopback_len > 0) {
+                FD_SET(conn->loopback_fd, &wfds);
+                if (conn->loopback_fd > max_fd) max_fd = conn->loopback_fd;
             }
         }
 
         for (int i = 0; i < MAX_UDP_RELAYS; i++) {
-            if (ctx->udp_relays[i].active && ctx->udp_relays[i].loopback_fd >= 0) {
-                FD_SET(ctx->udp_relays[i].loopback_fd, &rfds);
-                if (ctx->udp_relays[i].loopback_fd > max_fd) {
-                    max_fd = ctx->udp_relays[i].loopback_fd;
-                }
-            }
+            UdpRelay *relay = &ctx->udp_relays[i];
+            /* Without a peer nothing drains the socket, so watching it would spin. */
+            if (!relay->active || relay->loopback_fd < 0 || !relay->has_peer) continue;
+            FD_SET(relay->loopback_fd, &ready);
+            if (relay->loopback_fd > max_fd) max_fd = relay->loopback_fd;
         }
+
+        u32_t sleep_ms = sys_timeouts_sleeptime();
+        if (sleep_ms > WORKER_MAX_SLEEP_MS) sleep_ms = WORKER_MAX_SLEEP_MS;
 
         pthread_mutex_unlock(&lwip_core_lock);
 
-        struct timeval tv = { .tv_sec = 0, .tv_usec = 2000 };
-        int sel = select(max_fd + 1, &rfds, NULL, NULL, &tv);
+        struct timeval tv = { .tv_sec = 0, .tv_usec = (suseconds_t)sleep_ms * 1000 };
+        int sel = select(max_fd + 1, &ready, &wfds, NULL, &tv);
+        readable = sel >= 0 ? &ready : NULL;
 
-        if (sel > 0 && FD_ISSET(ctx->wake_pipe[0], &rfds)) {
+        if (sel > 0 && FD_ISSET(ctx->wake_pipe[0], &ready)) {
             char ch;
             while (read(ctx->wake_pipe[0], &ch, 1) > 0);
         }
 #else
+        check_and_forward_loopback(ctx, NULL);
+        check_and_forward_udp_loopback(ctx, NULL);
         pthread_mutex_unlock(&lwip_core_lock);
         Sleep(2);
 #endif
@@ -843,22 +940,18 @@ Java_com_shilapi_xcertplay_network_LwipNcmNative_nativeCreate(
     return (jlong)(intptr_t)ctx;
 }
 
-static void input_frame(JNIEnv *env, LwipContext *ctx, jbyteArray frameArr, jint offset, jint length) {
-    if (ctx == NULL || !ctx->running || frameArr == NULL || length <= 0 || offset < 0) return;
-    if (length > 0xffff) return;
+/* Copies one Ethernet frame out of [frameArr] and runs it through lwIP.
+ * Caller holds lwip_core_lock. Returns 0 when a Java exception is pending. */
+static int inject_frame_locked(JNIEnv *env, LwipContext *ctx, jbyteArray frameArr, jint offset, jint length) {
+    if (length <= 0 || offset < 0 || length > 0xffff) return 1;
 
     // lwIP is built with NO_SYS=1 / SYS_LIGHTWEIGHT_PROT=0: its heap (mem.c)
-    // has no internal locking, so every heap access must hold ctx->lock.
-    // pbuf_alloc() -> mem_malloc() used to run outside the lock here while the
-    // worker thread concurrently freed pbufs (mem_free) under the lock, which
-    // corrupted the heap and later aborted the process in mem_free (SIGABRT).
-    pthread_mutex_lock(&lwip_core_lock);
+    // has no internal locking, so every heap access must hold the core lock.
     struct pbuf *p = pbuf_alloc(PBUF_RAW, (u16_t)length, PBUF_RAM);
     if (p == NULL) {
         ctx->perf[PERF_PBUF_ALLOC_FAILS]++;
-        pthread_mutex_unlock(&lwip_core_lock);
         LOGW("pbuf_alloc failed for length %d", length);
-        return;
+        return 1;
     }
 
     // Copies straight out of the caller's NCM receive buffer: no per-frame
@@ -866,8 +959,7 @@ static void input_frame(JNIEnv *env, LwipContext *ctx, jbyteArray frameArr, jint
     (*env)->GetByteArrayRegion(env, frameArr, offset, length, (jbyte *)p->payload);
     if ((*env)->ExceptionCheck(env)) {
         pbuf_free(p);
-        pthread_mutex_unlock(&lwip_core_lock);
-        return;
+        return 0;
     }
 
     ctx->stats_rx_frames++;
@@ -900,9 +992,18 @@ static void input_frame(JNIEnv *env, LwipContext *ctx, jbyteArray frameArr, jint
         ctx->perf[PERF_RX_DROPS]++;
         pbuf_free(p);
     }
-    pthread_mutex_unlock(&lwip_core_lock);
+    return 1;
+}
 
-    trigger_wake(ctx);
+static void input_frame(JNIEnv *env, LwipContext *ctx, jbyteArray frameArr, jint offset, jint length) {
+    if (ctx == NULL || !ctx->running || frameArr == NULL) return;
+    pthread_mutex_lock(&lwip_core_lock);
+    // With a Java exception pending no JNI call is allowed, and sending an
+    // ACK makes one; the worker picks the leftovers up on its next pass.
+    if (inject_frame_locked(env, ctx, frameArr, offset, length)) finish_input_batch(ctx);
+    int wake = ctx->wake_needed;
+    pthread_mutex_unlock(&lwip_core_lock);
+    if (wake) trigger_wake(ctx);
 }
 
 JNIEXPORT void JNICALL
@@ -917,6 +1018,37 @@ Java_com_shilapi_xcertplay_network_LwipNcmNative_nativeInputFrameRange(
         JNIEnv *env, jobject thiz, jlong handle, jbyteArray frameArr, jint offset, jint length) {
     (void)thiz;
     input_frame(env, (LwipContext *)(intptr_t)handle, frameArr, offset, length);
+}
+
+/* Must match LwipNcmNative.MAX_BATCH_FRAMES. */
+#define MAX_INPUT_BATCH_FRAMES 64
+
+/* Injects [count] frames that all live in [bufferArr]; rangesArr holds an
+ * (offset, length) pair per frame. One core-lock hold, one loopback send and
+ * one ACK flush for the whole batch. */
+JNIEXPORT void JNICALL
+Java_com_shilapi_xcertplay_network_LwipNcmNative_nativeInputFrames(
+        JNIEnv *env, jobject thiz, jlong handle, jbyteArray bufferArr, jintArray rangesArr, jint count) {
+    (void)thiz;
+    LwipContext *ctx = (LwipContext *)(intptr_t)handle;
+    if (ctx == NULL || !ctx->running || bufferArr == NULL || rangesArr == NULL) return;
+    if (count <= 0 || count > MAX_INPUT_BATCH_FRAMES) return;
+    if ((*env)->GetArrayLength(env, rangesArr) < count * 2) return;
+
+    jint ranges[MAX_INPUT_BATCH_FRAMES * 2];
+    (*env)->GetIntArrayRegion(env, rangesArr, 0, count * 2, ranges);
+
+    pthread_mutex_lock(&lwip_core_lock);
+    int ok = 1;
+    for (int i = 0; ok && i < count; i++) {
+        ok = inject_frame_locked(env, ctx, bufferArr, ranges[i * 2], ranges[i * 2 + 1]);
+    }
+    // With a Java exception pending no JNI call is allowed, and sending an
+    // ACK makes one; the worker picks the leftovers up on its next pass.
+    if (ok) finish_input_batch(ctx);
+    int wake = ctx->wake_needed;
+    pthread_mutex_unlock(&lwip_core_lock);
+    if (wake) trigger_wake(ctx);
 }
 
 /* Copies the counters into out[] and resets the per-window ones. Peaks and

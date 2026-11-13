@@ -4,6 +4,7 @@ import android.os.Process
 import android.util.Log
 import com.shilapi.xcertplay.transport.EthernetIpv6Codec
 import com.shilapi.xcertplay.transport.NcmUsbBridge
+import com.shilapi.xcertplay.transport.Ntb16Codec
 import java.io.Closeable
 import java.io.IOException
 import java.net.InetAddress
@@ -99,7 +100,15 @@ class LwipNcmBridge(
     )
 
     /** Allocated once; the NCM reader hands every frame to it in place. */
-    private val rxSink = NcmUsbBridge.FrameSink { buffer, offset, length -> onInboundFrame(buffer, offset, length) }
+    private val rxSink = object : NcmUsbBridge.FrameSink {
+        override fun onFrame(buffer: ByteArray, offset: Int, length: Int) = onInboundFrame(buffer, offset, length)
+        override fun onBatchEnd() = flushInjectBatch()
+    }
+
+    // Fast-path frames of one USB read, injected into lwIP together. RX thread only.
+    private var injectBuffer: ByteArray? = null
+    private val injectRanges = IntArray(LwipNcmNative.MAX_BATCH_FRAMES * 2)
+    private var injectCount = 0
 
     // NCM_PERF window state. perf* fields are only touched by the RX thread.
     private var perfFastFrames = 0L
@@ -174,11 +183,29 @@ class LwipNcmBridge(
 
     private fun runNcmTx() {
         boostCurrentThread("ncm-lwip-tx")
+        val batch = ArrayList<ByteArray>(TX_AGGREGATE_MAX_FRAMES)
         try {
             while (running.get()) {
                 val frame = txQueue.poll(TX_POLL_MILLIS, TimeUnit.MILLISECONDS) ?: continue
+                // Frames that queued up while the previous transfer was on the wire (mostly TCP
+                // ACKs) share one NTB and one bulk OUT transfer. Nothing waits for more to arrive.
+                batch.clear()
+                batch.add(frame)
+                var payload = Ntb16Codec.appendPayload(0, frame.size)
+                while (batch.size < TX_AGGREGATE_MAX_FRAMES) {
+                    val next = txQueue.peek() ?: break
+                    if (Ntb16Codec.aggregateLength(batch.size, payload, next.size) > TX_AGGREGATE_MAX_BYTES) break
+                    // Single consumer: the head is still [next] unless stop() cleared the queue.
+                    if (txQueue.poll() !== next) break
+                    batch.add(next)
+                    payload = Ntb16Codec.appendPayload(payload, next.size)
+                }
                 try {
-                    ncm.send(frame, WRITE_TIMEOUT_MILLIS)
+                    if (batch.size == 1) {
+                        ncm.send(frame, WRITE_TIMEOUT_MILLIS)
+                    } else {
+                        ncm.sendAggregated(batch, batch.size, WRITE_TIMEOUT_MILLIS)
+                    }
                 } catch (error: Exception) {
                     Log.w(TAG, "ncm send lwip tx frame failed: ${error.message}")
                 }
@@ -217,7 +244,25 @@ class LwipNcmBridge(
             return
         }
         perfSlowFrames++
+        // Keep wire order: the frames collected so far reach lwIP before this one.
+        flushInjectBatch()
         handleInboundFrame(buffer.copyOfRange(offset, offset + length))
+    }
+
+    private fun queueInject(buffer: ByteArray, offset: Int, length: Int) {
+        if (injectBuffer !== buffer || injectCount == LwipNcmNative.MAX_BATCH_FRAMES) flushInjectBatch()
+        injectBuffer = buffer
+        injectRanges[injectCount * 2] = offset
+        injectRanges[injectCount * 2 + 1] = length
+        injectCount++
+    }
+
+    private fun flushInjectBatch() {
+        val buffer = injectBuffer
+        val count = injectCount
+        injectBuffer = null
+        injectCount = 0
+        if (buffer != null && count > 0) lwipNative.inputFrames(buffer, injectRanges, count)
     }
 
     private fun injectFastPath(buffer: ByteArray, offset: Int, length: Int): Boolean {
@@ -246,7 +291,7 @@ class LwipNcmBridge(
             else -> return false
         }
         if (mdnsResponder != null) mdnsAnswerCalls.incrementAndGet()
-        lwipNative.inputFrame(buffer, offset, length)
+        queueInject(buffer, offset, length)
         return true
     }
 
@@ -633,6 +678,12 @@ class LwipNcmBridge(
         const val JOIN_TIMEOUT_MILLIS = 500L
         const val NA_RETRY_INTERVAL_NANOS = 500_000_000L
         const val TX_QUEUE_CAPACITY = 64
+        /**
+         * Limits for one aggregated NTB. 2048 bytes is the smallest dwNtbOutMaxSize CDC NCM lets
+         * a device report, so no phone can refuse it; an iPhone reports 32768 and 32 datagrams.
+         */
+        const val TX_AGGREGATE_MAX_BYTES = 2048
+        const val TX_AGGREGATE_MAX_FRAMES = 16
         const val TX_POLL_MILLIS = 200L
         const val PERF_LOG_INTERVAL_NANOS = 5_000_000_000L
         const val ETHERNET_HEADER_BYTES = 14
