@@ -318,12 +318,25 @@ class UsbBtHci private constructor(
         }
 
         // 6. Set_Event_Mask
-        timed(
+        // Without the Secure Simple Pairing events the host never sees IO Capability
+        // Request and every pairing ends in Authentication Failure (0x05).
+        val eventMask = timed(
             "Set_Event_Mask",
             UsbBtTiming.WRITE_POLICY,
             OP_SET_EVENT_MASK,
-            encodeSetEventMask(),
+            encodeSetEventMask(HciProtocol.EVENT_MASK_FULL),
         )
+        if (eventMask is HciResult.Failed) {
+            val fallback = timed(
+                "Set_Event_Mask_Default_With_SSP",
+                UsbBtTiming.WRITE_POLICY,
+                OP_SET_EVENT_MASK,
+                encodeSetEventMask(HciProtocol.EVENT_MASK_DEFAULT_WITH_SSP),
+            )
+            if (fallback is HciResult.Failed) {
+                step("Set_Event_Mask FAIL: pairing events are masked, iPhone pairing cannot work (${fallback.reason})")
+            }
+        }
 
         // 7. Write_Local_Name (set name as early as possible so inquiry shows DiPlay-XXXX immediately)
         val suffix = bdAddr?.takeLast(5)?.replace(":", "") ?: "BT"

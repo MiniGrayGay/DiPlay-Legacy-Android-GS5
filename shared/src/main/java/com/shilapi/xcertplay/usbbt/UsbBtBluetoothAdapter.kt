@@ -213,6 +213,10 @@ class UsbBtBluetoothAdapter(
                     val advName = init.value.advertisingName.ifEmpty { "DiPlay-${localBdAddr?.takeLast(5)?.replace(":", "") ?: "BT"}" }
                     val enableMsg = "USB Bluetooth enabled: bdAddr=$localBdAddr vendor=${dongle.vendorLabel} advertising=$advName"
                     UsbBtLog.log(appContext, TAG, enableMsg)
+                    // Init steps only reach logcat; keep the failed ones in the diagnostic report.
+                    init.value.steps.filter { "FAIL" in it }.forEach {
+                        UsbBtLog.warn(appContext, TAG, "HCI init step $it")
+                    }
                     return true
                 }
             }

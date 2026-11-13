@@ -215,8 +215,23 @@ object HciProtocol {
         ((policy ushr 8) and 0xFF).toByte(),
     )
 
+    /**
+     * Event mask with every event this stack uses and no reserved bit: all BR/EDR
+     * events through Bluetooth 4.0 including Secure Simple Pairing, plus LE Meta.
+     * All-ones is not valid: a CSR8510 rejects the reserved bits with 0x12
+     * (Invalid HCI Command Parameters), the mask stays at the controller default,
+     * and that default hides IO Capability Request, so pairing fails with 0x05.
+     */
+    const val EVENT_MASK_FULL = 0x3DBFF807FFFBFFFFL
+
+    /** Controller default (bits 0-44) plus the Secure Simple Pairing events (bits 48-53). */
+    const val EVENT_MASK_DEFAULT_WITH_SSP = 0x003F1FFFFFFFFFFFL
+
+    /** Bits 48, 50 and 53: IO Capability Request, User Confirmation Request, Simple Pairing Complete. */
+    const val EVENT_MASK_SSP_REQUIRED = 0x0025000000000000L
+
     /** Encode Set_Event_Mask: 8 bytes LE. */
-    fun encodeSetEventMask(mask: Long = -1L): ByteArray {
+    fun encodeSetEventMask(mask: Long = EVENT_MASK_FULL): ByteArray {
         val out = ByteArray(8)
         for (i in 0..7) {
             out[i] = ((mask ushr (i * 8)) and 0xFF).toByte()

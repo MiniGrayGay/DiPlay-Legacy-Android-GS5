@@ -305,9 +305,10 @@ class UsbBtPairingAgent(
     }
 
     private fun onSimplePairingComplete(event: HciProtocol.HciEvent) {
-        if (event.params.size < 8) return
+        // params = status(1) | BD_ADDR(6)
+        if (event.params.size < 7) return
         val status = event.params[0].toInt() and 0xFF
-        val bdAddr = bdAddrFrom(event) ?: "?"
+        val bdAddr = HciProtocol.parseBdAddrBytes(event.params, 1) ?: "?"
         val msg = if (status == 0) "pairing complete with $bdAddr"
         else "pairing FAILED with $bdAddr status=0x${status.toString(16)}"
         UsbBtLog.log(context, TAG, msg)
