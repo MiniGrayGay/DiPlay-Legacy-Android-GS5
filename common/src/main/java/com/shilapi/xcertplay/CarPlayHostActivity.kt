@@ -704,7 +704,6 @@ class CarPlayHostActivity : ComponentActivity() {
     private var hostapdChannel = 1
     private var hostapdAppleVendorIe = false
     private var carplayAutoDisconnectBt = false
-    private var builtInBtGuard: BuiltInBluetoothGuard? = null
     private var telephonyDownlinkViaMusic = false
     private var announcementDuckMedia = false
     private var dockBarRefrontEnabled = false
@@ -1074,8 +1073,8 @@ class CarPlayHostActivity : ComponentActivity() {
         telephonyDownlinkViaMusic = AirPlayPersistence.loadTelephonyDownlinkViaMusic(this)
         announcementDuckMedia = AirPlayPersistence.loadAnnouncementDuckMedia(this)
         dockBarRefrontEnabled = AirPlayPersistence.loadDockBarRefront(this)
-        builtInBtGuard = if (GuangqiCluster.present(this) && AirPlayPersistence.loadSuppressBuiltInBt(this))
-            BuiltInBluetoothGuard(log = ::appendLog) else null
+        // A previous run that died with the car's Bluetooth turned off gives it back here.
+        com.shilapi.xcertplay.orchestration.CarBluetoothSession.recoverAfterRestart(applicationContext) { Log.i(TAG, it) }
     }
 
     private fun requestStartupPrerequisites() {
@@ -1922,7 +1921,10 @@ class CarPlayHostActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
-        builtInBtGuard?.restoreNow()
+        // A session that keeps running in the background still needs the car's Bluetooth off.
+        if (isFinishing && !CarPlayBackgroundSession.hasSession()) {
+            com.shilapi.xcertplay.orchestration.CarBluetoothSession.restoreNow(applicationContext) { Log.i(TAG, it) }
+        }
         invalidateMainPicture()
         startupAutomation?.close()
         secondScreen.stop()
@@ -4784,7 +4786,6 @@ class CarPlayHostActivity : ComponentActivity() {
                     clearStartupRetryStop()
                     logThemeState(ThemeModeDiagnostics.Source.SESSION_ACTIVE, resources.configuration)
                     syncAirPlayDarkMode(ThemeModeDiagnostics.Source.SESSION_ACTIVE)
-                    builtInBtGuard?.suppress()
                     if (menuOpen) return@runOnUiThread
                     appendLog("AirPlay session active")
                 }
@@ -4831,7 +4832,6 @@ class CarPlayHostActivity : ComponentActivity() {
                     invalidateMainPicture()
                     activeAirPlaySession = null
                     CarPlayBackgroundSession.active = false
-                    builtInBtGuard?.release()
                     if (menuOpen) {
                         recoveryPendingAfterMenu = true
                         return@runOnUiThread

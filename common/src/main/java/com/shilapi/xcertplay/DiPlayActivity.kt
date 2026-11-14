@@ -1652,25 +1652,15 @@ class DiPlayActivity : ComponentActivity() {
                 AirPlayPersistence.saveHostapdAppleVendorIe(this, it)
                 markReconnectNeeded()
             }
-            // Issue #343: after wireless CarPlay connects, the phone's native
-            // Bluetooth call screen keeps popping up next to the CarPlay call
-            // screen. This switch turns the head unit Bluetooth off once the
-            // session is fully on Wi-Fi (tunnel handoff done), which drops the
-            // native Bluetooth link; Bluetooth is turned back on when the
-            // session ends. Wireless only; applies at the next connection.
+            // Issue #343: while the iPhone stays on the car's own Bluetooth, the car's
+            // native call screen pops up next to the CarPlay one and takes the audio.
+            // This switch drops that link once a wired or wireless session is up; see
+            // CarBluetoothRelease. Applies at the next connection.
             toggle(card, getString(R.string.settings_carplay_auto_disconnect_bt),
                 getString(R.string.settings_carplay_auto_disconnect_bt_description),
                 AirPlayPersistence.loadCarplayAutoDisconnectBt(this)) {
                 AirPlayPersistence.saveCarplayAutoDisconnectBt(this, it)
                 markReconnectNeeded()
-            }
-            if (GuangqiCluster.present(this)) {
-                toggle(card, getString(R.string.settings_suppress_built_in_bt),
-                    getString(R.string.settings_suppress_built_in_bt_description),
-                    AirPlayPersistence.loadSuppressBuiltInBt(this)) {
-                    AirPlayPersistence.saveSuppressBuiltInBt(this, it)
-                    markReconnectNeeded()
-                }
             }
             // Issue #343-Q1: when the call downlink is silent on the telephony stream
             // while media audio works, route just the downlink through the music stream.
