@@ -38,27 +38,65 @@ internal class CarBluetoothReleaseStore(context: Context) : CarBluetoothRelease.
 }
 
 /**
+ * Decides whether [BluetoothDisableGuard] turns the adapter off once more or gives up.
+ *
+ * Two limits: [maxRapid] re-enables in a row less than [rapidThresholdMillis] apart (something is
+ * fighting back at once), and [maxTotal] re-disables since the guard was armed. The second one
+ * matters on the Guangqi head unit, whose service re-enables every 4-5 seconds: far too slow for
+ * the first limit, and without a second one the radio would be switched for the whole session.
+ */
+internal class BluetoothReDisablePolicy(
+    private val rapidThresholdMillis: Long = 2_000L,
+    private val maxRapid: Int = 5,
+    private val maxTotal: Int = 20,
+) {
+    enum class Decision { DISABLE_AGAIN, GIVE_UP_RAPID, GIVE_UP_TOTAL }
+
+    private var lastDisableMillis = 0L
+    var rapid = 0
+        private set
+    var total = 0
+        private set
+
+    fun reset() {
+        lastDisableMillis = 0L
+        rapid = 0
+        total = 0
+    }
+
+    /** The adapter came on at [nowMillis] (a monotonic clock, greater than zero). */
+    fun onReEnabled(nowMillis: Long): Decision {
+        if (lastDisableMillis > 0L && nowMillis - lastDisableMillis < rapidThresholdMillis) {
+            if (++rapid >= maxRapid) return Decision.GIVE_UP_RAPID
+        } else {
+            rapid = 0
+        }
+        if (total >= maxTotal) return Decision.GIVE_UP_TOTAL
+        total++
+        lastDisableMillis = nowMillis
+        return Decision.DISABLE_AGAIN
+    }
+}
+
+/**
  * Re-disables the car's Bluetooth adapter whenever the car's own service re-enables it.
  *
  * The Guangqi head unit's Bluetooth service detects an adapter-off and turns it back on within
  * 4-5 seconds.  This receiver catches every [BluetoothAdapter.STATE_ON] transition and calls
  * [BluetoothAdapter.disable] again while [CarBluetoothReleaseStore.turnedOff] is set.
- * It auto-disarms when the store flag clears (restore happened) or on a tight re-enable loop.
+ * It disarms itself when the store flag clears (restore happened) or when
+ * [BluetoothReDisablePolicy] gives up. DiPlay disarms it before it turns the adapter on itself
+ * (a wireless start's Bluetooth bootstrap); the next established session arms it again.
  */
 @SuppressLint("MissingPermission")
 internal object BluetoothDisableGuard {
-    private const val RAPID_THRESHOLD_MS = 2_000L
-    private const val MAX_RAPID_RETRIES = 5
-
+    private val policy = BluetoothReDisablePolicy()
     private var receiver: BroadcastReceiver? = null
-    private var lastDisableMs = 0L
-    private var rapidRetries = 0
 
     @Synchronized
     fun arm(context: Context, log: (String) -> Unit) {
         internalDisarm(context)
-        lastDisableMs = 0L
-        rapidRetries = 0
+        policy.reset()
         val appContext = context.applicationContext
         val r = object : BroadcastReceiver() {
             override fun onReceive(ctx: Context, intent: Intent) {
@@ -94,20 +132,20 @@ internal object BluetoothDisableGuard {
             internalDisarm(context)
             return
         }
-        val now = SystemClock.elapsedRealtime()
-        if (lastDisableMs > 0L && now - lastDisableMs < RAPID_THRESHOLD_MS) {
-            rapidRetries++
-            if (rapidRetries >= MAX_RAPID_RETRIES) {
-                log("carBluetooth=guard: rapid re-enable loop ($MAX_RAPID_RETRIES×), giving up")
+        when (policy.onReEnabled(SystemClock.elapsedRealtime())) {
+            BluetoothReDisablePolicy.Decision.GIVE_UP_RAPID -> {
+                log("carBluetooth=guard: rapid re-enable loop (${policy.rapid}x), giving up")
                 internalDisarm(context)
-                return
             }
-        } else {
-            rapidRetries = 0
+            BluetoothReDisablePolicy.Decision.GIVE_UP_TOTAL -> {
+                log("carBluetooth=guard: car re-enabled adapter ${policy.total}x since armed, giving up")
+                internalDisarm(context)
+            }
+            BluetoothReDisablePolicy.Decision.DISABLE_AGAIN -> {
+                log("carBluetooth=guard: car re-enabled adapter, re-disabling (total=${policy.total} rapid=${policy.rapid})")
+                runCatching { BluetoothAdapter.getDefaultAdapter()?.disable() }
+            }
         }
-        lastDisableMs = now
-        log("carBluetooth=guard: car re-enabled adapter, re-disabling (rapid=$rapidRetries)")
-        runCatching { BluetoothAdapter.getDefaultAdapter()?.disable() }
     }
 }
 
@@ -126,9 +164,9 @@ object CarBluetoothSession {
 
     /** DiPlay is closing with no session left: give the car's Bluetooth back at once. */
     fun restoreNow(context: Context, log: (String) -> Unit) {
+        BluetoothDisableGuard.disarm(context)
         val store = CarBluetoothReleaseStore(context)
         if (!store.turnedOff) return
-        BluetoothDisableGuard.disarm(context)
         Thread({
             CarBluetoothRelease.shared.restoreNow(AndroidCarBluetoothAdapter(), store, log)
         }, "diplay-car-bluetooth-restore").apply { isDaemon = true }.start()

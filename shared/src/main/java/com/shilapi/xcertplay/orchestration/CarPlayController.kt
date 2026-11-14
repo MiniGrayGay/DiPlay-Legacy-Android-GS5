@@ -1475,7 +1475,14 @@ class CarPlayController(
                 runCatching {
                     // hybridBt.enable() also turns the car's own Bluetooth on; leave that off when
                     // CarBluetoothRelease turned it off and the USB adapter does the bootstrap.
-                    if (usbBluetooth != null && carBluetoothStore.turnedOff) usbBluetooth.enable() else hybridBt.enable()
+                    if (usbBluetooth != null && carBluetoothStore.turnedOff) {
+                        usbBluetooth.enable()
+                    } else {
+                        // The bootstrap needs the car's own Bluetooth: the guard must not turn it
+                        // off again. The established session re-arms it.
+                        BluetoothDisableGuard.disarm(appContext)
+                        hybridBt.enable()
+                    }
                 }
                 val enableDeadline = System.currentTimeMillis() + 3000L
                 while (!hybridBt.isEnabled() && System.currentTimeMillis() < enableDeadline) {
@@ -1626,6 +1633,7 @@ class CarPlayController(
             // one that CarBluetoothRelease turned off for the previous session stays off.
             val carBluetoothHeldOff = hybridAdapter.usbDongle?.isSupported() == true && carBluetoothStore.turnedOff
             if (adapter != null && !adapter.isEnabled && !carBluetoothHeldOff) {
+                BluetoothDisableGuard.disarm(appContext)
                 runCatching { adapter.enable() }
                 // Upstream #822: wait only while the adapter is actually turning on;
                 // break early on other states instead of sleeping the full deadline.
