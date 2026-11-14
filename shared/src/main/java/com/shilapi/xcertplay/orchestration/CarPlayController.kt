@@ -390,6 +390,7 @@ class CarPlayController(
             if (replacement && config.transport == CarPlayTransport.WIRED && releaseCarBluetooth) {
                 Thread({
                     CarBluetoothRelease.shared.sessionEstablished(carBluetoothAdapter, carBluetoothStore, ::debugLog)
+                    if (carBluetoothStore.turnedOff) BluetoothDisableGuard.arm(appContext, ::debugLog)
                 }, "xcertplay-car-bluetooth").apply { isDaemon = true }.start()
             }
             if (replacement) {
@@ -2427,6 +2428,7 @@ class CarPlayController(
                     // (the native call screen rides that link); see CarBluetoothRelease.
                     if (releaseCarBluetooth) {
                         CarBluetoothRelease.shared.sessionEstablished(carBluetoothAdapter, carBluetoothStore, ::debugLog)
+                        if (carBluetoothStore.turnedOff) BluetoothDisableGuard.arm(appContext, ::debugLog)
                     }
                 }
             },
