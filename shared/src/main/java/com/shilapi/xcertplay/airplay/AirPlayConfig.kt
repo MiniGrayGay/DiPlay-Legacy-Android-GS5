@@ -92,6 +92,13 @@ data class AirPlayConfig(
      * ahead of time over TCP, so short Wi-Fi gaps do not interrupt it.
      */
     val mainBufferedAudio: Boolean = false,
+    /**
+     * Other Bluetooth addresses of this car, declared in `bluetoothIDs` next to [btMac]. With an
+     * external USB Bluetooth adapter [btMac] is the adapter, so the car's built-in Bluetooth goes
+     * here: the iPhone then drops its phone and music connection to it for the CarPlay session
+     * instead of running calls on both. Leave empty when sound is meant to stay on that connection.
+     */
+    val additionalBluetoothIds: List<String> = emptyList(),
 )
 
 /** The offer, SETUP and controls must all honor the user's audio-output setting. */

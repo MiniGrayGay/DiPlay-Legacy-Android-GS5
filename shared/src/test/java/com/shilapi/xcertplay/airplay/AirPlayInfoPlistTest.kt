@@ -35,6 +35,22 @@ class AirPlayInfoPlistTest {
     }
 
     @Test
+    fun builtInBluetoothIsDeclaredNextToTheAdapterAddress() {
+        val base = AirPlayConfig(
+            deviceName = "test",
+            deviceId = "02:00:00:00:00:02",
+            btMac = "00:1A:7D:DA:71:13",
+            sourceVersion = "366.0",
+            main = AirPlayDisplayConfig(widthPixels = 1280, heightPixels = 720),
+        )
+        // Wired, or no adapter: one address, as before.
+        assertEquals(listOf("00:1A:7D:DA:71:13"), AirPlayInfoPlist.build(base)["bluetoothIDs"])
+        // The pairing address stays first; a repeat in another letter case is not listed twice.
+        val both = base.copy(additionalBluetoothIds = listOf("00:1a:7d:da:71:13", "AA:BB:CC:DD:EE:FF", " "))
+        assertEquals(listOf("00:1A:7D:DA:71:13", "AA:BB:CC:DD:EE:FF"), AirPlayInfoPlist.build(both)["bluetoothIDs"])
+    }
+
+    @Test
     fun forceSquareCornersOmitsSafeAreaToEliminateRoundedCornerMask() {
         val info = AirPlayInfoPlist.build(
             AirPlayConfig(

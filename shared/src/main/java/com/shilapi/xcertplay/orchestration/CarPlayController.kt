@@ -29,6 +29,7 @@ import android.util.Log
 import com.shilapi.xcertplay.airplay.AirPlayListenerIdentity
 import com.shilapi.xcertplay.airplay.AirPlayTcpAccepted
 import com.shilapi.xcertplay.airplay.AirPlayConfig
+import com.shilapi.xcertplay.airplay.AirPlayInfoPlist
 import com.shilapi.xcertplay.airplay.AirPlayMediaActivity
 import com.shilapi.xcertplay.airplay.AirPlayContact
 import com.shilapi.xcertplay.airplay.AirPlayKnobState
@@ -1631,6 +1632,7 @@ class CarPlayController(
                 deviceId = deviceIdentifier,
                 btMac = hostBluetoothMac,
             )
+            debugLog("wireless bluetoothIDs=${AirPlayInfoPlist.bluetoothIds(wirelessAirPlayConfig)}")
 
             onStatus(CarPlayStatus.AttachingNetwork)
             stage = "AirPlay listener startup"

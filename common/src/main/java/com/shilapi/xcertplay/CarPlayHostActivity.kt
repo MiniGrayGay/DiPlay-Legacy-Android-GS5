@@ -4523,10 +4523,23 @@ class CarPlayHostActivity : ComponentActivity() {
                 appendLog("Car Bluetooth audio: WARNING USB Bluetooth dongle present; the dongle cannot play audio, sound needs the car's own Bluetooth")
             }
         }
+        // The car's own Bluetooth. A wireless session through a USB Bluetooth adapter replaces
+        // btMac with the adapter's address, and this keeps the built-in one declared so the iPhone
+        // releases it. Not declared when sound is meant to stay on that connection.
+        val carBluetoothIds = if (AirPlayPersistence.loadCarBluetoothAudio(this)) {
+            emptyList()
+        } else {
+            listOfNotNull(
+                DiPlayBluetooth.localAddress(this),
+                com.shilapi.xcertplay.bluetooth.BluetoothAddressResolver.resolve(this),
+            ).distinct()
+        }
+        appendLog("Car Bluetooth addresses declared to the iPhone: ${carBluetoothIds.ifEmpty { "none" }}")
         return AirPlayConfig(
             deviceName = "DiPlay",
             deviceId = DiPlayBootstrap.deviceId(airPlayIdentity),
             btMac = DiPlayBluetooth.localAddress(this) ?: DiPlayBootstrap.deviceId(airPlayIdentity),
+            additionalBluetoothIds = carBluetoothIds,
             sourceVersion = "950.7.1",
             main = declared,
             cluster = clusterDisplayConfig(),
