@@ -1652,12 +1652,11 @@ class DiPlayActivity : ComponentActivity() {
                 AirPlayPersistence.saveHostapdAppleVendorIe(this, it)
                 markReconnectNeeded()
             }
-            // Issue #343: after wireless CarPlay connects, the phone's native
-            // Bluetooth call screen keeps popping up next to the CarPlay call
-            // screen. This switch turns the head unit Bluetooth off once the
-            // session is fully on Wi-Fi (tunnel handoff done), which drops the
-            // native Bluetooth link; Bluetooth is turned back on when the
-            // session ends. Wireless only; applies at the next connection.
+            // Issue #343: the car's global "自动连接" pages the phone back after
+            // CarPlay makes the phone drop HFP. This switch turns that off for
+            // the session, wired or wireless, and restores the previous value
+            // when the session ends. The Bluetooth radio stays on. Applies at
+            // the next connection.
             toggle(card, getString(R.string.settings_carplay_auto_disconnect_bt),
                 getString(R.string.settings_carplay_auto_disconnect_bt_description),
                 AirPlayPersistence.loadCarplayAutoDisconnectBt(this)) {

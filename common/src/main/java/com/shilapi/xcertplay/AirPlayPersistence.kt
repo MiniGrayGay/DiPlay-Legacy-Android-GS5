@@ -757,7 +757,7 @@ object AirPlayPersistence {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_HOSTAPD_APPLE_VENDOR_IE, enabled).apply()
     }
 
-    /** Issue #343: auto-disconnect phone Bluetooth after wireless CarPlay connects (Advanced, experimental). */
+    /** Issue #343: hold the car's global Bluetooth auto-connect off during CarPlay (Advanced, experimental). */
     fun loadCarplayAutoDisconnectBt(context: Context): Boolean =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_CARPLAY_AUTO_DISCONNECT_BT, false)
 
