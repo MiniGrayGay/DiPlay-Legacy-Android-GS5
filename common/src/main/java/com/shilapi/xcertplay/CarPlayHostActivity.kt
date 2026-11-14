@@ -704,6 +704,7 @@ class CarPlayHostActivity : ComponentActivity() {
     private var hostapdChannel = 1
     private var hostapdAppleVendorIe = false
     private var carplayAutoDisconnectBt = false
+    private var builtInBtGuard: BuiltInBluetoothGuard? = null
     private var telephonyDownlinkViaMusic = false
     private var announcementDuckMedia = false
     private var dockBarRefrontEnabled = false
@@ -1073,6 +1074,8 @@ class CarPlayHostActivity : ComponentActivity() {
         telephonyDownlinkViaMusic = AirPlayPersistence.loadTelephonyDownlinkViaMusic(this)
         announcementDuckMedia = AirPlayPersistence.loadAnnouncementDuckMedia(this)
         dockBarRefrontEnabled = AirPlayPersistence.loadDockBarRefront(this)
+        builtInBtGuard = if (GuangqiCluster.present(this) && AirPlayPersistence.loadSuppressBuiltInBt(this))
+            BuiltInBluetoothGuard(log = ::appendLog) else null
     }
 
     private fun requestStartupPrerequisites() {
@@ -1919,6 +1922,7 @@ class CarPlayHostActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        builtInBtGuard?.restoreNow()
         invalidateMainPicture()
         startupAutomation?.close()
         secondScreen.stop()
@@ -4780,6 +4784,7 @@ class CarPlayHostActivity : ComponentActivity() {
                     clearStartupRetryStop()
                     logThemeState(ThemeModeDiagnostics.Source.SESSION_ACTIVE, resources.configuration)
                     syncAirPlayDarkMode(ThemeModeDiagnostics.Source.SESSION_ACTIVE)
+                    builtInBtGuard?.suppress()
                     if (menuOpen) return@runOnUiThread
                     appendLog("AirPlay session active")
                 }
@@ -4826,6 +4831,7 @@ class CarPlayHostActivity : ComponentActivity() {
                     invalidateMainPicture()
                     activeAirPlaySession = null
                     CarPlayBackgroundSession.active = false
+                    builtInBtGuard?.release()
                     if (menuOpen) {
                         recoveryPendingAfterMenu = true
                         return@runOnUiThread

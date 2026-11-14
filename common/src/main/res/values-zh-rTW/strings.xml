@@ -784,6 +784,8 @@
     <string name="settings_hostapd_apple_vendor_ie_description">給 Root 熱點（hostapd）的信標加上 Apple 廠商資訊元，iPhone 才會自動加入。沒有它時 iPhone 不會自動關聯（手動點選卻能連上）。僅影響 Root 熱點模式。下次連接時生效。</string>
     <string name="settings_carplay_auto_disconnect_bt">連上 CarPlay 後自動斷開手機藍牙（實驗性）</string>
     <string name="settings_carplay_auto_disconnect_bt_description">無線 CarPlay 連上後，關閉車機藍牙，讓手機不再彈出原生藍牙通話介面；工作階段結束時再把藍牙打開。僅無線連線生效，下次連線時生效。如果應用程式異常退出，藍牙可能保持關閉，需在系統設定裡手動重新打開。</string>
+    <string name="settings_suppress_built_in_bt">CarPlay 期間關閉內建藍牙（實驗性）</string>
+    <string name="settings_suppress_built_in_bt_description">CarPlay 工作階段開始時關閉車機內建藍牙（Parrot 模組），防止內建藍牙來電搶佔 CarPlay 通話音訊。工作階段斷開 30 秒後恢復藍牙，DiPlay 退出時立即恢復。僅廣汽 GS5，下次連線時生效。</string>
     <string name="settings_telephony_downlink_via_music">通話下行改走音樂流（實驗性）</string>
     <string name="settings_telephony_downlink_via_music_description">通話下行改走音樂流而不是通話流，通話模式和麥克風上行不變。僅當通話流下行無聲、而媒體音訊有聲時使用。下次連線時生效。</string>
     <string name="settings_announcement_duck_media">播報時壓低媒體音量（實驗性）</string>

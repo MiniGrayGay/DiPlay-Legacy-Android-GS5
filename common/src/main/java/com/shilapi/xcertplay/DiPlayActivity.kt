@@ -1664,6 +1664,14 @@ class DiPlayActivity : ComponentActivity() {
                 AirPlayPersistence.saveCarplayAutoDisconnectBt(this, it)
                 markReconnectNeeded()
             }
+            if (GuangqiCluster.present(this)) {
+                toggle(card, getString(R.string.settings_suppress_built_in_bt),
+                    getString(R.string.settings_suppress_built_in_bt_description),
+                    AirPlayPersistence.loadSuppressBuiltInBt(this)) {
+                    AirPlayPersistence.saveSuppressBuiltInBt(this, it)
+                    markReconnectNeeded()
+                }
+            }
             // Issue #343-Q1: when the call downlink is silent on the telephony stream
             // while media audio works, route just the downlink through the music stream.
             // Call mode and the microphone uplink stay unchanged; applies at the next

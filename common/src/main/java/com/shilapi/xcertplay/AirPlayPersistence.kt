@@ -81,6 +81,7 @@ object AirPlayPersistence {
     private const val KEY_HOSTAPD_CHANNEL = "hostapd_channel"
     private const val KEY_HOSTAPD_APPLE_VENDOR_IE = "hostapd_apple_vendor_ie"
     private const val KEY_CARPLAY_AUTO_DISCONNECT_BT = "carplay_auto_disconnect_bt"
+    private const val KEY_SUPPRESS_BUILT_IN_BT = "suppress_built_in_bt"
     private const val KEY_TELEPHONY_DOWNLINK_VIA_MUSIC = "telephony_downlink_via_music"
     private const val KEY_ANNOUNCEMENT_DUCK_MEDIA = "announcement_duck_media"
     private const val KEY_DOCK_BAR_REFRONT = "dock_bar_refront"
@@ -763,6 +764,13 @@ object AirPlayPersistence {
 
     fun saveCarplayAutoDisconnectBt(context: Context, enabled: Boolean) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_CARPLAY_AUTO_DISCONNECT_BT, enabled).apply()
+    }
+
+    fun loadSuppressBuiltInBt(context: Context): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_SUPPRESS_BUILT_IN_BT, false)
+
+    fun saveSuppressBuiltInBt(context: Context, enabled: Boolean) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_SUPPRESS_BUILT_IN_BT, enabled).apply()
     }
 
     /** Issue #343-Q1: route the call downlink through the music stream (Advanced, experimental). */
