@@ -325,29 +325,7 @@ class CarPlayController(
     private val wirelessPostTransportConfigurationSent = AtomicBoolean(false)
     private val wirelessBootstrapReleaseScheduled = AtomicBoolean(false)
     /** Issue #343: true once this session's handoff turned Bluetooth off; restored at session end. */
-    private val carBluetoothStore = CarBluetoothReleaseStore(appContext)
-    private val carBluetoothAdapter = object : AndroidCarBluetoothAdapter() {
-        // Prefer dropping just the HFP link (the native call screen rides it) over turning the
-        // whole adapter off.
-        override fun releaseCallLink(): Boolean {
-            val adapter = adapter() ?: return false
-            val hfpDevices = runCatching {
-                connectedBluetoothDevices(adapter, BluetoothProfile.HEADSET, BluetoothHeadset::class.java)
-            }.getOrDefault(emptySet())
-            debugLog("carBluetooth=hfpDevices=${hfpDevices.size}")
-            return releaseHfpLinks(adapter, hfpDevices)
-        }
-    }
-
-    /** Off while sound is meant to play over the car's own Bluetooth: that needs the link. */
-    private val releaseCarBluetooth: Boolean
-        get() = config.carplayAutoDisconnectBt && !airPlayConfig.disableAudioOutput
-
-    /** No-op unless CarBluetoothRelease turned the car's Bluetooth off; never blocks the caller. */
-    private fun scheduleCarBluetoothRestore() {
-        if (!carBluetoothStore.turnedOff) return
-        CarBluetoothRelease.shared.sessionEnded(carBluetoothAdapter, carBluetoothStore, ::debugLog)
-    }
+    private val autoBtDisabled = AtomicBoolean(false)
     private val wirelessAirPlayRequestsInFlight = AtomicInteger()
     private val wirelessLastAirPlayActivityMs = AtomicLong(0L)
     private val wirelessTcpAcceptedAtMs = AtomicLong(0L)
@@ -384,14 +362,6 @@ class CarPlayController(
                     if (it) renderedSession = null
                     activeSession = session
                 }
-            }
-            // Wireless waits for the tunnel handoff (maybeCompleteWirelessHandoff): its Bluetooth
-            // bootstrap may still need the link. A wired session never uses it.
-            if (replacement && config.transport == CarPlayTransport.WIRED && releaseCarBluetooth) {
-                Thread({
-                    CarBluetoothRelease.shared.sessionEstablished(carBluetoothAdapter, carBluetoothStore, ::debugLog)
-                    if (carBluetoothStore.turnedOff) BluetoothDisableGuard.arm(appContext, ::debugLog)
-                }, "xcertplay-car-bluetooth").apply { isDaemon = true }.start()
             }
             if (replacement) {
                 BydNavigationOutputs.start(appContext)
@@ -461,7 +431,6 @@ class CarPlayController(
                 renderedSession = null
                 activeSession = null
             }
-            scheduleCarBluetoothRestore()
             BydNavigationOutputs.endNow(preserveTurnOverlay = !closed && config.transport == CarPlayTransport.WIRELESS)
             com.shilapi.xcertplay.glance.CarPlayGlance.setConnected(false)
             videoListener?.onVideoSessionEnded()
@@ -862,7 +831,6 @@ class CarPlayController(
         }
         firstTcpWatchdog?.terminate()
         startupTimer.shutdownNow()
-        scheduleCarBluetoothRestore()
         (hotspot as? ManualHotspotManager)?.close()
         val teardownStarted = System.nanoTime()
         connectionDiagnostic("teardown begin transport=${config.transport}")
@@ -1471,19 +1439,7 @@ class CarPlayController(
             // starts off (e.g. Rockchip rkpx3, no BT switch in Android
             // settings) could never get past this check.
             if (!hybridBt.isEnabled()) {
-                val usbBluetooth = hybridBt.usbDongle?.takeIf { it.isSupported() }
-                runCatching {
-                    // hybridBt.enable() also turns the car's own Bluetooth on; leave that off when
-                    // CarBluetoothRelease turned it off and the USB adapter does the bootstrap.
-                    if (usbBluetooth != null && carBluetoothStore.turnedOff) {
-                        usbBluetooth.enable()
-                    } else {
-                        // The bootstrap needs the car's own Bluetooth: the guard must not turn it
-                        // off again. The established session re-arms it.
-                        BluetoothDisableGuard.disarm(appContext)
-                        hybridBt.enable()
-                    }
-                }
+                runCatching { hybridBt.enable() }
                 val enableDeadline = System.currentTimeMillis() + 3000L
                 while (!hybridBt.isEnabled() && System.currentTimeMillis() < enableDeadline) {
                     try {
@@ -1629,11 +1585,7 @@ class CarPlayController(
 
             val adapter = bluetoothAdapter
             val hybridAdapter = CarPlayBluetoothManager.get(appContext)
-            // With a USB Bluetooth adapter the bootstrap does not use the car's own Bluetooth, so
-            // one that CarBluetoothRelease turned off for the previous session stays off.
-            val carBluetoothHeldOff = hybridAdapter.usbDongle?.isSupported() == true && carBluetoothStore.turnedOff
-            if (adapter != null && !adapter.isEnabled && !carBluetoothHeldOff) {
-                BluetoothDisableGuard.disarm(appContext)
+            if (adapter != null && !adapter.isEnabled) {
                 runCatching { adapter.enable() }
                 // Upstream #822: wait only while the adapter is actually turning on;
                 // break early on other states instead of sleeping the full deadline.
@@ -2228,6 +2180,10 @@ class CarPlayController(
 
             override fun onSessionActive(session: AirPlaySession) {
                 if (isStaleWirelessRun(generation)) return
+                // Issue #343: a new wireless session starts with the auto-disconnect
+                // flag clear, so a previous session whose end never fired cannot
+                // suppress this session's disconnect.
+                autoBtDisabled.set(false)
                 if (!watchdog.sessionEstablished()) return
                 wirelessDiagnostic("AirPlay session active; Bluetooth bootstrap retained until tunnel handoff")
                 wirelessDiagnostics?.let {
@@ -2242,6 +2198,11 @@ class CarPlayController(
 
             override fun onSessionEnded(session: AirPlaySession) {
                 if (isStaleWirelessRun(generation)) return
+                // Issue #343: turn Bluetooth back on if this session disabled it.
+                if (autoBtDisabled.compareAndSet(true, false)) {
+                    runCatching { BluetoothAdapter.getDefaultAdapter()?.enable() }
+                    wirelessDiagnostic("autoBtDisconnect=restored (wireless session ended)")
+                }
                 wirelessDiagnostic("AirPlay session ended activeSessionPresent=${activeSession != null}")
                 if (activeSession == null) {
                     watchdog.onTcpClosedBeforeEstablished()
@@ -2432,11 +2393,33 @@ class CarPlayController(
                     // Issue #343: the session is now fully on Wi-Fi (tunnel ready,
                     // bootstrap transport closed by the app itself), so dropping the
                     // Bluetooth link cannot break the bootstrap anymore. With the
-                    // experimental switch on, drop the phone's native Bluetooth link
-                    // (the native call screen rides that link); see CarBluetoothRelease.
-                    if (releaseCarBluetooth) {
-                        CarBluetoothRelease.shared.sessionEstablished(carBluetoothAdapter, carBluetoothStore, ::debugLog)
-                        if (carBluetoothStore.turnedOff) BluetoothDisableGuard.arm(appContext, ::debugLog)
+                    // experimental switch on, turn the head unit Bluetooth off to
+                    // drop the phone's native Bluetooth link (the native call
+                    // screen rides that link); it is turned back on at session end.
+                    if (config.carplayAutoDisconnectBt && !autoBtDisabled.get()) {
+                        val adapter = runCatching { BluetoothAdapter.getDefaultAdapter() }.getOrNull()
+                        if (adapter == null) {
+                            debugLog("autoBtDisconnect=skipped (no Bluetooth adapter)")
+                        } else if (!adapter.isEnabled) {
+                            debugLog("autoBtDisconnect=skipped (adapter already off)")
+                        } else {
+                            // Issue #343: prefer dropping just the HFP link (the
+                            // native call screen rides it) over turning the whole
+                            // adapter off; fall back to the adapter-off path when
+                            // the HFP release is unavailable or unverified.
+                            val hfpDevices = runCatching {
+                                connectedBluetoothDevices(adapter, BluetoothProfile.HEADSET, BluetoothHeadset::class.java)
+                            }.getOrDefault(emptySet())
+                            debugLog("autoBtDisconnect=hfpDevices=${hfpDevices.size}")
+                            val hfpReleased = releaseHfpLinks(adapter, hfpDevices)
+                            if (hfpReleased) {
+                                debugLog("autoBtDisconnect=hfp-released (native HFP link dropped, Bluetooth stays on)")
+                            } else {
+                                runCatching { adapter.disable() }
+                                autoBtDisabled.set(true)
+                                debugLog("autoBtDisconnect=disabled (wireless CarPlay connected, experimental switch)")
+                            }
+                        }
                     }
                 }
             },

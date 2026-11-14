@@ -1073,8 +1073,6 @@ class CarPlayHostActivity : ComponentActivity() {
         telephonyDownlinkViaMusic = AirPlayPersistence.loadTelephonyDownlinkViaMusic(this)
         announcementDuckMedia = AirPlayPersistence.loadAnnouncementDuckMedia(this)
         dockBarRefrontEnabled = AirPlayPersistence.loadDockBarRefront(this)
-        // A previous run that died with the car's Bluetooth turned off gives it back here.
-        com.shilapi.xcertplay.orchestration.CarBluetoothSession.recoverAfterRestart(applicationContext) { Log.i(TAG, it) }
     }
 
     private fun requestStartupPrerequisites() {
@@ -1921,10 +1919,6 @@ class CarPlayHostActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
-        // A session that keeps running in the background still needs the car's Bluetooth off.
-        if (isFinishing && !CarPlayBackgroundSession.hasSession()) {
-            com.shilapi.xcertplay.orchestration.CarBluetoothSession.restoreNow(applicationContext) { Log.i(TAG, it) }
-        }
         invalidateMainPicture()
         startupAutomation?.close()
         secondScreen.stop()

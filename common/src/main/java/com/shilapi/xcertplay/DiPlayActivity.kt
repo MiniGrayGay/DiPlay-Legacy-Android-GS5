@@ -1652,10 +1652,12 @@ class DiPlayActivity : ComponentActivity() {
                 AirPlayPersistence.saveHostapdAppleVendorIe(this, it)
                 markReconnectNeeded()
             }
-            // Issue #343: while the iPhone stays on the car's own Bluetooth, the car's
-            // native call screen pops up next to the CarPlay one and takes the audio.
-            // This switch drops that link once a wired or wireless session is up; see
-            // CarBluetoothRelease. Applies at the next connection.
+            // Issue #343: after wireless CarPlay connects, the phone's native
+            // Bluetooth call screen keeps popping up next to the CarPlay call
+            // screen. This switch turns the head unit Bluetooth off once the
+            // session is fully on Wi-Fi (tunnel handoff done), which drops the
+            // native Bluetooth link; Bluetooth is turned back on when the
+            // session ends. Wireless only; applies at the next connection.
             toggle(card, getString(R.string.settings_carplay_auto_disconnect_bt),
                 getString(R.string.settings_carplay_auto_disconnect_bt_description),
                 AirPlayPersistence.loadCarplayAutoDisconnectBt(this)) {
