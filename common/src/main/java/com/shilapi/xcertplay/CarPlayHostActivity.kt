@@ -216,7 +216,9 @@ class CarPlayHostActivity : ComponentActivity() {
             hardwareVersion = "1.0",
             carPlayUsbInterfaceNumber = 3,
             locationInformationEnabled = locationReportingEnabled,
-            vehicleSpeedEnabled = locationReportingEnabled && com.shilapi.xcertplay.hud.BydOutputSettings.wheelSpeedToIphone(this),
+            // Guangqi reads the speed from its own vehicle service, so no switch or ADB is needed.
+            vehicleSpeedEnabled = locationReportingEnabled && (GuangqiCluster.present(this) ||
+                com.shilapi.xcertplay.hud.BydOutputSettings.wheelSpeedToIphone(this)),
         ),
         label = "DiPlay",
         hostName = "diplay-" + DiPlayBootstrap.deviceId(airPlayIdentity).replace(":", "").lowercase(),
