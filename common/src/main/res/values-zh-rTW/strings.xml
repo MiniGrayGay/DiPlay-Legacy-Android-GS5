@@ -783,7 +783,7 @@
     <string name="settings_hostapd_apple_vendor_ie">Root 熱點 Apple 廠商資訊元（實驗性）</string>
     <string name="settings_hostapd_apple_vendor_ie_description">給 Root 熱點（hostapd）的信標加上 Apple 廠商資訊元，iPhone 才會自動加入。沒有它時 iPhone 不會自動關聯（手動點選卻能連上）。僅影響 Root 熱點模式。下次連接時生效。</string>
     <string name="settings_carplay_auto_disconnect_bt">CarPlay 期間關閉藍牙自動連接（實驗性）</string>
-    <string name="settings_carplay_auto_disconnect_bt_description">有線或無線 CarPlay 連上後，關掉車機藍牙設定裡的全域「自動連接」，避免手機斷開通話藍牙後車機馬上再連上。藍牙本身保持開著。工作階段結束時恢復原來的開關；如果應用程式異常退出，下次打開 DiPlay 會恢復。下次連線時生效。</string>
+    <string name="settings_carplay_auto_disconnect_bt_description">有線或無線 CarPlay 連上後，關掉車機藍牙設定裡的全域「自動連接」，避免手機斷開通話藍牙後車機馬上再連上。同時像車機藍牙設定裡點「中斷連線」那樣，主動中斷已連接的手機。藍牙本身保持開著。工作階段結束時恢復原來的開關；如果應用程式異常退出，下次打開 DiPlay 會恢復。開啟「透過車輛藍牙播放 CarPlay 音訊」時本開關不起作用。下次連線時生效。</string>
     <string name="settings_telephony_downlink_via_music">通話下行改走音樂流（實驗性）</string>
     <string name="settings_telephony_downlink_via_music_description">通話下行改走音樂流而不是通話流，通話模式和麥克風上行不變。僅當通話流下行無聲、而媒體音訊有聲時使用。下次連線時生效。</string>
     <string name="settings_announcement_duck_media">播報時壓低媒體音量（實驗性）</string>

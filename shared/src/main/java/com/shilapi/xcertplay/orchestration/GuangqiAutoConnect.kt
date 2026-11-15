@@ -11,6 +11,11 @@ import android.content.Context
  * if this switch is still on, the module treats that as a broken link and pages the phone
  * again. Turning the switch off for the session stops that page. The radio stays on.
  *
+ * The switch alone is not what the car's own Bluetooth page relies on. That page writes
+ * `BT_CANSYNC` and, to drop a phone, calls `BluetoothAdapter.disconnectDevice`
+ * (`*PSBD=<id>,0`). The module reports that as a requested disconnect, not as a lost
+ * link. So the hold also disconnects the phone that is connected when it starts.
+ *
  * The previous value is remembered across process death so a crash does not leave the
  * driver's switch off.
  */
@@ -46,9 +51,14 @@ internal class GuangqiAutoConnect(
             persist()
         }
         val module = backup.setModule(false)
+        val disconnect = when (backup.disconnectConnected()) {
+            null -> "none connected"
+            true -> "requested"
+            false -> "refused"
+        }
         log(
             "guangqiAutoConnect=off ($reason) previous=${memory.previousLabel()} " +
-                "module=${if (module) "accepted" else "refused"}",
+                "module=${if (module) "accepted" else "refused"} disconnect=$disconnect",
         )
     }
 
@@ -75,6 +85,12 @@ internal interface GuangqiAutoConnectBackup {
     fun read(): Int?
     fun write(value: Int): Boolean
     fun setModule(enabled: Boolean): Boolean
+
+    /**
+     * Asks the car to disconnect the phone on its Bluetooth, as its Bluetooth page does.
+     * Null when no phone is connected, false when the car refuses the request.
+     */
+    fun disconnectConnected(): Boolean?
 }
 
 internal class GuangqiAutoConnectMemory {
@@ -96,7 +112,7 @@ internal class GuangqiAutoConnectMemory {
     fun previousLabel(): String = if (hasPrevious) previous.toString() else "unknown"
 }
 
-/** Vendor backup `BT_CANSYNC` plus the hidden `BluetoothAdapter.setBTAutoConn`. */
+/** Vendor backup `BT_CANSYNC` plus the hidden `BluetoothAdapter` calls `setBTAutoConn` and `disconnectDevice`. */
 @SuppressLint("MissingPermission")
 internal class GuangqiAutoConnectCarBackup(context: Context) : GuangqiAutoConnectBackup {
     private val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -134,6 +150,13 @@ internal class GuangqiAutoConnectCarBackup(context: Context) : GuangqiAutoConnec
             it.name == "setBTAutoConn" && it.parameterTypes.size == 1
         } ?: return false
         method.invoke(adapter, enabled) as? Boolean ?: true
+    }.getOrDefault(false)
+
+    override fun disconnectConnected(): Boolean? = runCatching {
+        val adapter = BluetoothAdapter.getDefaultAdapter() ?: return null
+        val address = adapter.javaClass.getMethod("getConnectedDevice").invoke(adapter) as? String
+        if (address.isNullOrEmpty()) return null
+        adapter.javaClass.getMethod("disconnectDevice", String::class.java).invoke(adapter, address) as? Boolean ?: false
     }.getOrDefault(false)
 
     private fun backupInstance(): Any {

@@ -61,11 +61,40 @@ class GuangqiAutoConnectTest {
         assertFalse(memory.holding)
     }
 
+    @Test
+    fun suspendDisconnectsThePhoneThatIsConnected() {
+        backup.value = 1
+        backup.connected = true
+        guard.suspendForSession("session")
+        assertEquals(1, backup.disconnects)
+        assertFalse(backup.connected)
+    }
+
+    @Test
+    fun nothingConnectedIsNotAnError() {
+        backup.value = 1
+        guard.suspendForSession("session")
+        assertEquals(0, backup.disconnects)
+        assertTrue(memory.holding)
+    }
+
+    @Test
+    fun restoreDoesNotDisconnect() {
+        backup.value = 1
+        guard.suspendForSession("session")
+        backup.connected = true
+        guard.restore("ended")
+        assertEquals(0, backup.disconnects)
+        assertTrue(backup.connected)
+    }
+
     private class FakeBackup : GuangqiAutoConnectBackup {
         var value: Int? = 0
         var readable = true
         val writes = mutableListOf<Int>()
         val module = mutableListOf<Boolean>()
+        var connected = false
+        var disconnects = 0
 
         override fun read(): Int? = if (readable) value else null
 
@@ -77,6 +106,13 @@ class GuangqiAutoConnectTest {
 
         override fun setModule(enabled: Boolean): Boolean {
             module += enabled
+            return true
+        }
+
+        override fun disconnectConnected(): Boolean? {
+            if (!connected) return null
+            disconnects++
+            connected = false
             return true
         }
     }

@@ -1654,9 +1654,10 @@ class DiPlayActivity : ComponentActivity() {
             }
             // Issue #343: the car's global "自动连接" pages the phone back after
             // CarPlay makes the phone drop HFP. This switch turns that off for
-            // the session, wired or wireless, and restores the previous value
-            // when the session ends. The Bluetooth radio stays on. Applies at
-            // the next connection.
+            // the session, wired or wireless, and disconnects the phone the way
+            // the car's Bluetooth page does. The previous value is restored when
+            // the session ends. The Bluetooth radio stays on. Has no effect while
+            // "car Bluetooth audio" is on. Applies at the next connection.
             toggle(card, getString(R.string.settings_carplay_auto_disconnect_bt),
                 getString(R.string.settings_carplay_auto_disconnect_bt_description),
                 AirPlayPersistence.loadCarplayAutoDisconnectBt(this)) {

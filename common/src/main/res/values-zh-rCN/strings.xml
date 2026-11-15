@@ -794,7 +794,7 @@
     <string name="settings_hostapd_apple_vendor_ie">Root 热点 Apple 厂商信息元（实验性）</string>
     <string name="settings_hostapd_apple_vendor_ie_description">给 Root 热点（hostapd）的信标加上 Apple 厂商信息元，iPhone 才会自动加入。没有它时 iPhone 不会自动关联（手动点选却能连上）。仅影响 Root 热点模式。下次连接时生效。</string>
     <string name="settings_carplay_auto_disconnect_bt">CarPlay 期间关闭蓝牙自动连接（实验性）</string>
-    <string name="settings_carplay_auto_disconnect_bt_description">有线或无线 CarPlay 连上后，关掉车机蓝牙设置里的全局「自动连接」，避免手机断开通话蓝牙后车机马上再连上。蓝牙本身保持开着。会话结束时恢复原来的开关；如果应用异常退出，下次打开 DiPlay 会恢复。下次连接时生效。</string>
+    <string name="settings_carplay_auto_disconnect_bt_description">有线或无线 CarPlay 连上后，关掉车机蓝牙设置里的全局「自动连接」，避免手机断开通话蓝牙后车机马上再连上。同时像车机蓝牙设置里点「断开」那样，主动断开已连接的手机。蓝牙本身保持开着。会话结束时恢复原来的开关；如果应用异常退出，下次打开 DiPlay 会恢复。开启「通过车辆蓝牙播放 CarPlay 音频」时本开关不起作用。下次连接时生效。</string>
     <string name="settings_telephony_downlink_via_music">通话下行改走音乐流（实验性）</string>
     <string name="settings_telephony_downlink_via_music_description">通话下行改走音乐流而不是通话流，通话模式和麦克风上行不变。仅当通话流下行无声、而媒体音频有声时使用。下次连接时生效。</string>
     <string name="settings_announcement_duck_media">播报时压低媒体音量（实验性）</string>

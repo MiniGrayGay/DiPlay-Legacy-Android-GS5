@@ -1069,7 +1069,10 @@ class CarPlayHostActivity : ComponentActivity() {
         hostapdPassphrase = AirPlayPersistence.loadHostapdPassphrase(this)
         hostapdChannel = AirPlayPersistence.loadHostapdChannel(this)
         hostapdAppleVendorIe = AirPlayPersistence.loadHostapdAppleVendorIe(this)
-        carplayAutoDisconnectBt = AirPlayPersistence.loadCarplayAutoDisconnectBt(this)
+        // The hold disconnects the phone from the car's Bluetooth. Not when sound is meant
+        // to stay on that connection.
+        carplayAutoDisconnectBt = AirPlayPersistence.loadCarplayAutoDisconnectBt(this) &&
+            !AirPlayPersistence.loadCarBluetoothAudio(this)
         telephonyDownlinkViaMusic = AirPlayPersistence.loadTelephonyDownlinkViaMusic(this)
         announcementDuckMedia = AirPlayPersistence.loadAnnouncementDuckMedia(this)
         dockBarRefrontEnabled = AirPlayPersistence.loadDockBarRefront(this)
