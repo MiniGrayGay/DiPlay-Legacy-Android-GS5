@@ -55,8 +55,8 @@ android {
         multiDexEnabled = true
         multiDexKeepProguard = file("multidex-config.pro")
         testInstrumentationRunner = "com.shilapi.xcertplay.T3LegacyInstrumentation"
-        versionCode = 151
-        versionName = "0.4.4.11"
+        versionCode = 152
+        versionName = "0.4.4.12"
 
         ndk {
             abiFilters += "armeabi-v7a"

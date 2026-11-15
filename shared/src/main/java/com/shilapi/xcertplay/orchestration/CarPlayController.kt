@@ -321,6 +321,9 @@ class CarPlayController(
     @Volatile private var vpnBound = false
     private val wirelessHandoffRequested = AtomicBoolean(false)
     private val wirelessTunnelReady = AtomicBoolean(false)
+    /** How this controller reaches the iPhone. */
+    val transport: CarPlayTransport get() = config.transport
+
     private val wirelessActiveReported = AtomicBoolean(false)
     private val wirelessPostTransportConfigurationSent = AtomicBoolean(false)
     private val wirelessBootstrapReleaseScheduled = AtomicBoolean(false)

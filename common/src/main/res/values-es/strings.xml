@@ -33,8 +33,8 @@
     <string name="marker_up">Arriba</string>
     <string name="marker_down">Abajo</string>
     <string name="marker_centre_default">Centro · predeterminado</string>
-    <string name="hotspot_mode_manual_desc">Usa el punto de acceso propio del coche. Selecciona 5 GHz en la configuración del coche si está disponible.</string>
-    <string name="hotspot_mode_p2p_desc">Configuración alternativa. Requiere el interruptor Wi‑Fi del coche; en 2,4 GHz la conexión puede trabarse.</string>
+    <string name="hotspot_mode_manual_desc">Usa el punto de acceso propio del coche.</string>
+    <string name="hotspot_mode_p2p_desc">El coche crea su propio grupo Wi‑Fi Direct para el iPhone. Requiere el interruptor Wi‑Fi del coche.</string>
     <string name="hotspot_details_off">El punto de acceso está apagado · Actívalo en la configuración del coche.</string>
     <string name="hotspot_details_saved">Datos guardados · Comprueba que el punto de acceso del coche esté activado antes de conectarte.</string>
     <string name="permission_enabled_ready">Permiso activado · listo para usar</string>
@@ -100,7 +100,6 @@
     <string name="language_hint">Elige un idioma para DiPlay. «Sistema» sigue el idioma del dispositivo.</string>
     <string name="language_apply">Aplicar</string>
     <string name="common_cancel">Cancelar</string>
-    <string name="a_familiar_drive">Un trayecto familiar.</string>
     <string name="a_previous_wi_fi_direct_connection_is_still_running_reset">Hay una conexión Wi-Fi Direct anterior todavía en ejecución. Restablécela para conectarte.</string>
     <string name="about">Acerca de</string>
     <string name="about_diplay">Acerca de DiPlay</string>
@@ -141,7 +140,6 @@
     <string name="carplay_connected">CarPlay conectado</string>
     <string name="carplay_control_running">Control de CarPlay en ejecución</string>
     <string name="carplay_control_window_ended">Ventana de control de CarPlay finalizada</string>
-    <string name="carplay_icon">Icono de CarPlay</string>
     <string name="carplay_map_on_instrument_cluster_experimental">Mapa de CarPlay en el panel de instrumentos (experimental)</string>
     <string name="carplay_service_already_running">El servicio de CarPlay ya está en ejecución</string>
     <string name="carplay_session_already_running">La sesión de CarPlay ya está en ejecución</string>
@@ -176,7 +174,7 @@
     <string name="connection_setup">Configuración de conexión</string>
     <string name="copied_to_the_car_clipboard_run_the_command_on_your_comput">Copiado al portapapeles del coche. Ejecuta el comando en tu ordenador.</string>
     <string name="copy_command">Copiar comando</string>
-    <string name="copy_these_from_the_car_s_hotspot_settings_use_5_ghz_if_av">Copia esto de los ajustes del punto de acceso del coche. Usa 5 GHz si está disponible. Guardar aquí no cambia el punto de acceso del coche.</string>
+    <string name="copy_these_from_the_car_s_hotspot_settings_use_5_ghz_if_av">Copia esto de los ajustes del punto de acceso del coche. Guardar aquí no cambia el punto de acceso del coche.</string>
     <string name="could_not_decode_image">No se pudo decodificar la imagen</string>
     <string name="could_not_encode_image">No se pudo codificar la imagen</string>
     <string name="could_not_reset_wi_fi_direct_close_the_other_projection_ap">No se pudo restablecer Wi-Fi Direct. Cierra la otra aplicación de proyección e inténtalo de nuevo.</string>
@@ -248,7 +246,6 @@
     <string name="longest_height">Altura máxima</string>
     <string name="looking_for_your_paired_iphone">Buscando tu iPhone emparejado…</string>
     <string name="made_possible_by_open_source">Hecho posible por el código abierto</string>
-    <string name="make_diplay_feel_right_for_your_car">Haz que DiPlay encaje con tu coche.</string>
     <string name="manual_hotspot">Punto de acceso manual</string>
     <string name="manual_mode_match_the_cluster_theme_here_the_map_cannot_fo">Modo manual: ajusta aquí el tema del cuadro. El mapa no puede seguir la visibilidad de las tarjetas sin el permiso de uso.</string>
     <string name="manufacturer">Fabricante</string>
@@ -316,7 +313,7 @@
     <string name="s_1000_ms_most_stable">1000 ms · la más estable</string>
     <string name="s_1_choose_your_connection">1 · Elige tu conexión</string>
     <string name="s_1_connect_a_computer_with_adb_installed_to_the_car_using">1. Conecta un ordenador con ADB instalado al coche mediante tu conexión USB o de depuración inalámbrica existente. Aprueba la depuración en el coche si se te pide.\n\n2. Ejecuta este comando en la terminal del ordenador:</string>
-    <string name="s_1_open_car_hotspot_settings_turn_the_hotspot_on_and_sele">1. Abre los ajustes del punto de acceso del coche, actívalo y selecciona 5 GHz si está disponible.\n2. Copia abajo su nombre y contraseña exactamente.\n3. Deja el punto de acceso del coche activado al conectarte. DiPlay envía los datos por Bluetooth; tu iPhone se une automáticamente.</string>
+    <string name="s_1_open_car_hotspot_settings_turn_the_hotspot_on_and_sele">1. Abre los ajustes del punto de acceso del coche, actívalo.\n2. Copia abajo su nombre y contraseña exactamente.\n3. Deja el punto de acceso del coche activado al conectarte. DiPlay envía los datos por Bluetooth; tu iPhone se une automáticamente.</string>
     <string name="s_2_pair_your_iphone">2 · Empareja tu iPhone</string>
     <string name="s_300_ms_default">300 ms · predeterminado</string>
     <string name="s_15_fps_lightest_load">15 img/s · carga mínima</string>
@@ -370,7 +367,7 @@
     <string name="transport_error_reconnecting">Error de transporte; reconectando</string>
     <string name="turn_on_bluetooth">Activar Bluetooth</string>
     <string name="turn_on_wi_fi_in_the_head_unit_s_settings_to_connect">Activa el Wi‑Fi en los ajustes de la unidad principal para conectarte.</string>
-    <string name="turn_the_car_s_wi_fi_switch_on_allow_location_nearby_devic">Activa el interruptor Wi‑Fi del coche. Permite Ubicación/«Dispositivos cercanos» si se te pide y activa la ubicación cuando Android lo solicite. Si la reproducción se traba, prueba el punto de acceso integrado del coche a 5 GHz.</string>
+    <string name="turn_the_car_s_wi_fi_switch_on_allow_location_nearby_devic">Activa el interruptor Wi‑Fi del coche. Permite Ubicación/«Dispositivos cercanos» si se te pide y activa la ubicación cuando Android lo solicite.</string>
     <string name="usage_access_enabled">Acceso al uso: activado</string>
     <string name="usage_access_lets_diplay_follow_the_instrument_theme_and_m">El acceso al uso permite que DiPlay siga el tema del cuadro y la tarjeta del mapa. Solo se procesan localmente los eventos de actividad del cuadro BYD. Este coche no ofrece una página de configuración de permisos funcional.</string>
     <string name="usage_access_setup_needed_for_automatic_mode">Acceso al uso: se necesita configuración para el modo automático</string>
@@ -386,7 +383,6 @@
     <string name="waiting_for_mfi_coprocessor">Esperando al coprocesador MFi</string>
     <string name="waiting_for_paired_iphone">Esperando al iPhone — toca DiPlay en Ajustes del iPhone > General > CarPlay</string>
     <string name="wi_fi_direct_is_still_busy_close_the_other_projection_app">Wi-Fi Direct sigue ocupado. Cierra la otra aplicación de proyección e inténtalo de nuevo.</string>
-    <string name="wi_fi_p2p_5_ghz">Wi-Fi P2P (5 GHz)</string>
     <string name="wi_fi_session">Sesión Wi‑Fi</string>
     <string name="widest_width">Ancho máximo</string>
     <string name="wireless_carplay">CARPLAY INALÁMBRICO</string>
@@ -400,8 +396,6 @@
     <string name="wpa2_wpa3_password_must_be_8_63_characters">La contraseña WPA2/WPA3 debe tener de 8 a 63 caracteres</string>
     <string name="wpa3_transition">Transición WPA3</string>
     <string name="your_iphone_isn_t_available_unlock_it_and_check_bluetooth">Tu iPhone no está disponible. Desbloquéalo y comprueba el Bluetooth.</string>
-    <string name="your_maps_music_and_conversations_carplay_right_here_on_yo">Tus mapas, tu música y tus conversaciones.\nCarPlay, aquí mismo en la pantalla de tu coche.</string>
-    <string name="your_phone_your_drive">TU TELÉFONO. TU TRAYECTO.</string>
     <string name="your_report_was_saved_to_the_selected_location">Tu informe se guardó en la ubicación seleccionada.</string>
     <string name="cluster_waiting_for_map">DiPlay · esperando el mapa de CarPlay</string>
     <string name="option_size_huge">Enorme</string>
@@ -674,4 +668,16 @@
     <string name="wireless_forget_device_title">La conexión inalámbrica sigue fallando</string>
     <string name="wireless_forget_device_message">CarPlay inalámbrico no ha podido conectar 4 veces seguidas. En el iPhone, ve a Ajustes → Wi-Fi, omite el punto de acceso del equipo y vuelve a emparejar y conectar.</string>
     <string name="settings_media_focus_exclusive_description">Solicita foco permanente para multimedia en lugar de permitir que otros reproductores atenúen CarPlay. Solo ayuda en unidades que silencian CarPlay al atenuarlo; puede silenciar otros reproductores. Se aplica en la próxima conexión.</string>
+    <string name="settings_app_theme">Apariencia</string>
+    <string name="settings_app_theme_auto">Automática</string>
+    <string name="settings_app_theme_light">Clara</string>
+    <string name="settings_app_theme_dark">Oscura</string>
+    <string name="settings_app_theme_hint">Claro u oscuro para las pantallas de DiPlay. Automática sigue el ajuste de día y noche de CarPlay. CarPlay no se ve afectado.</string>
+    <string name="home_wired_carplay">CARPLAY CON CABLE</string>
+    <string name="quick_call_keys_note">El botón de llamada contesta, el de colgar termina y una pulsación larga del botón de voz abre Siri. Se aplica al instante.</string>
+    <string name="quick_auto_connect_note">Evita que el coche vuelva a conectar el teléfono por Bluetooth. Se aplica al reconectar.</string>
+    <string name="quick_cluster_map_note">Se aplica al reconectar.</string>
+    <string name="quick_more_settings">Más ajustes</string>
+    <string name="wireless_mode_recommended">Recomendado · verificado en este coche</string>
+    <string name="wireless_mode_not_recommended">Otras formas · sin verificar en este coche, no recomendadas</string>
 </resources>

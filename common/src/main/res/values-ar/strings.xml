@@ -33,8 +33,8 @@
     <string name="marker_up">أعلى</string>
     <string name="marker_down">أسفل</string>
     <string name="marker_centre_default">الوسط · الافتراضي</string>
-    <string name="hotspot_mode_manual_desc">استخدم نقطة اتصال السيارة نفسها. اختر 5 GHz في إعدادات السيارة إن توفر.</string>
-    <string name="hotspot_mode_p2p_desc">إعداد بديل. يتطلب تشغيل مفتاح واي فاي السيارة؛ وقد يتقطّع الاتصال على 2.4 GHz.</string>
+    <string name="hotspot_mode_manual_desc">استخدم نقطة اتصال السيارة نفسها.</string>
+    <string name="hotspot_mode_p2p_desc">تنشئ السيارة مجموعة Wi-Fi Direct خاصة بها لينضم إليها iPhone. يتطلب تشغيل مفتاح واي فاي السيارة.</string>
     <string name="hotspot_details_off">نقطة الاتصال مُغلقة · شغّلها في إعدادات السيارة.</string>
     <string name="hotspot_details_saved">تم حفظ البيانات · تأكد من تشغيل نقطة اتصال السيارة قبل الاتصال.</string>
     <string name="permission_enabled_ready">الإذن مُفعّل · جاهز للاستخدام</string>
@@ -100,7 +100,6 @@
     <string name="language_hint">اختر لغة DiPlay. «إعدادات النظام» يتبع لغة الجهاز.</string>
     <string name="language_apply">تطبيق</string>
     <string name="common_cancel">إلغاء</string>
-    <string name="a_familiar_drive">رحلة مألوفة.</string>
     <string name="a_previous_wi_fi_direct_connection_is_still_running_reset">ما زال اتصال Wi-Fi Direct السابق قيد التشغيل. أعد ضبطه للاتصال.</string>
     <string name="about">حول</string>
     <string name="about_diplay">حول DiPlay</string>
@@ -141,7 +140,6 @@
     <string name="carplay_connected">تم الاتصال بـ CarPlay</string>
     <string name="carplay_control_running">التحكم في CarPlay قيد التشغيل</string>
     <string name="carplay_control_window_ended">انتهت نافذة التحكم في CarPlay</string>
-    <string name="carplay_icon">أيقونة CarPlay</string>
     <string name="carplay_map_on_instrument_cluster_experimental">خريطة CarPlay على لوحة العدادات (تجريبي)</string>
     <string name="carplay_service_already_running">خدمة CarPlay قيد التشغيل بالفعل</string>
     <string name="carplay_session_already_running">جلسة CarPlay قيد التشغيل بالفعل</string>
@@ -176,7 +174,7 @@
     <string name="connection_setup">إعداد الاتصال</string>
     <string name="copied_to_the_car_clipboard_run_the_command_on_your_comput">تم النسخ إلى حافظة السيارة. نفّذ الأمر على حاسوبك.</string>
     <string name="copy_command">نسخ الأمر</string>
-    <string name="copy_these_from_the_car_s_hotspot_settings_use_5_ghz_if_av">انسخ هذه من إعدادات نقطة اتصال السيارة. استخدم 5 GHz إن توفر. الحفظ هنا لا يغيّر نقطة اتصال السيارة.</string>
+    <string name="copy_these_from_the_car_s_hotspot_settings_use_5_ghz_if_av">انسخ هذه من إعدادات نقطة اتصال السيارة. الحفظ هنا لا يغيّر نقطة اتصال السيارة.</string>
     <string name="could_not_decode_image">تعذّر فك ترميز الصورة</string>
     <string name="could_not_encode_image">تعذّر ترميز الصورة</string>
     <string name="could_not_reset_wi_fi_direct_close_the_other_projection_ap">تعذّر إعادة ضبط Wi-Fi Direct. أغلق تطبيق العرض الآخر وحاول مجدداً.</string>
@@ -248,7 +246,6 @@
     <string name="longest_height">أقصى ارتفاع</string>
     <string name="looking_for_your_paired_iphone">جارٍ البحث عن iPhone المقترن…</string>
     <string name="made_possible_by_open_source">ممكن بفضل المصدر المفتوح</string>
-    <string name="make_diplay_feel_right_for_your_car">اجعل DiPlay مناسبًا لسيارتك.</string>
     <string name="manual_hotspot">نقطة اتصال يدوية</string>
     <string name="manual_mode_match_the_cluster_theme_here_the_map_cannot_fo">الوضع اليدوي: طابق سمة لوحة العدادات هنا. لا تستطيع الخريطة اتباع مرئيات البطاقة دون إذن الوصول للاستخدام.</string>
     <string name="manufacturer">الشركة المصنّعة</string>
@@ -316,7 +313,7 @@
     <string name="s_1000_ms_most_stable">1000 مللي ثانية · الأكثر استقراراً</string>
     <string name="s_1_choose_your_connection">1 · اختر اتصالك</string>
     <string name="s_1_connect_a_computer_with_adb_installed_to_the_car_using">1. صِل حاسوباً عليه ADB مثبّت بالسيارة عبر اتصال USB أو التنقيط اللاسلكي الحالي. وافق على التنقيط في السيارة إن طُلب.\n\n2. نفّذ هذا الأمر في طرفية الحاسوب:</string>
-    <string name="s_1_open_car_hotspot_settings_turn_the_hotspot_on_and_sele">1. افتح إعدادات نقطة اتصال السيارة، وشغّل نقطة الاتصال واختر 5 GHz إن توفر.\n2. انسخ الاسم وكلمة المرور أدناه كما هما تماماً.\n3. أبقِ نقطة اتصال السيارة مُشغّلة عند الاتصال. يرسل DiPlay البيانات عبر البلوتوث؛ وينضم iPhone تلقائياً.</string>
+    <string name="s_1_open_car_hotspot_settings_turn_the_hotspot_on_and_sele">1. افتح إعدادات نقطة اتصال السيارة، وشغّل نقطة الاتصال.\n2. انسخ الاسم وكلمة المرور أدناه كما هما تماماً.\n3. أبقِ نقطة اتصال السيارة مُشغّلة عند الاتصال. يرسل DiPlay البيانات عبر البلوتوث؛ وينضم iPhone تلقائياً.</string>
     <string name="s_2_pair_your_iphone">2 · اقرن iPhone الخاص بك</string>
     <string name="s_300_ms_default">300 مللي ثانية · الافتراضي</string>
     <string name="s_15_fps_lightest_load">15 إطاراً/ث · أقل حمل</string>
@@ -370,7 +367,7 @@
     <string name="transport_error_reconnecting">خطأ في النقل؛ إعادة الاتصال</string>
     <string name="turn_on_bluetooth">تشغيل البلوتوث</string>
     <string name="turn_on_wi_fi_in_the_head_unit_s_settings_to_connect">شغّل واي فاي في إعدادات وحدة القيادة للاتصال.</string>
-    <string name="turn_the_car_s_wi_fi_switch_on_allow_location_nearby_devic">شغّل مفتاح واي فاي السيارة. اسمح بالموقع/«الأجهزة القريبة» عند الطلب وفعّل الموقع عندما يطلبه Android. إذا اتقطّع التشغيل، جرّب نقطة اتصال السيارة المدمجة على 5 GHz.</string>
+    <string name="turn_the_car_s_wi_fi_switch_on_allow_location_nearby_devic">شغّل مفتاح واي فاي السيارة. اسمح بالموقع/«الأجهزة القريبة» عند الطلب وفعّل الموقع عندما يطلبه Android.</string>
     <string name="usage_access_enabled">الوصول للاستخدام: مُفعّل</string>
     <string name="usage_access_lets_diplay_follow_the_instrument_theme_and_m">يتيح إذن الوصول للاستخدام لـ DiPlay اتباع سمة لوحة العدادات وبطاقة الخريطة. تتم معالجة أحداث نشاط لوحة BYD محلياً فقط. لا توفر هذه السيارة صفحة إعدادات أذونات عاملة.</string>
     <string name="usage_access_setup_needed_for_automatic_mode">الوصول للاستخدام: الإعداد مطلوب للوضع التلقائي</string>
@@ -386,7 +383,6 @@
     <string name="waiting_for_mfi_coprocessor">بانتظار معالج MFi المساعد</string>
     <string name="waiting_for_paired_iphone">بانتظار iPhone — انقر على DiPlay في إعدادات iPhone > عام > CarPlay</string>
     <string name="wi_fi_direct_is_still_busy_close_the_other_projection_app">ما زال Wi-Fi Direct مشغولاً. أغلق تطبيق العرض الآخر وحاول مجدداً.</string>
-    <string name="wi_fi_p2p_5_ghz">‏Wi-Fi P2P (5 GHz)</string>
     <string name="wi_fi_session">جلسة واي فاي</string>
     <string name="widest_width">أقصى عرض</string>
     <string name="wireless_carplay">CARPLAY اللاسلكي</string>
@@ -400,8 +396,6 @@
     <string name="wpa2_wpa3_password_must_be_8_63_characters">يجب أن تكون كلمة مرور WPA2/WPA3 من 8 إلى 63 حرفاً</string>
     <string name="wpa3_transition">انتقال WPA3</string>
     <string name="your_iphone_isn_t_available_unlock_it_and_check_bluetooth">iPhone غير متاح. افتح قفله وتحقق من البلوتوث.</string>
-    <string name="your_maps_music_and_conversations_carplay_right_here_on_yo">خرائطك وموسيقاك ومحادثاتك.\nCarPlay، هنا على شاشة سيارتك.</string>
-    <string name="your_phone_your_drive">هاتفك. رحلتك.</string>
     <string name="your_report_was_saved_to_the_selected_location">تم حفظ تقريرك في الموقع المحدد.</string>
     <string name="cluster_waiting_for_map">DiPlay · بانتظار خريطة CarPlay</string>
     <string name="option_size_huge">ضخم</string>
@@ -674,4 +668,16 @@
     <string name="wireless_forget_device_title">تعذّر الاتصال اللاسلكي</string>
     <string name="wireless_forget_device_message">تعذّر اتصال CarPlay اللاسلكي 4 مرات متتالية. على iPhone، انتقل إلى «الإعدادات → Wi-Fi»، ثم تجاهل نقطة اتصال وحدة السيارة وأعد الاقتران والاتصال.</string>
     <string name="settings_media_focus_exclusive_description">طلب تركيز دائم للوسائط بدلاً من السماح للمشغلات الأخرى بخفض صوت CarPlay. يساعد فقط على الوحدات التي تخفض CarPlay إلى الصمت؛ وقد يكتم المشغلات الأخرى. يسري اعتباراً من الاتصال التالي.</string>
+    <string name="settings_app_theme">المظهر</string>
+    <string name="settings_app_theme_auto">تلقائي</string>
+    <string name="settings_app_theme_light">فاتح</string>
+    <string name="settings_app_theme_dark">داكن</string>
+    <string name="settings_app_theme_hint">مظهر فاتح أو داكن لشاشات DiPlay. يتبع الوضع التلقائي إعداد النهار والليل في CarPlay. لا يتأثر CarPlay نفسه.</string>
+    <string name="home_wired_carplay">CarPlay السلكي</string>
+    <string name="quick_call_keys_note">زر الاتصال يجيب، وزر الإنهاء ينهي، والضغط المطوّل على زر الصوت يفتح Siri. يُطبق فورًا.</string>
+    <string name="quick_auto_connect_note">يمنع السيارة من إعادة توصيل الهاتف عبر البلوتوث. يُطبق بعد إعادة الاتصال.</string>
+    <string name="quick_cluster_map_note">يُطبق بعد إعادة الاتصال.</string>
+    <string name="quick_more_settings">مزيد من الإعدادات</string>
+    <string name="wireless_mode_recommended">موصى به · تم التحقق منه في هذه السيارة</string>
+    <string name="wireless_mode_not_recommended">طرق أخرى · لم يتم التحقق منها في هذه السيارة، غير موصى بها</string>
 </resources>

@@ -387,7 +387,7 @@ class AdaptiveSettingsUiTest {
         assertFalse(text(R.string.settings_direct_usbfs_mode) in connection)
         // Issues #294/#299: the root hostapd opt-in is experimental and
         // firmware-specific, so it also lives under Advanced only.
-        assertTrue(text(R.string.settings_root_hotspot_mode) in advanced)
+        assertFalse(text(R.string.settings_root_hotspot_mode) in advanced)
         assertFalse(text(R.string.settings_root_hotspot_mode) in connection)
         listOf(R.string.main_buffered_audio, R.string.efficient_video, R.string.smooth_video, R.string.settings_direct_surface_view, R.string.call_echo_cancellation, R.string.call_voice_filter, R.string.contrib_audio_home_toggle_audio_focus).forEach {
             assertTrue(text(it), text(it) in advanced)

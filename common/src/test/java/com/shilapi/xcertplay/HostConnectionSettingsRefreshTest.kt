@@ -38,14 +38,14 @@ class HostConnectionSettingsRefreshTest {
         // The user switches to a car hotspot with another name while the projection screen lives on.
         AirPlayPersistence.saveWirelessHotspotMode(app, WirelessHotspotMode.WIFI_P2P)
         AirPlayPersistence.saveManualHotspotSsid(app, "New car")
-        AirPlayPersistence.saveWifiP2pPreferredChannel(app, 149)
+        AirPlayPersistence.saveWifiP2pPreferredChannel(app, 6)
 
         host.pause().resume()
 
         val config = runtimeConfig(host.get())
         assertEquals(WirelessHotspotMode.WIFI_P2P, config.wirelessHotspotMode)
         assertEquals("New car", config.manualHotspotSsid)
-        assertEquals(149, config.wifiP2pPreferredChannel)
+        assertEquals(6, config.wifiP2pPreferredChannel)
     }
 
     private fun runtimeConfig(host: CarPlayHostActivity): CarPlayRuntimeConfig {

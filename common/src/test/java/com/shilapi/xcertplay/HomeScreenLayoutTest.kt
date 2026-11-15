@@ -18,11 +18,12 @@ import org.robolectric.annotation.Config
 import org.robolectric.util.ReflectionHelpers
 
 /**
- * The Guangqi unit: 1280x720 at 160 dpi, less its 85 dp status bar. Every wireless control must be
- * on screen without scrolling, with the car-hotspot warning and the disconnect button both shown.
+ * The start screen on the Guangqi unit: 1280x720 at 160 dpi, less its 85 dp status bar. Wireless and
+ * wired are separate panels, and every control is on screen without scrolling, with the car-hotspot
+ * warning and the disconnect button both shown.
  */
 @RunWith(RobolectricTestRunner::class)
-class ShortLandscapeHomeTest {
+class HomeScreenLayoutTest {
     private val context get() = RuntimeEnvironment.getApplication()
     private var activity: DiPlayActivity? = null
 
@@ -38,10 +39,11 @@ class ShortLandscapeHomeTest {
     @Config(sdk = [29], qualifiers = "en-w1280dp-h635dp-land-mdpi")
     @Test fun englishWirelessControlsFitAboveTheFold() = assertFits()
 
-    @Config(sdk = [29], qualifiers = "en-w1280dp-h800dp-land-mdpi")
-    @Test fun tallScreensKeepTheHeroText() {
+    @Config(sdk = [29], qualifiers = "zh-rCN-w1280dp-h635dp-land-mdpi")
+    @Test fun wirelessAndWiredHaveTheirOwnPanels() {
         val screen = open()
-        assertTrue(texts(screen).any { it.text == screen.getString(R.string.a_familiar_drive) })
+        assertTrue(texts(screen).any { it.text == screen.getString(R.string.wireless_carplay) })
+        assertTrue(texts(screen).any { it.text == screen.getString(R.string.home_wired_carplay) })
     }
 
     private fun assertFits() {
@@ -53,13 +55,17 @@ class ShortLandscapeHomeTest {
             View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY),
         )
         root.layout(0, 0, 1280, height)
-        assertFalse(texts(screen).any { it.text == screen.getString(R.string.a_familiar_drive) })
-        for (title in listOf(R.string.connect_phone, R.string.choose_iphone, R.string.disconnect,
-            R.string.connect_with_usb, R.string.settings)) {
-            val view = texts(screen).first { it.text == screen.getString(title) && it.isShown }
-            val at = IntArray(2).also(view::getLocationInWindow)
-            assertTrue("${screen.getString(title)} ends at ${at[1] + view.height}", at[1] + view.height <= height)
+        for (title in listOf(R.string.connect_phone, R.string.choose_iphone_prefix, R.string.disconnect,
+            R.string.connect_with_usb, R.string.settings, R.string.car_home)) {
+            val views = texts(screen).filter { it.text.startsWith(screen.getString(title)) && it.isShown }.toList()
+            assertTrue("${screen.getString(title)} is shown", views.isNotEmpty())
+            for (view in views) {
+                val at = IntArray(2).also(view::getLocationInWindow)
+                assertTrue("${screen.getString(title)} ends at ${at[1] + view.height}", at[1] + view.height <= height)
+            }
         }
+        // One disconnect per panel.
+        assertTrue(texts(screen).count { it.text == screen.getString(R.string.disconnect) && it.isShown } == 2)
     }
 
     private fun open(): DiPlayActivity {
@@ -70,7 +76,9 @@ class ShortLandscapeHomeTest {
             .setup().get().also { activity = it }
         ReflectionHelpers.setField(screen, "setupError", null)
         ReflectionHelpers.callInstanceMethod<Unit>(screen, "render")
+        // Both panels' disconnect buttons at once: the tallest either panel can get.
         ReflectionHelpers.getField<View>(screen, "disconnectButton").visibility = View.VISIBLE
+        ReflectionHelpers.getField<View>(screen, "wiredDisconnectButton").visibility = View.VISIBLE
         return screen
     }
 
