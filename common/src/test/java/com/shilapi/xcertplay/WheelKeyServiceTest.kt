@@ -7,7 +7,7 @@ import android.os.Looper
 import android.view.KeyEvent
 import android.widget.Button
 import com.shilapi.xcertplay.hud.BydOutputSettings
-import com.shilapi.xcertplay.hud.BydCarPlayCall
+import com.shilapi.xcertplay.hud.BydNavigationOutputs
 import com.shilapi.xcertplay.hud.CarPlayCallState
 import com.shilapi.xcertplay.iap2.message.Iap2Messages
 import com.shilapi.xcertplay.media.AndroidMediaSink
@@ -47,7 +47,7 @@ class WheelKeyServiceTest {
     @After fun tearDown() {
         service.onDestroy()
         BydOutputSettings.setCarPlayCallControls(service, false)
-        BydCarPlayCall.end()
+        BydNavigationOutputs.endNow()
         CarPlayBackgroundSession.clear()
     }
 
@@ -357,7 +357,7 @@ class WheelKeyServiceTest {
         WheelZoomSettings.assign(service, WheelZoomSettings.Role.SIRI, WheelKey(KeyEvent.KEYCODE_ENDCALL, 0, "?"))
         assertTrue(key(KeyEvent.KEYCODE_ENDCALL, true))
         assertEquals(1, siriRequests)
-        BydCarPlayCall.onFrame(Iap2Messages.buildRaw(CarPlayCallState.CALL_STATE_UPDATE) {
+        BydNavigationOutputs.onFrame(Iap2Messages.buildRaw(CarPlayCallState.CALL_STATE_UPDATE) {
             u8(2, 4); string(4, "new-call")
         })
         assertTrue(key(KeyEvent.KEYCODE_ENDCALL, false))

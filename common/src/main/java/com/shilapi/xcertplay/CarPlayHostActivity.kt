@@ -216,9 +216,7 @@ class CarPlayHostActivity : ComponentActivity() {
             hardwareVersion = "1.0",
             carPlayUsbInterfaceNumber = 3,
             locationInformationEnabled = locationReportingEnabled,
-            vehicleStatusEnabled = com.shilapi.xcertplay.hud.BydOutputSettings.batteryToIphoneActive(this),
-            chargingConnectors = com.shilapi.xcertplay.hud.BydOutputSettings.chargingConnectors(this),
-            vehicleSpeedEnabled = locationReportingEnabled && com.shilapi.xcertplay.hud.BydOutputSettings.wheelSpeedToIphoneActive(this),
+            vehicleSpeedEnabled = locationReportingEnabled && com.shilapi.xcertplay.hud.BydOutputSettings.wheelSpeedToIphone(this),
         ),
         label = "DiPlay",
         hostName = "diplay-" + DiPlayBootstrap.deviceId(airPlayIdentity).replace(":", "").lowercase(),
@@ -1443,7 +1441,6 @@ class CarPlayHostActivity : ComponentActivity() {
         presentation.setOnDismissListener {
             if (clusterPresentation === presentation) {
                 clusterPresentation = null
-                com.shilapi.xcertplay.hud.BydNavigationOutputs.setClusterMapShown(false)
                 updateClusterMapShown()
             }
             if (guangqi) ClusterMapPresentation.releaseGuangqi()
@@ -1544,7 +1541,6 @@ class CarPlayHostActivity : ComponentActivity() {
             presentations.forEach { runCatching { it.dismiss() } }
             if (GuangqiCluster.present(this)) ClusterMapPresentation.releaseGuangqi()
         }
-        com.shilapi.xcertplay.hud.BydNavigationOutputs.setClusterMapShown(false)
         controller?.setDashboardMapOutputVisible(false)
         if (!guangqiRetained) syncGuangqiClusterReady()
     }
@@ -1889,8 +1885,6 @@ class CarPlayHostActivity : ComponentActivity() {
     // The dashboard map pause must not stop the stream while a copy of the map is on screen.
     private fun updateClusterMapShown() {
         syncGuangqiClusterReady()
-        com.shilapi.xcertplay.hud.BydNavigationOutputs.setClusterMapShown((clusterPresentation != null ||
-            (ClusterActivityOutput.hasConfirmedRoute() && clusterSurface != null)) && !MapMirrors.any)
         // Wheel zoom needs a physical map; centre-screen copies must not suppress that eligibility.
         val surface = clusterSurface?.takeIf { it.isValid }
         val presentation = clusterPresentation
@@ -2238,10 +2232,8 @@ class CarPlayHostActivity : ComponentActivity() {
 
     // The battery shows only where DiPlay already reads it for the iPhone.
     private fun refreshSidePanel() {
-        val battery = if (com.shilapi.xcertplay.hud.BydOutputSettings.batteryToIphoneActive(this)) {
-            com.shilapi.xcertplay.hud.BydNavigationOutputs.batteryStatus(applicationContext).snapshot()
-        } else null
-        sidePanelBattery?.text = battery?.let { "🔋 ${Math.round(it.batteryPercent)} %  ·  ${it.rangeKm} km" }.orEmpty()
+        // Upstream showed the BYD traction battery here. This car has no reading for it.
+        sidePanelBattery?.text = ""
     }
 
     /** Card treatment matching the main settings UI: surface fill, 1dp border, 20dp corners. */
@@ -4555,7 +4547,6 @@ class CarPlayHostActivity : ComponentActivity() {
             model = normalizedModel(),
             oemLabel = oemLabel,
             icons = listOf(loadAirPlayIcon()),
-            videoInCar = com.shilapi.xcertplay.hud.BydOutputSettings.videoWhileParkedActive(this),
             mainBufferedAudio = AirPlayPersistence.loadMainBufferedAudio(this),
             disableAudioOutput = AirPlayPersistence.loadCarBluetoothAudio(this),
         )
@@ -5061,10 +5052,6 @@ class CarPlayHostActivity : ComponentActivity() {
                     com.shilapi.xcertplay.location.GuangqiNmeaLocationProvider(),
                     com.shilapi.xcertplay.hud.GuangqiVehicleSpeedSource,
                 )
-                config.identification.vehicleSpeedEnabled -> VehicleSpeedLocationProvider(
-                    AndroidCarPlayLocationProvider(this),
-                    com.shilapi.xcertplay.hud.BydNavigationOutputs.wheelSpeed(applicationContext),
-                )
                 else -> AndroidCarPlayLocationProvider(this)
             }
         appendLog(
@@ -5124,11 +5111,7 @@ class CarPlayHostActivity : ComponentActivity() {
             savePairRecord = { record -> AirPlayPersistence.saveLockdownRecord(this, record) },
             clearPairRecord = { AirPlayPersistence.clearLockdownRecord(this) },
             locationProvider = locationProvider,
-            vehicleStatusProvider = if (com.shilapi.xcertplay.hud.BydOutputSettings.batteryToIphoneActive(this)) {
-                com.shilapi.xcertplay.hud.BydNavigationOutputs.batteryStatus(applicationContext)
-            } else {
-                null
-            },
+            vehicleStatusProvider = null,
         )
         controller = next
         // Issues #327/#350: on a video-only recovery attempt, re-ask the phone

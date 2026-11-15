@@ -260,7 +260,6 @@ class WheelKeyService : AccessibilityService() {
             if (on) Toast.makeText(this, "$text\n${getString(R.string.wheel_joystick_hint)}", Toast.LENGTH_LONG).show()
             else Toast.makeText(this, text, Toast.LENGTH_SHORT).show()
         }
-        BydNavigationOutputs.dashboardNote(text)
     }
 
     private fun clearLearning(notify: Boolean = true) {
@@ -295,11 +294,6 @@ class WheelKeyService : AccessibilityService() {
         Log.i(TAG, "zoom mode ${if (zoomOn) "on" else "off"}")
         handler.post {
             Toast.makeText(this, if (zoomOn) R.string.wheel_zoom_mode_on else R.string.wheel_zoom_mode_off, Toast.LENGTH_SHORT).show()
-        }
-        if (zoomOn) {
-            BydNavigationOutputs.dashboardNote("🔍 ${getString(R.string.wheel_zoom_note_zoom)}", ZOOM_NOTE_SOURCE)
-        } else {
-            BydNavigationOutputs.dashboardNote("🔊 ${getString(R.string.wheel_zoom_note_volume)}")
         }
     }
 

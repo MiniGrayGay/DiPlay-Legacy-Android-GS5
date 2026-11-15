@@ -259,7 +259,6 @@ internal class ClusterMapPresentation(
 
         fun diagnosticReport(context: Context): String = buildString {
             appendLine("clusterEnabled=${AirPlayPersistence.loadClusterMapEnabled(context)}")
-            appendLine("navigationReceiverAvailable=${com.shilapi.xcertplay.hud.BydOutputSettings.navigationAvailable(context)}")
             appendLine("allDisplays=${describeDisplays(context)}")
             val presentations = displayManager(context)
                 ?.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION).orEmpty()

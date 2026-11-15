@@ -36,7 +36,6 @@ class CarHotspotSetupTest {
         ShadowBuild.setManufacturer("QUALCOMM")
         ShadowBuild.setBrand("qti")
         installPackage("com.byd.carsettings", system = true)
-        assertFalse(BydOutputSettings.navigationAvailable(context))
         assertTrue(CarHotspotSetup.isBydHeadUnit(context))
         assertTrue(CarHotspotSettings.visible(CarHotspotSetup.isBydHeadUnit(context), LocalAdb.Access.NOT_APPROVED))
         assertFalse(CarHotspotSettings.visible(CarHotspotSetup.isBydHeadUnit(context), LocalAdb.Access.UNREACHABLE))
@@ -50,12 +49,6 @@ class CarHotspotSetupTest {
     @Test fun genericHeadUnitRemainsHiddenEvenWithAdbReady() {
         assertFalse(CarHotspotSetup.isBydHeadUnit(context))
         assertFalse(CarHotspotSettings.visible(CarHotspotSetup.isBydHeadUnit(context), LocalAdb.Access.READY))
-    }
-
-    @Test fun existingNavigationBasedDetectionIsPreserved() {
-        installPackage("com.byd.amapservice", system = true)
-        assertTrue(BydOutputSettings.navigationAvailable(context))
-        assertTrue(CarHotspotSetup.isBydHeadUnit(context))
     }
 
     @Test fun onlyBydWithSupportedAdbSeesTheSettingIncludingBeforeApproval() {

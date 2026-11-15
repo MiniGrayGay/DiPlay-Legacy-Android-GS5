@@ -14,7 +14,7 @@ import android.widget.TextView
 import com.shilapi.xcertplay.host.R
 import com.shilapi.xcertplay.airplay.AirPlaySession
 import com.shilapi.xcertplay.airplay.CarPlayMediaButton
-import com.shilapi.xcertplay.hud.BydCarPlayCall
+import com.shilapi.xcertplay.hud.BydNavigationOutputs
 import com.shilapi.xcertplay.hud.CarPlayCallState
 import com.shilapi.xcertplay.iap2.message.Iap2Messages
 import com.shilapi.xcertplay.orchestration.CarPlayController
@@ -41,7 +41,7 @@ class WheelSiriWindowTest {
     private lateinit var controller: CarPlayController
 
     @Before fun setUp() {
-        BydCarPlayCall.end()
+        BydNavigationOutputs.endNow()
         CarPlayBackgroundSession.clear()
         host = Robolectric.buildActivity(CarPlayHostActivity::class.java).get()
         settings = Robolectric.buildActivity(DiPlayActivity::class.java).get()
@@ -63,7 +63,7 @@ class WheelSiriWindowTest {
         for ((activity, name) in listOf(host to "mainHandler", settings to "handler")) {
             (activity.javaClass.getDeclaredField(name).apply { isAccessible = true }.get(activity) as Handler).removeCallbacksAndMessages(null)
         }
-        BydCarPlayCall.end()
+        BydNavigationOutputs.endNow()
         CarPlayBackgroundSession.clear()
         host.getSharedPreferences("xcertplay_airplay", Context.MODE_PRIVATE).edit().clear().commit()
     }
@@ -108,13 +108,13 @@ class WheelSiriWindowTest {
     }
 
     @Test fun carPlayCallStateBlocksAssignedSiriWhileAndroidModeIsNormal() {
-        BydCarPlayCall.onFrame(Iap2Messages.buildRaw(CarPlayCallState.CALL_STATE_UPDATE) {
+        BydNavigationOutputs.onFrame(Iap2Messages.buildRaw(CarPlayCallState.CALL_STATE_UPDATE) {
             u8(2, 4); string(4, "active-call")
         })
         assertEquals(AudioManager.MODE_NORMAL, host.getSystemService(AudioManager::class.java).mode)
         assertTrue(inCall(host))
         host.dispatchKeyEvent(key(KeyEvent.KEYCODE_F6, true))
-        BydCarPlayCall.end()
+        BydNavigationOutputs.endNow()
         host.dispatchKeyEvent(key(KeyEvent.KEYCODE_F6, false))
         verify(controller, never()).requestSiri()
     }

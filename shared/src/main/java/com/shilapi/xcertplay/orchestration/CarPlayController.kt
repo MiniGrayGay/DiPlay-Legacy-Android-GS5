@@ -188,7 +188,7 @@ class CarPlayController(
             "A location provider is required when location reporting is enabled"
         }
         WifiScanPause.restoreIfNeeded(context.applicationContext)
-        BydNavigationOutputs.start(context.applicationContext)
+        BydNavigationOutputs.start()
         BydNavigationOutputs.setClusterStreamControl(::applyClusterUi)
     }
 
@@ -371,8 +371,7 @@ class CarPlayController(
                 }
             }
             if (replacement) {
-                BydNavigationOutputs.start(appContext)
-                BydNavigationOutputs.carPlaySessionStarted()
+                BydNavigationOutputs.start()
                 com.shilapi.xcertplay.glance.CarPlayGlance.setConnected(true)
                 // The gear may have changed since /info.
                 if (videoListener != null) {

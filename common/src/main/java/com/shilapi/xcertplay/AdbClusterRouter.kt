@@ -60,7 +60,6 @@ internal object AdbClusterRouter {
             appendLine("ADB direct cluster launch capturedAt=${java.util.Date()}")
             appendLine("diLink3ModeSwitchSuppressed=" + AirPlayPersistence.loadAdbClusterEnabled(context))
             appendLine("calibrationOnly=${!holdStockMap}")
-            appendLine("stockMapHoldMode=" + com.shilapi.xcertplay.hud.BydOutputSettings.oemClusterHold(context))
             try {
                 LocalAdb(AdbKeys.load(context)).use { adb ->
                     val access = adb.connect(mayAsk = false)
@@ -69,9 +68,8 @@ internal object AdbClusterRouter {
                     val display = displayId(adb.shell("dumpsys display").orEmpty())
                     appendLine("routeTarget=${display ?: "none"}")
                     if (display == null || !enabled(context) || !prepare(display)) return@use
-                    val held = !holdStockMap || com.shilapi.xcertplay.hud.BydOemClusterNavi.holdForLaunch(context, token) {
-                        enabled(context) && prepare(display)
-                    }
+                    // Upstream held BYD's stock cluster map here; that hold is gone with the BYD outputs.
+                    val held = true
                     appendLine("stockMapHoldReady=$held")
                     if (!held || !enabled(context) || !prepare(display)) return@use
                     val output = adb.shell(launchCommand(context.packageName, display, token)).orEmpty()

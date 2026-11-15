@@ -86,6 +86,11 @@ Do not add a new setting to Overview. Add it to its category. Then promote it to
 
 This fork targets a Guangqi (GAEI) head unit: Freescale i.MX6 SABRESD, Android 4.4.2 (API 19), kernel 3.0.35.
 
+- Upstream's BYD outputs are removed from this fork: HUD and cluster navigation, dashboard song and call card, battery, BYD wheel speed and gear, vehicle-data probe, DiLink 3 output.
+  The system image has no `android.hardware.bydauto` classes and no BYD packages, so none of them could run.
+  `BydNavigationOutputs` is kept as the place for the turn overlay, the call state for the wheel's call keys and the one-second cluster stream tick. Do not remove the tick: the session relies on it until the iPhone has reported the cluster URL.
+  `BydOutputSettings` keeps two settings in upstream's preference file: wheel speed to the iPhone and the wheel's call keys.
+  The DiLink 4 and DiLink 5.1 cluster layouts and the ADB cluster activity are still in the tree.
 - The ROM strips the USB and VPN permission activities, so an ordinary app never gets USB access.
   Every build for this unit MUST be platform-signed AND declare `android:sharedUserId="android.uid.system"` in `mobile/src/main/AndroidManifest.xml`.
   Platform certificate SHA-256: `7fbae817b7db24642d8959c347b561c003c6cfde2cb10f909c932f21a4d6d804` (`android@freescale.com`).

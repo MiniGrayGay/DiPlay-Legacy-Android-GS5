@@ -342,7 +342,7 @@ class AdaptiveSettingsUiTest {
 
         assertTrue(texts(screen).any { it.text == screen.getString(R.string.settings_advanced_caution_title) })
         assertTrue(texts(screen).any { it.text == screen.getString(R.string.carplay_map_on_instrument_cluster_experimental) })
-        assertTrue(texts(screen).any { it.text == screen.getString(R.string.advanced_vehicle_data) })
+        assertTrue(texts(screen).any { it.text == screen.getString(R.string.wheel_speed_for_tunnels) })
         assertFalse(texts(screen).any { it.text == screen.getString(R.string.automatic_connection) })
         assertFalse(texts(screen).any { it.text == screen.getString(R.string.display_and_performance) })
         assertFalse(texts(screen).any { it.text == screen.getString(R.string.audio_routing) })
