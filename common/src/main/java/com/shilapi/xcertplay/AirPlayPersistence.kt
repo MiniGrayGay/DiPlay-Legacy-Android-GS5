@@ -462,8 +462,10 @@ object AirPlayPersistence {
     fun loadWirelessHotspotMode(context: Context): WirelessHotspotMode {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val stored = prefs.getString(KEY_WIRELESS_HOTSPOT_MODE, null)
+        // Wi-Fi Direct is the wireless path verified on the Guangqi head unit, so a fresh install
+        // and an unusable stored mode start there.
         val mode = WirelessHotspotMode.entries.firstOrNull { it.name == stored }
-            ?: WirelessHotspotMode.MANUAL
+            ?: WirelessHotspotMode.WIFI_P2P
         // Keep the user's Wi-Fi Direct selection on Android 8/9. The runtime
         // controller uses a system-generated P2P group, with LocalOnlyHotspot as a fallback,
         // because the API 29 configurable group APIs are unavailable. Converting it to MANUAL made
@@ -472,9 +474,9 @@ object AirPlayPersistence {
         // Advanced opt-in is on; a stored HOSTAPD value with the opt-in off
         // resolves to MANUAL, the same treatment as LOCAL_ONLY_HOTSPOT.
         val supported = if (mode == WirelessHotspotMode.LOCAL_ONLY_HOTSPOT) {
-            WirelessHotspotMode.MANUAL
+            WirelessHotspotMode.WIFI_P2P
         } else if (mode == WirelessHotspotMode.HOSTAPD && !loadRootHotspotEnabled(context)) {
-            WirelessHotspotMode.MANUAL
+            WirelessHotspotMode.WIFI_P2P
         } else {
             mode
         }

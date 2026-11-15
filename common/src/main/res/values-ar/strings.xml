@@ -34,7 +34,7 @@
     <string name="marker_down">أسفل</string>
     <string name="marker_centre_default">الوسط · الافتراضي</string>
     <string name="hotspot_mode_manual_desc">استخدم نقطة اتصال السيارة نفسها.</string>
-    <string name="hotspot_mode_p2p_desc">إعداد بديل. يتطلب تشغيل مفتاح واي فاي السيارة؛ وقد يتقطّع الاتصال على 2.4 GHz.</string>
+    <string name="hotspot_mode_p2p_desc">تنشئ السيارة مجموعة Wi-Fi Direct خاصة بها لينضم إليها iPhone. يتطلب تشغيل مفتاح واي فاي السيارة.</string>
     <string name="hotspot_details_off">نقطة الاتصال مُغلقة · شغّلها في إعدادات السيارة.</string>
     <string name="hotspot_details_saved">تم حفظ البيانات · تأكد من تشغيل نقطة اتصال السيارة قبل الاتصال.</string>
     <string name="permission_enabled_ready">الإذن مُفعّل · جاهز للاستخدام</string>
@@ -741,4 +741,6 @@
     <string name="quick_auto_connect_note">يمنع السيارة من إعادة توصيل الهاتف عبر البلوتوث. يُطبق بعد إعادة الاتصال.</string>
     <string name="quick_cluster_map_note">يُطبق بعد إعادة الاتصال.</string>
     <string name="quick_more_settings">مزيد من الإعدادات</string>
+    <string name="wireless_mode_recommended">موصى به · تم التحقق منه في هذه السيارة</string>
+    <string name="wireless_mode_not_recommended">طرق أخرى · لم يتم التحقق منها في هذه السيارة، غير موصى بها</string>
 </resources>

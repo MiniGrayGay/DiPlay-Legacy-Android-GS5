@@ -34,7 +34,7 @@
     <string name="marker_down">下</string>
     <string name="marker_centre_default">居中 · 默认</string>
     <string name="hotspot_mode_manual_desc">使用车辆自带热点。</string>
-    <string name="hotspot_mode_p2p_desc">备选方案。需要打开车机 Wi-Fi 开关；2.4 GHz 连接可能会卡顿。</string>
+    <string name="hotspot_mode_p2p_desc">车机自己建立 Wi-Fi 直连供 iPhone 加入。需要打开车机 Wi-Fi 开关。</string>
     <string name="hotspot_details_off">热点已关闭 · 请在车机设置中开启。</string>
     <string name="hotspot_details_saved">详情已保存 · 连接前请确认车载热点已开启。</string>
     <string name="permission_enabled_ready">权限已启用 · 可以使用</string>
@@ -817,4 +817,6 @@
     <string name="quick_auto_connect_note">避免车机把手机重新连回蓝牙。重新连接后生效。</string>
     <string name="quick_cluster_map_note">重新连接后生效。</string>
     <string name="quick_more_settings">更多设置</string>
+    <string name="wireless_mode_recommended">推荐 · 已在本车验证</string>
+    <string name="wireless_mode_not_recommended">其他方式 · 未在本车验证，不推荐</string>
 </resources>

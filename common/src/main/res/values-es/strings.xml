@@ -34,7 +34,7 @@
     <string name="marker_down">Abajo</string>
     <string name="marker_centre_default">Centro · predeterminado</string>
     <string name="hotspot_mode_manual_desc">Usa el punto de acceso propio del coche.</string>
-    <string name="hotspot_mode_p2p_desc">Configuración alternativa. Requiere el interruptor Wi‑Fi del coche; en 2,4 GHz la conexión puede trabarse.</string>
+    <string name="hotspot_mode_p2p_desc">El coche crea su propio grupo Wi‑Fi Direct para el iPhone. Requiere el interruptor Wi‑Fi del coche.</string>
     <string name="hotspot_details_off">El punto de acceso está apagado · Actívalo en la configuración del coche.</string>
     <string name="hotspot_details_saved">Datos guardados · Comprueba que el punto de acceso del coche esté activado antes de conectarte.</string>
     <string name="permission_enabled_ready">Permiso activado · listo para usar</string>
@@ -741,4 +741,6 @@
     <string name="quick_auto_connect_note">Evita que el coche vuelva a conectar el teléfono por Bluetooth. Se aplica al reconectar.</string>
     <string name="quick_cluster_map_note">Se aplica al reconectar.</string>
     <string name="quick_more_settings">Más ajustes</string>
+    <string name="wireless_mode_recommended">Recomendado · verificado en este coche</string>
+    <string name="wireless_mode_not_recommended">Otras formas · sin verificar en este coche, no recomendadas</string>
 </resources>

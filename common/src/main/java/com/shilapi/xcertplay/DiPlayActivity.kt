@@ -2382,37 +2382,50 @@ class DiPlayActivity : ComponentActivity() {
                 WirelessHotspotMode.LOCAL_ONLY_HOTSPOT -> getString(R.string.hotspot_mode_p2p_desc)
             }
         }
-        val wide = resources.configuration.screenWidthDp >= 850
-        val choices = if (wide) row().apply { gravity = Gravity.TOP } else column()
-        parent.addView(choices)
-        modes.forEachIndexed { index, candidate ->
-            val option = column()
-            choices.addView(option, if (wide) LinearLayout.LayoutParams(0, -2, 1f).apply {
-                if (index > 0) marginStart = dp(16)
-            } else LinearLayout.LayoutParams(-1, -2))
-            option.addView(button("${if (mode == candidate) "✓  " else ""}${titles[index]}", mode == candidate) {
-                if (candidate == WirelessHotspotMode.MANUAL) {
-                    pendingCarHotspotSetup = true
-                    render()
-                } else if (candidate == WirelessHotspotMode.EXISTING_WIFI) {
-                    askHotspotCredentials(existingWifi = true) { ssid, password ->
-                        AirPlayPersistence.saveExistingWifiCredentials(this, ssid, password)
-                        pendingCarHotspotSetup = false
-                        applyWirelessLink(candidate)
-                    }
-                } else if (candidate == WirelessHotspotMode.HOSTAPD) {
-                    pendingCarHotspotSetup = false
-                    if (AirPlayPersistence.loadHostapdPassphrase(this).isEmpty()) {
-                        askHostapdCredentials { applyWirelessLink(candidate) }
-                    } else {
-                        applyWirelessLink(candidate)
-                    }
-                } else {
+        fun select(candidate: WirelessHotspotMode) {
+            if (candidate == WirelessHotspotMode.MANUAL) {
+                pendingCarHotspotSetup = true
+                render()
+            } else if (candidate == WirelessHotspotMode.EXISTING_WIFI) {
+                askHotspotCredentials(existingWifi = true) { ssid, password ->
+                    AirPlayPersistence.saveExistingWifiCredentials(this, ssid, password)
                     pendingCarHotspotSetup = false
                     applyWirelessLink(candidate)
                 }
-            }, matchButton(12, 60))
-            option.addView(label(descriptions[index], 15, MUTED).apply { setPadding(0, dp(6), 0, dp(12)) })
+            } else if (candidate == WirelessHotspotMode.HOSTAPD) {
+                pendingCarHotspotSetup = false
+                if (AirPlayPersistence.loadHostapdPassphrase(this).isEmpty()) {
+                    askHostapdCredentials { applyWirelessLink(candidate) }
+                } else {
+                    applyWirelessLink(candidate)
+                }
+            } else {
+                pendingCarHotspotSetup = false
+                applyWirelessLink(candidate)
+            }
+        }
+        fun title(index: Int, candidate: WirelessHotspotMode) = "${if (mode == candidate) "✓  " else ""}${titles[index]}"
+        // Wi-Fi Direct is the wireless path verified on the Guangqi head unit: it gets the full-size
+        // choice and the recommendation. The other ways stay available, smaller and marked as not
+        // recommended until they are verified there.
+        val recommended = WirelessHotspotMode.WIFI_P2P
+        modes.indexOf(recommended).takeIf { it >= 0 }?.let { index ->
+            parent.addView(button(title(index, recommended), mode == recommended) { select(recommended) }, matchButton(12, 60))
+            parent.addView(label(getString(R.string.wireless_mode_recommended), 14, READY, true).apply { setPadding(0, dp(8), 0, 0) })
+            parent.addView(label(descriptions[index], 15, MUTED).apply { setPadding(0, dp(4), 0, dp(12)) })
+        }
+        val others = modes.filter { it != recommended }
+        if (others.isNotEmpty()) {
+            parent.addView(label(getString(R.string.wireless_mode_not_recommended), 14, MUTED).apply { setPadding(0, dp(4), 0, dp(6)) })
+            val row = row().apply { gravity = Gravity.CENTER_VERTICAL }
+            others.forEachIndexed { position, candidate ->
+                val index = modes.indexOf(candidate)
+                row.addView(button(title(index, candidate), mode == candidate) { select(candidate) }.apply {
+                    textSize = 15f
+                    minHeight = dp(44)
+                }, LinearLayout.LayoutParams(-2, dp(44)).apply { if (position > 0) marginStart = dp(10) })
+            }
+            parent.addView(row, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(16) })
         }
         if (mode == WirelessHotspotMode.MANUAL) {
             parent.addView(label(getString(R.string.hotspot_setup), 22, TEXT, true))

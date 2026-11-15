@@ -49,7 +49,7 @@ object ConnectionSettingsSection {
         onSelected: (WirelessHotspotMode) -> Unit,
     ): SettingsWidgets.ChoiceRowResult<WirelessHotspotMode> {
         val modes = buildList {
-            // Android 9 has no usable Wi-Fi Direct group for this; Android 4.4 uses the legacy group,
+            // First: the recommended choice. Android 9 has no usable Wi-Fi Direct group for this; Android 4.4 uses the legacy group,
             // which is the wireless path verified on the Guangqi head unit.
             if (com.shilapi.xcertplay.compat.realSdkInt() != Build.VERSION_CODES.P) {
                 add(WirelessHotspotMode.WIFI_P2P to context.getString(R.string.wifi_direct))
