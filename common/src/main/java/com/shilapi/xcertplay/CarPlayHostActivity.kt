@@ -5060,7 +5060,7 @@ class CarPlayHostActivity : ComponentActivity() {
             when {
                 !config.locationReportingEnabled -> null
                 GuangqiCluster.present(this) -> VehicleSpeedLocationProvider(
-                    com.shilapi.xcertplay.location.GuangqiNmeaLocationProvider(),
+                    com.shilapi.xcertplay.location.GuangqiNmeaLocationProvider(this),
                     com.shilapi.xcertplay.hud.GuangqiVehicleSpeedSource,
                 )
                 config.identification.vehicleSpeedEnabled -> VehicleSpeedLocationProvider(
