@@ -34,7 +34,7 @@
     <string name="marker_up">Угору</string>
     <string name="marker_down">Униз</string>
     <string name="marker_centre_default">По центру · типово</string>
-    <string name="hotspot_mode_manual_desc">Використовувати власну точку доступу автомобіля. Якщо доступно, виберіть 5 ГГц у налаштуваннях автомобіля.</string>
+    <string name="hotspot_mode_manual_desc">Використовувати власну точку доступу автомобіля.</string>
     <string name="hotspot_mode_p2p_desc">Альтернативний спосіб. Потрібен увімкнений Wi-Fi автомобіля; на частоті 2,4 ГГц можливі затримки.</string>
     <string name="hotspot_details_off">Точку доступу вимкнено · Увімкніть її в налаштуваннях автомобіля.</string>
     <string name="hotspot_details_saved">Дані збережено · Перед підключенням перевірте, чи ввімкнено точку доступу автомобіля.</string>
@@ -179,7 +179,7 @@
     <string name="connection_setup">Налаштування підключення</string>
     <string name="copied_to_the_car_clipboard_run_the_command_on_your_comput">Скопійовано до буфера обміну автомобіля. Виконайте команду на комп’ютері.</string>
     <string name="copy_command">Скопіювати команду</string>
-    <string name="copy_these_from_the_car_s_hotspot_settings_use_5_ghz_if_av">Скопіюйте ці дані з налаштувань точки доступу автомобіля. Якщо доступно, використовуйте 5 ГГц. Збереження тут не змінює точку доступу автомобіля.</string>
+    <string name="copy_these_from_the_car_s_hotspot_settings_use_5_ghz_if_av">Скопіюйте ці дані з налаштувань точки доступу автомобіля. Збереження тут не змінює точку доступу автомобіля.</string>
     <string name="could_not_decode_image">Не вдалося декодувати зображення</string>
     <string name="could_not_encode_image">Не вдалося закодувати зображення</string>
     <string name="could_not_reset_wi_fi_direct_close_the_other_projection_ap">Не вдалося скинути Wi-Fi Direct. Закрийте інший застосунок проєкції та спробуйте знову.</string>
@@ -324,7 +324,7 @@
     <string name="s_1_0x">1.0x</string>
     <string name="s_1_choose_your_connection">1 · Виберіть спосіб підключення</string>
     <string name="s_1_connect_a_computer_with_adb_installed_to_the_car_using">1. Підключіть до автомобіля комп’ютер з установленим ADB через наявне USB-з’єднання або бездротове налагодження. Якщо автомобіль запитає, дозвольте налагодження.\n\n2. Виконайте цю команду в терміналі комп’ютера:</string>
-    <string name="s_1_open_car_hotspot_settings_turn_the_hotspot_on_and_sele">1. Відкрийте налаштування точки доступу автомобіля, увімкніть її та виберіть 5 ГГц, якщо доступно.\n2. Точно скопіюйте її назву й пароль нижче.\n3. Не вимикайте точку доступу під час підключення. DiPlay передасть дані через Bluetooth; iPhone приєднається автоматично.</string>
+    <string name="s_1_open_car_hotspot_settings_turn_the_hotspot_on_and_sele">1. Відкрийте налаштування точки доступу автомобіля, увімкніть її.\n2. Точно скопіюйте її назву й пароль нижче.\n3. Не вимикайте точку доступу під час підключення. DiPlay передасть дані через Bluetooth; iPhone приєднається автоматично.</string>
     <string name="s_2_4_ghz">2,4 ГГц</string>
     <string name="s_2_pair_your_iphone">2 · Спарте свій iPhone</string>
     <string name="s_300_ms_default">300 мс · типово</string>
@@ -334,7 +334,6 @@
     <string name="s_3_connect">3 · Підключіться</string>
     <string name="s_3_tap_check_and_enable_below_this_enables_the_cluster_ma">3. Натисніть «Перевірити й увімкнути» нижче. Це ввімкне карту на приборці та автоматичне стеження за темою. Активний сеанс CarPlay перепідключиться один раз. Після цього комп’ютер можна відключити.</string>
     <string name="s_500_ms">500 мс</string>
-    <string name="s_5_ghz">5 ГГц</string>
     <string name="s_60_fps_smoother_motion">60 кадрів/с · плавніший рух</string>
     <string name="s_60_lightest_load" formatted="false">60% · найменше навантаження</string>
     <string name="s_80_lighter_load" formatted="false">80% · менше навантаження</string>
@@ -381,7 +380,7 @@
     <string name="transport_error_reconnecting">Помилка передавання; повторне підключення</string>
     <string name="turn_on_bluetooth">Увімкніть Bluetooth</string>
     <string name="turn_on_wi_fi_in_the_head_unit_s_settings_to_connect">Увімкніть Wi-Fi у налаштуваннях головного пристрою, щоб підключитися.</string>
-    <string name="turn_the_car_s_wi_fi_switch_on_allow_location_nearby_devic">Увімкніть Wi-Fi автомобіля. Надайте доступ до місцезнаходження та пристроїв поблизу, якщо з’явиться запит, і ввімкніть геолокацію на запит Android. Якщо відтворення переривається, спробуйте вбудовану точку доступу автомобіля на частоті 5 ГГц.</string>
+    <string name="turn_the_car_s_wi_fi_switch_on_allow_location_nearby_devic">Увімкніть Wi-Fi автомобіля. Надайте доступ до місцезнаходження та пристроїв поблизу, якщо з’явиться запит, і ввімкніть геолокацію на запит Android.</string>
     <string name="usage_access_enabled">Доступ до даних використання: надано</string>
     <string name="usage_access_lets_diplay_follow_the_instrument_theme_and_m">Доступ до даних використання дозволяє DiPlay стежити за темою приборки та карткою карти. Локально обробляються лише події екрана приборки BYD. У цьому автомобілі сторінка налаштування такого дозволу не працює.</string>
     <string name="usage_access_setup_needed_for_automatic_mode">Доступ до даних використання: потрібне налаштування для автоматичного режиму</string>
@@ -397,7 +396,6 @@
     <string name="waiting_for_mfi_coprocessor">Очікування співпроцесора MFi</string>
     <string name="waiting_for_paired_iphone">Очікування iPhone — натисніть DiPlay у налаштуваннях iPhone > Загальні > CarPlay</string>
     <string name="wi_fi_direct_is_still_busy_close_the_other_projection_app">Wi-Fi Direct усе ще зайнятий. Закрийте інший застосунок проєкції та спробуйте знову.</string>
-    <string name="wi_fi_p2p_5_ghz">Wi-Fi P2P (5 ГГц)</string>
     <string name="wi_fi_session">Сеанс Wi-Fi</string>
     <string name="widest_width">Найбільша ширина</string>
     <string name="wireless_carplay">БЕЗДРОТОВИЙ CARPLAY</string>

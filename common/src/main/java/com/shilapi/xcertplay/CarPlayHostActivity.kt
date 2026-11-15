@@ -4027,7 +4027,7 @@ class CarPlayHostActivity : ComponentActivity() {
                 add(
                     WirelessHotspotMode.WIFI_P2P to
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                            getString(R.string.wi_fi_p2p_5_ghz)
+                            getString(R.string.wifi_direct)
                         } else {
                             getString(R.string.wifi_direct)
                         },
@@ -4101,8 +4101,8 @@ class CarPlayHostActivity : ComponentActivity() {
                 label = getString(R.string.band),
                 options = listOf(
                     ManualHotspotBand.AUTO to getString(R.string.auto),
+                    // The head unit's AR6003 has no 5 GHz radio.
                     ManualHotspotBand.GHZ_2_4 to getString(R.string.s_2_4_ghz),
-                    ManualHotspotBand.GHZ_5 to getString(R.string.s_5_ghz),
                 ),
                 selected = manualHotspotBand,
             ) { value ->
@@ -4337,7 +4337,7 @@ class CarPlayHostActivity : ComponentActivity() {
     }
 
     private fun hotspotModeLabel(mode: WirelessHotspotMode): String = when (mode) {
-        WirelessHotspotMode.WIFI_P2P -> getString(R.string.wi_fi_p2p_5_ghz)
+        WirelessHotspotMode.WIFI_P2P -> getString(R.string.wifi_direct)
         WirelessHotspotMode.LOCAL_ONLY_HOTSPOT -> getString(R.string.localonlyhotspot)
         WirelessHotspotMode.MANUAL -> getString(R.string.manual_hotspot)
         WirelessHotspotMode.EXISTING_WIFI -> getString(R.string.existing_wifi_title)

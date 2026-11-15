@@ -492,7 +492,7 @@ object AirPlayPersistence {
     fun loadWifiP2pPreferredChannel(context: Context): Int = runCatching {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getInt(KEY_WIFI_P2P_PREFERRED_CHANNEL, WifiP2pChannels.AUTO)
-            .takeIf(WifiP2pChannels::isValid) ?: WifiP2pChannels.AUTO
+            .takeIf(WifiP2pChannels::isValid)?.let(WifiP2pChannels::supported) ?: WifiP2pChannels.AUTO
     }.getOrDefault(WifiP2pChannels.AUTO)
 
     fun saveWifiP2pPreferredChannel(context: Context, channel: Int) {
@@ -540,7 +540,9 @@ object AirPlayPersistence {
     fun loadManualHotspotBand(context: Context): ManualHotspotBand {
         val stored = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getString(KEY_MANUAL_HOTSPOT_BAND, null)
+        // 5 GHz saved by an earlier build cannot be used: the head unit's radio is 2.4 GHz only.
         return ManualHotspotBand.entries.firstOrNull { it.name == stored }
+            ?.takeIf { it != ManualHotspotBand.GHZ_5 }
             ?: ManualHotspotBand.AUTO
     }
 
@@ -742,8 +744,13 @@ object AirPlayPersistence {
     }
 
     /** Issues #294/#299: experimental root hostapd hotspot opt-in (Advanced). */
-    fun loadRootHotspotEnabled(context: Context): Boolean =
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_ROOT_HOTSPOT_ENABLED, false)
+    /**
+     * Always false on the Guangqi head unit: the root hostapd mode runs `su`, and its system image
+     * has none. A value saved by an earlier build is ignored, so a stored HOSTAPD mode resolves
+     * the same way as with the opt-in off.
+     */
+    @Suppress("UNUSED_PARAMETER")
+    fun loadRootHotspotEnabled(context: Context): Boolean = false
 
     fun saveRootHotspotEnabled(context: Context, enabled: Boolean) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_ROOT_HOTSPOT_ENABLED, enabled).apply()

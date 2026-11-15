@@ -41,10 +41,11 @@ class HotspotModeMigrationTest {
         assertEquals("MANUAL", prefs.getString("wireless_hotspot_mode", null))
     }
 
-    @Test fun hostapdSelectionIsPreservedWhileTheOptInIsOn() {
+    @Test fun hostapdIsNotKeptEvenWithAnOldOptIn() {
+        // The root hotspot runs su, which the Guangqi system image does not have.
         AirPlayPersistence.saveRootHotspotEnabled(context, true)
         AirPlayPersistence.saveWirelessHotspotMode(context, WirelessHotspotMode.HOSTAPD)
-        assertEquals(WirelessHotspotMode.HOSTAPD, AirPlayPersistence.loadWirelessHotspotMode(context))
+        assertEquals(WirelessHotspotMode.MANUAL, AirPlayPersistence.loadWirelessHotspotMode(context))
     }
 
     @Test @Config(sdk = [24, 25, 26, 27, 28]) fun olderAndroidKeepsWifiDirectSelected() {

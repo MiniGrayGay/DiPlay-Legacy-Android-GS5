@@ -33,7 +33,7 @@
     <string name="marker_up">Arriba</string>
     <string name="marker_down">Abajo</string>
     <string name="marker_centre_default">Centro · predeterminado</string>
-    <string name="hotspot_mode_manual_desc">Usa el punto de acceso propio del coche. Selecciona 5 GHz en la configuración del coche si está disponible.</string>
+    <string name="hotspot_mode_manual_desc">Usa el punto de acceso propio del coche.</string>
     <string name="hotspot_mode_p2p_desc">Configuración alternativa. Requiere el interruptor Wi‑Fi del coche; en 2,4 GHz la conexión puede trabarse.</string>
     <string name="hotspot_details_off">El punto de acceso está apagado · Actívalo en la configuración del coche.</string>
     <string name="hotspot_details_saved">Datos guardados · Comprueba que el punto de acceso del coche esté activado antes de conectarte.</string>
@@ -175,7 +175,7 @@
     <string name="connection_setup">Configuración de conexión</string>
     <string name="copied_to_the_car_clipboard_run_the_command_on_your_comput">Copiado al portapapeles del coche. Ejecuta el comando en tu ordenador.</string>
     <string name="copy_command">Copiar comando</string>
-    <string name="copy_these_from_the_car_s_hotspot_settings_use_5_ghz_if_av">Copia esto de los ajustes del punto de acceso del coche. Usa 5 GHz si está disponible. Guardar aquí no cambia el punto de acceso del coche.</string>
+    <string name="copy_these_from_the_car_s_hotspot_settings_use_5_ghz_if_av">Copia esto de los ajustes del punto de acceso del coche. Guardar aquí no cambia el punto de acceso del coche.</string>
     <string name="could_not_decode_image">No se pudo decodificar la imagen</string>
     <string name="could_not_encode_image">No se pudo codificar la imagen</string>
     <string name="could_not_reset_wi_fi_direct_close_the_other_projection_ap">No se pudo restablecer Wi-Fi Direct. Cierra la otra aplicación de proyección e inténtalo de nuevo.</string>
@@ -315,7 +315,7 @@
     <string name="s_1000_ms_most_stable">1000 ms · la más estable</string>
     <string name="s_1_choose_your_connection">1 · Elige tu conexión</string>
     <string name="s_1_connect_a_computer_with_adb_installed_to_the_car_using">1. Conecta un ordenador con ADB instalado al coche mediante tu conexión USB o de depuración inalámbrica existente. Aprueba la depuración en el coche si se te pide.\n\n2. Ejecuta este comando en la terminal del ordenador:</string>
-    <string name="s_1_open_car_hotspot_settings_turn_the_hotspot_on_and_sele">1. Abre los ajustes del punto de acceso del coche, actívalo y selecciona 5 GHz si está disponible.\n2. Copia abajo su nombre y contraseña exactamente.\n3. Deja el punto de acceso del coche activado al conectarte. DiPlay envía los datos por Bluetooth; tu iPhone se une automáticamente.</string>
+    <string name="s_1_open_car_hotspot_settings_turn_the_hotspot_on_and_sele">1. Abre los ajustes del punto de acceso del coche, actívalo.\n2. Copia abajo su nombre y contraseña exactamente.\n3. Deja el punto de acceso del coche activado al conectarte. DiPlay envía los datos por Bluetooth; tu iPhone se une automáticamente.</string>
     <string name="s_2_pair_your_iphone">2 · Empareja tu iPhone</string>
     <string name="s_300_ms_default">300 ms · predeterminado</string>
     <string name="s_15_fps_lightest_load">15 img/s · carga mínima</string>
@@ -370,7 +370,7 @@
     <string name="transport_error_reconnecting">Error de transporte; reconectando</string>
     <string name="turn_on_bluetooth">Activar Bluetooth</string>
     <string name="turn_on_wi_fi_in_the_head_unit_s_settings_to_connect">Activa el Wi‑Fi en los ajustes de la unidad principal para conectarte.</string>
-    <string name="turn_the_car_s_wi_fi_switch_on_allow_location_nearby_devic">Activa el interruptor Wi‑Fi del coche. Permite Ubicación/«Dispositivos cercanos» si se te pide y activa la ubicación cuando Android lo solicite. Si la reproducción se traba, prueba el punto de acceso integrado del coche a 5 GHz.</string>
+    <string name="turn_the_car_s_wi_fi_switch_on_allow_location_nearby_devic">Activa el interruptor Wi‑Fi del coche. Permite Ubicación/«Dispositivos cercanos» si se te pide y activa la ubicación cuando Android lo solicite.</string>
     <string name="usage_access_enabled">Acceso al uso: activado</string>
     <string name="usage_access_lets_diplay_follow_the_instrument_theme_and_m">El acceso al uso permite que DiPlay siga el tema del cuadro y la tarjeta del mapa. Solo se procesan localmente los eventos de actividad del cuadro BYD. Este coche no ofrece una página de configuración de permisos funcional.</string>
     <string name="usage_access_setup_needed_for_automatic_mode">Acceso al uso: se necesita configuración para el modo automático</string>
@@ -386,7 +386,6 @@
     <string name="waiting_for_mfi_coprocessor">Esperando al coprocesador MFi</string>
     <string name="waiting_for_paired_iphone">Esperando al iPhone — toca DiPlay en Ajustes del iPhone > General > CarPlay</string>
     <string name="wi_fi_direct_is_still_busy_close_the_other_projection_app">Wi-Fi Direct sigue ocupado. Cierra la otra aplicación de proyección e inténtalo de nuevo.</string>
-    <string name="wi_fi_p2p_5_ghz">Wi-Fi P2P (5 GHz)</string>
     <string name="wi_fi_session">Sesión Wi‑Fi</string>
     <string name="widest_width">Ancho máximo</string>
     <string name="wireless_carplay">CARPLAY INALÁMBRICO</string>

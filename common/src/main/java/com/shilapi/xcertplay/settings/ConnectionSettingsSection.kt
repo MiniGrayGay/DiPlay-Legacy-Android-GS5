@@ -49,8 +49,10 @@ object ConnectionSettingsSection {
         onSelected: (WirelessHotspotMode) -> Unit,
     ): SettingsWidgets.ChoiceRowResult<WirelessHotspotMode> {
         val modes = buildList {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                add(WirelessHotspotMode.WIFI_P2P to context.getString(R.string.wi_fi_p2p_5_ghz))
+            // Android 9 has no usable Wi-Fi Direct group for this; Android 4.4 uses the legacy group,
+            // which is the wireless path verified on the Guangqi head unit.
+            if (com.shilapi.xcertplay.compat.realSdkInt() != Build.VERSION_CODES.P) {
+                add(WirelessHotspotMode.WIFI_P2P to context.getString(R.string.wifi_direct))
             }
             add(WirelessHotspotMode.MANUAL to context.getString(R.string.built_in_car_hotspot))
             add(WirelessHotspotMode.EXISTING_WIFI to context.getString(R.string.existing_wifi_title))

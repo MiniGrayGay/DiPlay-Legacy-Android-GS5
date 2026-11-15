@@ -1707,25 +1707,8 @@ class DiPlayActivity : ComponentActivity() {
                 AirPlayPersistence.saveDirectUsbfsMode(this, it)
                 reconnectIfRunning()
             }
-            // Issues #294/#299: experimental root hostapd hotspot for units
-            // whose framework cannot open an AP at all. The mode itself is
-            // picked in Connection setup once this opt-in is on.
-            toggle(card, getString(R.string.settings_root_hotspot_mode),
-                getString(R.string.settings_root_hotspot_mode_description),
-                AirPlayPersistence.loadRootHotspotEnabled(this)) {
-                AirPlayPersistence.saveRootHotspotEnabled(this, it)
-                markReconnectNeeded()
-            }
-            // Issue #344: Apple vendor IE on the root hostapd beacon — iPhones
-            // never auto-join an AP without it (a manual tap connects fine,
-            // which proves the rest of the chain). Only affects Root hotspot
-            // mode; applies at the next connection.
-            toggle(card, getString(R.string.settings_hostapd_apple_vendor_ie),
-                getString(R.string.settings_hostapd_apple_vendor_ie_description),
-                AirPlayPersistence.loadHostapdAppleVendorIe(this)) {
-                AirPlayPersistence.saveHostapdAppleVendorIe(this, it)
-                markReconnectNeeded()
-            }
+            // The root hostapd hotspot and its Apple vendor IE are not offered: they run `su`,
+            // and the Guangqi system image has none.
             // Issue #343: the car's global "自动连接" pages the phone back after
             // CarPlay makes the phone drop HFP. This switch turns that off for
             // the session, wired or wireless, and disconnects the phone the way
@@ -2474,7 +2457,7 @@ class DiPlayActivity : ComponentActivity() {
         getString(R.string.auto)
     } else {
         getString(R.string.wifi_direct_channel_choice, channel,
-            getString(if (channel < 36) R.string.s_2_4_ghz else R.string.s_5_ghz))
+            getString(R.string.s_2_4_ghz))
     }
 
     private fun wifiDirectChannelControl(parent: LinearLayout) {
@@ -2483,7 +2466,7 @@ class DiPlayActivity : ComponentActivity() {
         }
         val control = button(summary(AirPlayPersistence.loadWifiP2pPreferredChannel(this)), false) {}
         control.setOnClickListener {
-            val choices = listOf(WifiP2pChannels.AUTO) + WifiP2pChannels.channels
+            val choices = listOf(WifiP2pChannels.AUTO) + WifiP2pChannels.supportedChannels
             val current = AirPlayPersistence.loadWifiP2pPreferredChannel(this)
             var selection = current
             AlertDialog.Builder(this).setTitle(R.string.wifi_direct_channel_title)
