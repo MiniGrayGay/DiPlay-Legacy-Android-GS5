@@ -674,6 +674,10 @@ class DiPlayActivity : ComponentActivity() {
         }
 
         val wide = resources.configuration.screenWidthDp >= 850
+        // A wide but short screen, such as the Guangqi unit's 1280x720 at 160 dpi under its 85 dp
+        // status bar (635 dp left), has no room for the hero text: the wireless controls start at
+        // the top so choosing and disconnecting the iPhone need no scrolling.
+        val shortLandscape = wide && resources.configuration.screenHeightDp < SHORT_LANDSCAPE_HEIGHT_DP
         val body = column()
         val left = column()
         left.addView(label(getString(R.string.your_phone_your_drive), 12, ACCENT, true).apply {
@@ -712,12 +716,22 @@ class DiPlayActivity : ComponentActivity() {
             card.addView(label(getString(R.string.msg_car_hotspot_off, AirPlayPersistence.loadManualHotspotSsid(this)), 15, WARNING).apply { setPadding(0, dp(14), 0, 0) })
             card.addView(button(getString(R.string.open_car_hotspot_settings), false) { openCarWifiSettings() }, matchButton(10, 56))
         }
-        card.addView(button(getString(R.string.choose_iphone), false) { choosePhone() }, matchButton(16, 56))
+        val chooseButton = button(getString(R.string.choose_iphone), false) { choosePhone() }
         disconnectButton = button(getString(R.string.disconnect), false) {
             disconnectButton?.isEnabled = false
             CarPlayBackgroundSession.stop { runOnUiThread { refreshStatus() } }
         }.apply { visibility = View.GONE }
-        card.addView(disconnectButton, matchButton(10, 56))
+        if (shortLandscape) {
+            // Side by side; while disconnected the hidden button leaves the whole row to the other.
+            card.addView(row().apply {
+                gravity = Gravity.CENTER_VERTICAL
+                addView(chooseButton, LinearLayout.LayoutParams(0, dp(56), 1f))
+                addView(disconnectButton, LinearLayout.LayoutParams(0, dp(56), 1f).apply { leftMargin = dp(12) })
+            }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(16) })
+        } else {
+            card.addView(chooseButton, matchButton(16, 56))
+            card.addView(disconnectButton, matchButton(10, 56))
+        }
         val right = column().apply { gravity = Gravity.CENTER_HORIZONTAL }
         val logo = ImageView(this).apply {
             setImageResource(R.drawable.ic_carplay)
@@ -735,7 +749,15 @@ class DiPlayActivity : ComponentActivity() {
         right.addView(label("${getString(R.string.home_public_preview)}${version()}", 12, MUTED).apply {
             if (realSdkInt() >= Build.VERSION_CODES.LOLLIPOP) letterSpacing = .08f
         })
-        if (wide) {
+        if (shortLandscape) {
+            fun columns(first: View, second: View) = row().apply {
+                gravity = Gravity.TOP
+                addView(first, LinearLayout.LayoutParams(0, -2, 1.6f))
+                addView(space(40), LinearLayout.LayoutParams(dp(40), 1))
+                addView(second, LinearLayout.LayoutParams(0, -2, 1f))
+            }
+            body.addView(columns(card, right))
+        } else if (wide) {
             // Both rows share column widths. The USB button starts at the wireless
             // card's top edge, independently of hero wrapping or font scaling.
             fun columns(first: View, second: View, stretchSecond: Boolean = false) = row().apply {
@@ -5346,6 +5368,8 @@ class DiPlayActivity : ComponentActivity() {
     // Rounded, not truncated: below 160 dpi dp(1) became 0 and every border vanished.
     private fun dp(value: Int) = (value * resources.displayMetrics.density).roundToInt()
     companion object {
+        /** Below this height a wide home screen leaves out its hero text. */
+        private const val SHORT_LANDSCAPE_HEIGHT_DP = 700
         internal fun isLauncherIntent(intent: Intent): Boolean =
             intent.action == Intent.ACTION_MAIN && intent.hasCategory(Intent.CATEGORY_LAUNCHER) &&
                 !intent.hasExtra("page")
