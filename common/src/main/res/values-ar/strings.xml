@@ -567,7 +567,7 @@
     <string name="carplay_rotation_smoother">أكثر سلاسة (1920)</string>
     <string name="carplay_rotation_sharper">أكثر وضوحًا (حجم الشاشة)</string>
     <string name="carplay_call_controls_experimental">أزرار مكالمات CarPlay (تجريبي)</string>
-    <string name="carplay_call_controls_experimental_description">تفعيل أزرار المكالمات والصوت والتشغيل/الإيقاف المؤقت غير المتحقق منها في DiLink 3. لا يزال يلزم اختبارها في السيارة. معطلة افتراضيًا؛ بطاقات مكالمات لوحة العدادات لها إعداد منفصل.</string>
+    <string name="carplay_call_controls_experimental_description">تجيب أزرار الاتصال على المقود على مكالمات CarPlay وتنهيها. في وحدة Guangqi يجيب زر الاتصال، وينهي زر الإنهاء المكالمة أو يرفضها، ويفتح الضغط المطوّل على زر الصوت Siri؛ ولا تظهر شاشة المكالمات الخاصة بالسيارة أثناء اتصال CarPlay. يظل الضغط القصير على زر الصوت يفتح المساعد الصوتي للسيارة. لم يتم التحقق من الأزرار بعد في DiLink 3. لا يزال يتطلب اختبارًا في السيارة. معطّل افتراضيًا؛ بطاقات المكالمات في لوحة العدادات إعداد منفصل.</string>
     <string name="side_panel">لوحة جانبية بجوار CarPlay (تجريبي)</string>
     <string name="side_panel_description">يمكن نقل CarPlay إلى ثلثي الشاشة بينما يعرض DiPlay لوحة في الباقي: على جانب الراكب في الشاشة الأفقية، وفي الأسفل في الشاشة العمودية (الساعة، والبطارية إذا تمت قراءتها). أظهرها وأخفها من قائمة الجلسة. يُطبَّق عند الاتصال التالي.</string>
     <string name="side_panel_show">اللوحة الجانبية</string>
