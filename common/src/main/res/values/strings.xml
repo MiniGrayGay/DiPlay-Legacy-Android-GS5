@@ -102,7 +102,6 @@
     <string name="language_hint">Choose a language for DiPlay. System default follows the device language.</string>
     <string name="language_apply">Apply</string>
     <string name="common_cancel">Cancel</string>
-    <string name="a_familiar_drive">A familiar drive.</string>
     <string name="a_previous_wi_fi_direct_connection_is_still_running_reset">A previous Wi-Fi Direct connection is still running. Reset it to connect.</string>
     <string name="about">About</string>
     <string name="about_diplay">About DiPlay</string>
@@ -148,7 +147,6 @@
     <string name="carplay_connected">CarPlay connected</string>
     <string name="carplay_control_running">CarPlay control running</string>
     <string name="carplay_control_window_ended">CarPlay control window ended</string>
-    <string name="carplay_icon">CarPlay icon</string>
     <string name="carplay_map_on_instrument_cluster_experimental">CarPlay map on dashboard (experimental)</string>
     <string name="carplay_service_already_running">CarPlay service already running</string>
     <string name="carplay_session_already_running">CarPlay session already running</string>
@@ -258,7 +256,6 @@
     <string name="longest_height">Longest height</string>
     <string name="looking_for_your_paired_iphone">Looking for your paired iPhone…</string>
     <string name="made_possible_by_open_source">Made possible by open source</string>
-    <string name="make_diplay_feel_right_for_your_car">Make DiPlay feel right for your car.</string>
     <string name="manual_hotspot">Manual hotspot</string>
     <string name="manual_mode_match_the_cluster_theme_here_the_map_cannot_fo">Manual mode: match the cluster theme here. The map cannot follow card visibility without Usage Access.</string>
     <string name="manufacturer">Manufacturer</string>
@@ -464,8 +461,6 @@
     <string name="wpa3" tools:ignore="MissingTranslation">WPA3</string>
     <string name="wpa3_transition">WPA3 transition</string>
     <string name="your_iphone_isn_t_available_unlock_it_and_check_bluetooth">Your iPhone isn’t available. Unlock it and check Bluetooth.</string>
-    <string name="your_maps_music_and_conversations_carplay_right_here_on_yo">Your maps, music and conversations.\nCarPlay, right here on your car display.</string>
-    <string name="your_phone_your_drive">YOUR PHONE. YOUR DRIVE.</string>
     <string name="your_report_was_saved_to_the_selected_location">Your report was saved to the selected location.</string>
     <string name="cluster_waiting_for_map">DiPlay · waiting for the CarPlay map</string>
     <string name="option_size_huge">Huge</string>
@@ -851,4 +846,10 @@
     <string name="settings_legacy_hotspot_description">On the next connection or when DiPlay opens, turn off regular Wi-Fi and start the saved car hotspot. Keep its name and password. For boot startup, also enable “Open after the car starts”. No ADB authorization is needed on this unit.</string>
     <string name="settings_media_focus_exclusive">Exclusive media audio focus</string>
     <string name="settings_media_focus_exclusive_description">Request permanent focus for media instead of letting other players duck CarPlay. Only helps head units that duck CarPlay to silence; it can mute other players. Takes effect on the next connection.</string>
+    <string name="settings_app_theme">Appearance</string>
+    <string name="settings_app_theme_auto">Automatic</string>
+    <string name="settings_app_theme_light">Light</string>
+    <string name="settings_app_theme_dark">Dark</string>
+    <string name="settings_app_theme_hint">Light or dark for DiPlay\'s own screens. Automatic follows CarPlay\'s day and night setting. CarPlay itself is not affected.</string>
+    <string name="home_wired_carplay">WIRED CARPLAY</string>
 </resources>

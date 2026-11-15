@@ -100,7 +100,6 @@
     <string name="language_hint">Elige un idioma para DiPlay. «Sistema» sigue el idioma del dispositivo.</string>
     <string name="language_apply">Aplicar</string>
     <string name="common_cancel">Cancelar</string>
-    <string name="a_familiar_drive">Un trayecto familiar.</string>
     <string name="a_previous_wi_fi_direct_connection_is_still_running_reset">Hay una conexión Wi-Fi Direct anterior todavía en ejecución. Restablécela para conectarte.</string>
     <string name="about">Acerca de</string>
     <string name="about_diplay">Acerca de DiPlay</string>
@@ -142,7 +141,6 @@
     <string name="carplay_connected">CarPlay conectado</string>
     <string name="carplay_control_running">Control de CarPlay en ejecución</string>
     <string name="carplay_control_window_ended">Ventana de control de CarPlay finalizada</string>
-    <string name="carplay_icon">Icono de CarPlay</string>
     <string name="carplay_map_on_instrument_cluster_experimental">Mapa de CarPlay en el panel de instrumentos (experimental)</string>
     <string name="carplay_service_already_running">El servicio de CarPlay ya está en ejecución</string>
     <string name="carplay_session_already_running">La sesión de CarPlay ya está en ejecución</string>
@@ -249,7 +247,6 @@
     <string name="longest_height">Altura máxima</string>
     <string name="looking_for_your_paired_iphone">Buscando tu iPhone emparejado…</string>
     <string name="made_possible_by_open_source">Hecho posible por el código abierto</string>
-    <string name="make_diplay_feel_right_for_your_car">Haz que DiPlay encaje con tu coche.</string>
     <string name="manual_hotspot">Punto de acceso manual</string>
     <string name="manual_mode_match_the_cluster_theme_here_the_map_cannot_fo">Modo manual: ajusta aquí el tema del cuadro. El mapa no puede seguir la visibilidad de las tarjetas sin el permiso de uso.</string>
     <string name="manufacturer">Fabricante</string>
@@ -403,8 +400,6 @@
     <string name="wpa2_wpa3_password_must_be_8_63_characters">La contraseña WPA2/WPA3 debe tener de 8 a 63 caracteres</string>
     <string name="wpa3_transition">Transición WPA3</string>
     <string name="your_iphone_isn_t_available_unlock_it_and_check_bluetooth">Tu iPhone no está disponible. Desbloquéalo y comprueba el Bluetooth.</string>
-    <string name="your_maps_music_and_conversations_carplay_right_here_on_yo">Tus mapas, tu música y tus conversaciones.\nCarPlay, aquí mismo en la pantalla de tu coche.</string>
-    <string name="your_phone_your_drive">TU TELÉFONO. TU TRAYECTO.</string>
     <string name="your_report_was_saved_to_the_selected_location">Tu informe se guardó en la ubicación seleccionada.</string>
     <string name="cluster_waiting_for_map">DiPlay · esperando el mapa de CarPlay</string>
     <string name="option_size_huge">Enorme</string>
@@ -737,4 +732,10 @@
     <string name="wireless_forget_device_title">La conexión inalámbrica sigue fallando</string>
     <string name="wireless_forget_device_message">CarPlay inalámbrico no ha podido conectar 4 veces seguidas. En el iPhone, ve a Ajustes → Wi-Fi, omite el punto de acceso del equipo y vuelve a emparejar y conectar.</string>
     <string name="settings_media_focus_exclusive_description">Solicita foco permanente para multimedia en lugar de permitir que otros reproductores atenúen CarPlay. Solo ayuda en unidades que silencian CarPlay al atenuarlo; puede silenciar otros reproductores. Se aplica en la próxima conexión.</string>
+    <string name="settings_app_theme">Apariencia</string>
+    <string name="settings_app_theme_auto">Automática</string>
+    <string name="settings_app_theme_light">Clara</string>
+    <string name="settings_app_theme_dark">Oscura</string>
+    <string name="settings_app_theme_hint">Claro u oscuro para las pantallas de DiPlay. Automática sigue el ajuste de día y noche de CarPlay. CarPlay no se ve afectado.</string>
+    <string name="home_wired_carplay">CARPLAY CON CABLE</string>
 </resources>

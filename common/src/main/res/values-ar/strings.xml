@@ -100,7 +100,6 @@
     <string name="language_hint">اختر لغة DiPlay. «إعدادات النظام» يتبع لغة الجهاز.</string>
     <string name="language_apply">تطبيق</string>
     <string name="common_cancel">إلغاء</string>
-    <string name="a_familiar_drive">رحلة مألوفة.</string>
     <string name="a_previous_wi_fi_direct_connection_is_still_running_reset">ما زال اتصال Wi-Fi Direct السابق قيد التشغيل. أعد ضبطه للاتصال.</string>
     <string name="about">حول</string>
     <string name="about_diplay">حول DiPlay</string>
@@ -142,7 +141,6 @@
     <string name="carplay_connected">تم الاتصال بـ CarPlay</string>
     <string name="carplay_control_running">التحكم في CarPlay قيد التشغيل</string>
     <string name="carplay_control_window_ended">انتهت نافذة التحكم في CarPlay</string>
-    <string name="carplay_icon">أيقونة CarPlay</string>
     <string name="carplay_map_on_instrument_cluster_experimental">خريطة CarPlay على لوحة العدادات (تجريبي)</string>
     <string name="carplay_service_already_running">خدمة CarPlay قيد التشغيل بالفعل</string>
     <string name="carplay_session_already_running">جلسة CarPlay قيد التشغيل بالفعل</string>
@@ -249,7 +247,6 @@
     <string name="longest_height">أقصى ارتفاع</string>
     <string name="looking_for_your_paired_iphone">جارٍ البحث عن iPhone المقترن…</string>
     <string name="made_possible_by_open_source">ممكن بفضل المصدر المفتوح</string>
-    <string name="make_diplay_feel_right_for_your_car">اجعل DiPlay مناسبًا لسيارتك.</string>
     <string name="manual_hotspot">نقطة اتصال يدوية</string>
     <string name="manual_mode_match_the_cluster_theme_here_the_map_cannot_fo">الوضع اليدوي: طابق سمة لوحة العدادات هنا. لا تستطيع الخريطة اتباع مرئيات البطاقة دون إذن الوصول للاستخدام.</string>
     <string name="manufacturer">الشركة المصنّعة</string>
@@ -403,8 +400,6 @@
     <string name="wpa2_wpa3_password_must_be_8_63_characters">يجب أن تكون كلمة مرور WPA2/WPA3 من 8 إلى 63 حرفاً</string>
     <string name="wpa3_transition">انتقال WPA3</string>
     <string name="your_iphone_isn_t_available_unlock_it_and_check_bluetooth">iPhone غير متاح. افتح قفله وتحقق من البلوتوث.</string>
-    <string name="your_maps_music_and_conversations_carplay_right_here_on_yo">خرائطك وموسيقاك ومحادثاتك.\nCarPlay، هنا على شاشة سيارتك.</string>
-    <string name="your_phone_your_drive">هاتفك. رحلتك.</string>
     <string name="your_report_was_saved_to_the_selected_location">تم حفظ تقريرك في الموقع المحدد.</string>
     <string name="cluster_waiting_for_map">DiPlay · بانتظار خريطة CarPlay</string>
     <string name="option_size_huge">ضخم</string>
@@ -737,4 +732,10 @@
     <string name="wireless_forget_device_title">تعذّر الاتصال اللاسلكي</string>
     <string name="wireless_forget_device_message">تعذّر اتصال CarPlay اللاسلكي 4 مرات متتالية. على iPhone، انتقل إلى «الإعدادات → Wi-Fi»، ثم تجاهل نقطة اتصال وحدة السيارة وأعد الاقتران والاتصال.</string>
     <string name="settings_media_focus_exclusive_description">طلب تركيز دائم للوسائط بدلاً من السماح للمشغلات الأخرى بخفض صوت CarPlay. يساعد فقط على الوحدات التي تخفض CarPlay إلى الصمت؛ وقد يكتم المشغلات الأخرى. يسري اعتباراً من الاتصال التالي.</string>
+    <string name="settings_app_theme">المظهر</string>
+    <string name="settings_app_theme_auto">تلقائي</string>
+    <string name="settings_app_theme_light">فاتح</string>
+    <string name="settings_app_theme_dark">داكن</string>
+    <string name="settings_app_theme_hint">مظهر فاتح أو داكن لشاشات DiPlay. يتبع الوضع التلقائي إعداد النهار والليل في CarPlay. لا يتأثر CarPlay نفسه.</string>
+    <string name="home_wired_carplay">CarPlay السلكي</string>
 </resources>

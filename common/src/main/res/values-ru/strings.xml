@@ -100,7 +100,6 @@
     <string name="language_hint">Выберите язык DiPlay. «Системный» следует языку устройства.</string>
     <string name="language_apply">Применить</string>
     <string name="common_cancel">Отмена</string>
-    <string name="a_familiar_drive">Привычная поездка.</string>
     <string name="a_previous_wi_fi_direct_connection_is_still_running_reset">Предыдущее подключение Wi-Fi Direct всё ещё активно. Сбросьте его, чтобы подключиться.</string>
     <string name="about">О программе</string>
     <string name="about_diplay">О DiPlay</string>
@@ -142,7 +141,6 @@
     <string name="carplay_connected">CarPlay подключён</string>
     <string name="carplay_control_running">Управление CarPlay работает</string>
     <string name="carplay_control_window_ended">Окно управления CarPlay завершено</string>
-    <string name="carplay_icon">Значок CarPlay</string>
     <string name="carplay_map_on_instrument_cluster_experimental">Карта CarPlay на приборной панели (экспериментально)</string>
     <string name="carplay_service_already_running">Служба CarPlay уже работает</string>
     <string name="carplay_session_already_running">Сеанс CarPlay уже работает</string>
@@ -249,7 +247,6 @@
     <string name="longest_height">Наибольшая высота</string>
     <string name="looking_for_your_paired_iphone">Поиск связанного iPhone…</string>
     <string name="made_possible_by_open_source">Реализовано благодаря открытому коду</string>
-    <string name="make_diplay_feel_right_for_your_car">Сделайте DiPlay удобным для вашего автомобиля.</string>
     <string name="manual_hotspot">Ручная точка доступа</string>
     <string name="manual_mode_match_the_cluster_theme_here_the_map_cannot_fo">Ручной режим: настройте тему комбинации здесь. Карта не может следовать видимости карточек без доступа к использованию.</string>
     <string name="manufacturer">Производитель</string>
@@ -403,8 +400,6 @@
     <string name="wpa2_wpa3_password_must_be_8_63_characters">Пароль WPA2/WPA3 должен содержать 8–63 символа</string>
     <string name="wpa3_transition">Переходный WPA3</string>
     <string name="your_iphone_isn_t_available_unlock_it_and_check_bluetooth">iPhone недоступен. Разблокируйте его и проверьте Bluetooth.</string>
-    <string name="your_maps_music_and_conversations_carplay_right_here_on_yo">Ваши карты, музыка и разговоры.\nCarPlay прямо здесь на экране автомобиля.</string>
-    <string name="your_phone_your_drive">ВАШ ТЕЛЕФОН. ВАША ПОЕЗДКА.</string>
     <string name="your_report_was_saved_to_the_selected_location">Отчёт сохранён в выбранном месте.</string>
     <string name="cluster_waiting_for_map">DiPlay · ожидание карты CarPlay</string>
     <string name="option_size_huge">Огромный</string>
@@ -737,4 +732,10 @@
     <string name="wireless_forget_device_title">Беспроводное подключение не удаётся</string>
     <string name="wireless_forget_device_message">Беспроводной CarPlay не смог подключиться 4 раза подряд. На iPhone откройте «Настройки → Wi-Fi», забудьте точку доступа головного устройства и выполните сопряжение заново.</string>
     <string name="settings_media_focus_exclusive_description">Запрашивать постоянный фокус для медиа вместо приглушения CarPlay другими проигрывателями. Помогает только на головных устройствах, которые приглушают CarPlay до тишины; может заглушить другие проигрыватели. Действует со следующего подключения.</string>
+    <string name="settings_app_theme">Оформление</string>
+    <string name="settings_app_theme_auto">Автоматически</string>
+    <string name="settings_app_theme_light">Светлое</string>
+    <string name="settings_app_theme_dark">Тёмное</string>
+    <string name="settings_app_theme_hint">Светлое или тёмное оформление экранов DiPlay. «Автоматически» следует настройке дня и ночи CarPlay. На CarPlay не влияет.</string>
+    <string name="home_wired_carplay">CARPLAY ПО КАБЕЛЮ</string>
 </resources>

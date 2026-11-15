@@ -94,7 +94,6 @@
     <string name="safe_area_full_screen_at">安全区域：全屏，</string>
     <string name="settings_android9_compat">以下设置在 Android 9（API 28）上不可用且已隐藏：\n• Wi-Fi P2P（5 GHz）— 将改用 LocalOnlyHotspot。\n• HEVC 软解码器 — 将改用硬件解码。</string>
     <string name="settings_mfi_address_hint">地址必须以 http:// 或 https:// 开头。令牌为可选项，将作为 Authorization bearer token 发送。</string>
-    <string name="a_familiar_drive">熟悉的驾乘体验。</string>
     <string name="a_previous_wi_fi_direct_connection_is_still_running_reset">之前的 Wi-Fi Direct 连接仍在运行。请重置后再连接。</string>
     <string name="about">关于</string>
     <string name="about_diplay">关于 DiPlay</string>
@@ -141,7 +140,6 @@
     <string name="carplay_connected">CarPlay 已连接</string>
     <string name="carplay_control_running">CarPlay 控制通道运行中</string>
     <string name="carplay_control_window_ended">CarPlay 控制会话已结束</string>
-    <string name="carplay_icon">CarPlay 图标</string>
     <string name="carplay_map_on_instrument_cluster_experimental">仪表盘上的CarPlay地图（实验性）</string>
     <string name="carplay_service_already_running">CarPlay 服务已在运行</string>
     <string name="carplay_session_already_running">CarPlay 会话已在运行</string>
@@ -257,7 +255,6 @@
     <string name="longest_height">较长边</string>
     <string name="looking_for_your_paired_iphone">正在查找已配对的 iPhone…</string>
     <string name="made_possible_by_open_source">开源项目鸣谢</string>
-    <string name="make_diplay_feel_right_for_your_car">按需调整 DiPlay 设置。</string>
     <string name="manual_hotspot">手动热点</string>
     <string name="manual_mode_match_the_cluster_theme_here_the_map_cannot_fo">手动模式：在此匹配仪表盘主题。没有使用访问权限时，地图无法跟随卡片显示状态。</string>
     <string name="manufacturer">制造商</string>
@@ -423,8 +420,6 @@
     <string name="wpa3">WPA3</string>
     <string name="wpa3_transition">WPA3 过渡模式</string>
     <string name="your_iphone_isn_t_available_unlock_it_and_check_bluetooth">暂时找不到 iPhone。请解锁手机并检查蓝牙。</string>
-    <string name="your_maps_music_and_conversations_carplay_right_here_on_yo">地图、音乐与通话，\n在车机屏幕上畅享 CarPlay。</string>
-    <string name="your_phone_your_drive">你的手机，畅享旅程。</string>
     <string name="your_report_was_saved_to_the_selected_location">报告已保存到所选位置。</string>
     <string name="cluster_waiting_for_map">DiPlay · 等待 CarPlay 地图</string>
     <string name="option_size_huge">超大</string>
@@ -814,4 +809,10 @@
     <string name="settings_legacy_hotspot_description">在下次连接或打开 DiPlay 时，自动关闭 Wi-Fi 并开启已保存的车机热点。保持热点名称与密码不变。如需开机自动启动，请同时开启“车机启动后打开”。在此车机上无需 ADB 授权。</string>
     <string name="settings_media_focus_exclusive">媒体音频焦点独占</string>
     <string name="settings_media_focus_exclusive_description">媒体改请求永久焦点，不再让其他播放器压低 CarPlay。只对会把 CarPlay 压到无声的车机有效；可能导致其他播放器无声。下次连接生效。</string>
+    <string name="settings_app_theme">外观</string>
+    <string name="settings_app_theme_auto">自动</string>
+    <string name="settings_app_theme_light">浅色</string>
+    <string name="settings_app_theme_dark">深色</string>
+    <string name="settings_app_theme_hint">DiPlay 自身界面使用浅色还是深色。自动时跟随 CarPlay 的日夜模式设置。不影响 CarPlay 画面。</string>
+    <string name="home_wired_carplay">有线 CarPlay</string>
 </resources>
