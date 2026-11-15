@@ -1,115 +1,188 @@
 package com.shilapi.xcertplay.location
 
+import android.annotation.SuppressLint
+import android.content.Context
+import android.location.GpsStatus
+import android.location.Location
+import android.location.LocationListener
+import android.location.LocationManager
+import android.os.Bundle
+import android.os.Handler
+import android.os.HandlerThread
+import android.os.SystemClock
 import android.util.Log
+import com.shilapi.xcertplay.transport.CarPlayLocationFix
 import com.shilapi.xcertplay.transport.Iap2LocationProvider
-import java.io.BufferedReader
-import java.io.File
-import java.io.FileInputStream
-import java.io.InputStreamReader
-import java.util.concurrent.Executors
+import com.shilapi.xcertplay.transport.NmeaLocationEncoder
+import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 
 /**
- * Reads NMEA directly from the Atheros AR1520A GPS baseband on the Guangqi GS5 head unit.
- * The device outputs GGA, GSA, GSV, RMC, VTG, GNS to `/dev/athrnmea`. DiPlay runs as
- * `android.uid.system` so it can open the device file without extra permissions.
+ * The Guangqi GS5's GNSS, read the way the stock AMap reads it: the system `gps` provider.
  *
- * Returns raw `$GPGGA` + `$GPRMC` lines, which is exactly what iAP2 0xFFFB sends.
+ * The receiver is the u-blox on `/dev/ttyACM17`, behind the system GPS HAL
+ * (`/system/lib/hw/gps.SABRESD.so`, `/system/etc/u-blox.conf`). The stock AMap requests `gps`
+ * updates from LocationManager, and its Guangqi adapter adds the HAL's u-blox sensor data through
+ * `LocationManager.requestUbxInfoUpdates`. The Atheros path (`ingsvcd`, `/dev/athrnmea`) is not
+ * that receiver: its HAL is parked as `/system/lib/gps.SABRESD.so-old` and nothing in the image
+ * reads its output.
  *
- * Only sentences whose checksum matches are passed on. The device can hand over a partial line,
- * for example the tail of a sentence when the reader opens mid-output, and the iPhone must not
- * get a position cut in half.
+ * The HAL's own GGA and RMC are passed on when their checksum matches, with the talker set to
+ * `GP` as iAP2 names them. When the HAL has not reported NMEA for a while, the latest `gps` fix is
+ * encoded instead.
  */
-class GuangqiNmeaLocationProvider : Iap2LocationProvider {
+class GuangqiNmeaLocationProvider(context: Context) : Iap2LocationProvider {
+    private val locationManager =
+        context.applicationContext.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+    private val sentences = NmeaSentences()
+    private val latestFix = AtomicReference<Location?>(null)
+    private var thread: HandlerThread? = null
 
-    private val executor = Executors.newSingleThreadExecutor { r ->
-        Thread(r, "diplay-gq-nmea").apply { isDaemon = true }
-    }
-    @Volatile private var running = false
-    private val latestGga = AtomicReference<String?>(null)
-    private val latestRmc = AtomicReference<String?>(null)
-
-    override fun start(): Boolean {
-        if (running) return true
-        val dev = File(DEVICE_PATH)
-        if (!dev.exists()) {
-            Log.w(TAG, "$DEVICE_PATH does not exist")
-            val pipe = File(PIPE_PATH)
-            if (!pipe.exists()) {
-                Log.w(TAG, "$PIPE_PATH does not exist either; no GPS source available")
-                return false
-            }
+    private val locationListener = object : LocationListener {
+        override fun onLocationChanged(location: Location) {
+            latestFix.set(location)
         }
-        // A fix read before the last stop is no longer current.
-        latestGga.set(null)
-        latestRmc.set(null)
-        running = true
-        executor.execute(::readLoop)
-        Log.i(TAG, "NMEA reader started")
-        return true
+
+        override fun onProviderEnabled(provider: String) = Unit
+        override fun onProviderDisabled(provider: String) = Unit
+        override fun onStatusChanged(provider: String, status: Int, extras: Bundle?) = Unit
     }
 
+    @Suppress("DEPRECATION")
+    private val nmeaListener = GpsStatus.NmeaListener { _, nmea -> sentences.accept(nmea) }
+
+    @SuppressLint("MissingPermission")
+    @Synchronized
+    override fun start(): Boolean {
+        if (thread != null) return true
+        if (LocationManager.GPS_PROVIDER !in locationManager.allProviders) {
+            Log.w(TAG, "no gps provider")
+            return false
+        }
+        sentences.clear()
+        latestFix.set(null)
+        val looperThread = HandlerThread("diplay-gq-gnss").apply { start() }
+        return try {
+            locationManager.requestLocationUpdates(
+                LocationManager.GPS_PROVIDER, UPDATE_INTERVAL_MILLIS, 0f, locationListener, looperThread.looper,
+            )
+            // The NMEA transport takes the looper of the thread that registers it.
+            Handler(looperThread.looper).post {
+                @Suppress("DEPRECATION")
+                val added = runCatching { locationManager.addNmeaListener(nmeaListener) }
+                    .onFailure { Log.w(TAG, "addNmeaListener failed", it) }
+                    .getOrDefault(false)
+                Log.i(TAG, "gps started nmea=$added")
+            }
+            thread = looperThread
+            true
+        } catch (error: Exception) {
+            Log.w(TAG, "gps updates failed", error)
+            looperThread.quit()
+            false
+        }
+    }
+
+    @Synchronized
     override fun stop() {
-        running = false
-        Log.i(TAG, "NMEA reader stopped")
+        val running = thread ?: return
+        thread = null
+        runCatching { locationManager.removeUpdates(locationListener) }
+        @Suppress("DEPRECATION")
+        runCatching { locationManager.removeNmeaListener(nmeaListener) }
+        running.quitSafely()
+        Log.i(TAG, "gps stopped")
     }
 
     override fun latestNmea(): String? {
-        val gga = latestGga.getAndSet(null)
-        val rmc = latestRmc.getAndSet(null)
-        if (gga == null && rmc == null) return null
-        return buildString {
-            if (gga != null) append(gga).append("\r\n")
-            if (rmc != null) append(rmc).append("\r\n")
-        }
+        sentences.take()?.let { return it }
+        if (sentences.recentlyReceived()) return null
+        val fix = latestFix.get()?.takeIf { System.currentTimeMillis() - it.time <= FIX_MAX_AGE_MILLIS }
+            ?: return null
+        return runCatching {
+            NmeaLocationEncoder.encode(
+                CarPlayLocationFix(
+                    latitudeDegrees = fix.latitude,
+                    longitudeDegrees = fix.longitude,
+                    altitudeMeters = fix.altitude.takeIf { fix.hasAltitude() },
+                    bearingDegrees = fix.bearing.takeIf { fix.hasBearing() }?.toDouble(),
+                    speedMetersPerSecond = fix.speed.takeIf { fix.hasSpeed() }?.toDouble(),
+                    accuracyMeters = fix.accuracy.takeIf { fix.hasAccuracy() }?.toDouble(),
+                    timestampMillis = fix.time,
+                ),
+            )
+        }.onFailure { Log.w(TAG, "could not encode gps fix", it) }.getOrNull()
     }
 
-    private fun readLoop() {
-        val path = if (File(DEVICE_PATH).exists()) DEVICE_PATH else PIPE_PATH
-        while (running) {
-            try {
-                BufferedReader(InputStreamReader(FileInputStream(path), Charsets.US_ASCII)).use { reader ->
-                    Log.i(TAG, "opened $path")
-                    var line: String?
-                    while (running) {
-                        line = reader.readLine() ?: break
-                        accept(line)
-                    }
+    /** The latest GGA and RMC from the HAL, each sent once. */
+    internal class NmeaSentences(private val clock: () -> Long = SystemClock::elapsedRealtime) {
+        private val gga = AtomicReference<String?>(null)
+        private val rmc = AtomicReference<String?>(null)
+        private val lastReceived = AtomicLong(Long.MIN_VALUE)
+
+        /** [nmea] may carry several sentences; only GGA and RMC with a right checksum are kept. */
+        fun accept(nmea: String?) {
+            for (line in nmea.orEmpty().split('\n')) {
+                val sentence = line.trim()
+                val target = when {
+                    sentence.startsWith("\$GPGGA,") || sentence.startsWith("\$GNGGA,") -> gga
+                    sentence.startsWith("\$GPRMC,") || sentence.startsWith("\$GNRMC,") -> rmc
+                    else -> continue
                 }
-            } catch (e: Exception) {
-                if (running) {
-                    Log.w(TAG, "NMEA read error, retrying in ${RETRY_MS}ms", e)
-                    try { Thread.sleep(RETRY_MS) } catch (_: InterruptedException) { break }
-                }
+                if (!checksumValid(sentence)) continue
+                target.set(asGps(sentence))
+                lastReceived.set(clock())
             }
         }
-    }
 
-    /** Keeps [line] as the latest GGA or RMC when it is one and its checksum is right. */
-    internal fun accept(line: String) {
-        val sentence = line.trim()
-        val target = when {
-            sentence.startsWith("\$GPGGA,") || sentence.startsWith("\$GNGGA,") -> latestGga
-            sentence.startsWith("\$GPRMC,") || sentence.startsWith("\$GNRMC,") -> latestRmc
-            else -> return
+        fun take(): String? {
+            val g = gga.getAndSet(null)
+            val r = rmc.getAndSet(null)
+            if (g == null && r == null) return null
+            return buildString {
+                if (g != null) append(g).append("\r\n")
+                if (r != null) append(r).append("\r\n")
+            }
         }
-        if (checksumValid(sentence)) target.set(sentence)
+
+        /** True while the HAL is reporting NMEA, so an encoded fix would only duplicate it. */
+        fun recentlyReceived(): Boolean {
+            val last = lastReceived.get()
+            return last != Long.MIN_VALUE && clock() - last <= NMEA_QUIET_MILLIS
+        }
+
+        fun clear() {
+            gga.set(null)
+            rmc.set(null)
+            lastReceived.set(Long.MIN_VALUE)
+        }
     }
 
     companion object {
+        private const val TAG = "DiPlay-GQ-GNSS"
+        private const val UPDATE_INTERVAL_MILLIS = 1_000L
+        private const val FIX_MAX_AGE_MILLIS = 5_000L
+        private const val NMEA_QUIET_MILLIS = 3_000L
+
         /** `$<body>*HH` where HH is the XOR of every body character, in hex. */
         internal fun checksumValid(sentence: String): Boolean {
             val star = sentence.lastIndexOf('*')
             if (!sentence.startsWith("$") || star < 1 || star + 3 != sentence.length) return false
             val expected = sentence.substring(star + 1).toIntOrNull(16) ?: return false
-            var sum = 0
-            for (i in 1 until star) sum = sum xor sentence[i].code
-            return sum == expected
+            return checksum(sentence.substring(1, star)) == expected
         }
 
-        private const val TAG = "DiPlay-GQ-NMEA"
-        private const val DEVICE_PATH = "/dev/athrnmea"
-        private const val PIPE_PATH = "/dev/athrpipeout"
-        private const val RETRY_MS = 2000L
+        /** A multi-constellation `$GN` sentence as `$GP`, with its checksum redone. */
+        internal fun asGps(sentence: String): String {
+            if (!sentence.startsWith("\$GN")) return sentence
+            val body = "GP" + sentence.substring(3, sentence.lastIndexOf('*'))
+            return "$" + body + "*" + String.format(java.util.Locale.US, "%02X", checksum(body))
+        }
+
+        private fun checksum(body: String): Int {
+            var sum = 0
+            for (c in body) sum = sum xor c.code
+            return sum
+        }
     }
 }
