@@ -214,6 +214,28 @@ class CarPlayHostSettingsTest {
         assertEquals(2, buttons)
     }
 
+    @Test fun carTopBarShowsOverCarPlayWhileTheMenuIsOpen() {
+        attachController()
+        setField("hideTopBar", true)
+        setField("hideBottomBar", false)
+        invoke("applyFullscreenMode")
+        val fullscreen = android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN
+        assertTrue(activity.window.attributes.flags and fullscreen != 0)
+        invoke("openSettingsMenu")
+        assertEquals(0, activity.window.attributes.flags and fullscreen)
+        @Suppress("DEPRECATION")
+        val flags = activity.window.decorView.systemUiVisibility
+        // The window still lays out behind the bar, so the CarPlay picture keeps its size.
+        assertTrue(flags and View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN != 0)
+        assertEquals(0, flags and View.SYSTEM_UI_FLAG_FULLSCREEN)
+        invoke("closeQuickMenu")
+        assertTrue(activity.window.attributes.flags and fullscreen != 0)
+        // The full menu previews its own bar settings, so it goes back to full screen.
+        invoke("openSettingsMenu")
+        invoke("openFullSettingsMenu")
+        assertTrue(activity.window.attributes.flags and fullscreen != 0)
+    }
+
     @Test fun quickMenuChangeForTheNextSessionReconnectsOnDone() {
         attachController()
         invoke("openSettingsMenu")

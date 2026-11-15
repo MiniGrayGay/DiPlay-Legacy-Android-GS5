@@ -730,6 +730,8 @@ class CarPlayHostActivity : ComponentActivity() {
     /** A quick-menu change that only applies to a new session; Done then reconnects. */
     private var quickMenuNeedsReconnect = false
     private var quickMenuDone: Button? = null
+    /** The quick menu, not the full one, is on screen; only it shows the car's top bar. */
+    private var quickMenuShowing = false
     private var latestStage = "Preparing CarPlay"
     private var darkMode = false
     private var paintWaitingScreen: () -> Unit = {}
@@ -6169,6 +6171,8 @@ class CarPlayHostActivity : ComponentActivity() {
             parent.addView(settingsMenu, index.coerceAtMost(parent.childCount), FrameLayout.LayoutParams(-1, -1))
         }
         menuOpen = true
+        quickMenuShowing = true
+        applyFullscreenMode()
         gestureOverlay?.visibility = View.GONE
         settingsMenu?.visibility = View.VISIBLE
         safeAreaEditor?.visibility = View.GONE
@@ -6235,6 +6239,8 @@ class CarPlayHostActivity : ComponentActivity() {
         val index = parent.indexOfChild(previous)
         parent.removeView(previous)
         settingsMenu = buildSettingsMenu()
+        quickMenuShowing = false
+        applyFullscreenMode()
         parent.addView(settingsMenu, index.coerceAtLeast(0), FrameLayout.LayoutParams(-1, -1))
         updateSafeAreaSummary()
         updateResolutionMenu()
@@ -6244,6 +6250,8 @@ class CarPlayHostActivity : ComponentActivity() {
         if (!menuOpen) return
         menuOpen = false
         quickMenuNeedsReconnect = false
+        quickMenuShowing = false
+        applyFullscreenMode()
         settingsMenu?.visibility = View.GONE
         gestureOverlay?.visibility = View.VISIBLE
         settingsGestureHint?.text = getString(R.string.open_diplay_settings_hint, gestureFingerCount)
@@ -6875,6 +6883,26 @@ class CarPlayHostActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * While the three-finger quick menu is open the car's top bar shows again, so its home button
+     * and climate controls can be reached. It lies over CarPlay and the menu: the window keeps
+     * laying out behind it, so the CarPlay picture keeps its size. Closing the menu, or going on to
+     * the full menu (which previews its own bar settings), hides it again.
+     */
+    private fun showCarBarOverMenu(hideBottom: Boolean) {
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN)
+        val controller = WindowInsetsControllerCompat(window, window.decorView)
+        controller.show(WindowInsetsCompat.Type.statusBars())
+        @Suppress("DEPRECATION")
+        var flags = window.decorView.systemUiVisibility
+        flags = flags and (View.SYSTEM_UI_FLAG_FULLSCREEN or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY).inv()
+        flags = flags or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+        flags = if (hideBottom) flags or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION else flags and View.SYSTEM_UI_FLAG_HIDE_NAVIGATION.inv()
+        @Suppress("DEPRECATION")
+        window.decorView.systemUiVisibility = flags
+    }
+
     private fun applyFullscreenMode() {
         val multiWindow = isMultiWindowActive()
         if (harmanFullscreenEnabled) {
@@ -6890,6 +6918,10 @@ class CarPlayHostActivity : ComponentActivity() {
         }
         val hideTop = hideTopBar && !multiWindow
         val hideBottom = hideBottomBar && !multiWindow
+        if (menuOpen && quickMenuShowing && hideTop) {
+            showCarBarOverMenu(hideBottom)
+            return
+        }
         WindowCompat.setDecorFitsSystemWindows(window, !(hideTop && hideBottom))
         val controller = WindowInsetsControllerCompat(window, window.decorView)
         if (hideTop) {
