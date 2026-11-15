@@ -144,7 +144,10 @@ object AirPlayPersistence {
 
     const val DEFAULT_MANUFACTURER = "DiPlay"
     const val DEFAULT_MODEL = "DiPlay"
-    const val DEFAULT_OEM_LABEL = "BYD"
+    /** The name under the car's icon on the CarPlay home screen: Trumpchi, the Guangqi GS5's brand. */
+    const val DEFAULT_OEM_LABEL = "传祺"
+    /** Upstream's default. The in-session menu saved it with every other setting, so it is not a choice. */
+    private const val UPSTREAM_OEM_LABEL = "BYD"
     const val DEFAULT_MFI_I2C_PATH = "/dev/i2c-1"
 
     fun loadAmbientDelaySeconds(context: Context): Int =
@@ -645,7 +648,7 @@ object AirPlayPersistence {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getString(KEY_OEM_LABEL, DEFAULT_OEM_LABEL)
             // iOS hides the car icon without a label.
-            .orEmpty().ifBlank { DEFAULT_OEM_LABEL }
+            .orEmpty().ifBlank { DEFAULT_OEM_LABEL }.let { if (it == UPSTREAM_OEM_LABEL) DEFAULT_OEM_LABEL else it }
 
     fun saveOemLabel(context: Context, oemLabel: String) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
