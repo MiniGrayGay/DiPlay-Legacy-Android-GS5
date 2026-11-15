@@ -332,6 +332,7 @@ class CarPlayController(
 
     init {
         guangqiAutoConnect.recoverAbandoned()
+        GuangqiCarlifeKeys.recoverAbandoned(appContext)
     }
     private val wirelessAirPlayRequestsInFlight = AtomicInteger()
     private val wirelessLastAirPlayActivityMs = AtomicLong(0L)
@@ -373,6 +374,7 @@ class CarPlayController(
             if (replacement) {
                 BydNavigationOutputs.start(appContext)
                 BydNavigationOutputs.carPlaySessionStarted()
+                GuangqiCarlifeKeys.sessionStarted(appContext, this@CarPlayController)
                 com.shilapi.xcertplay.glance.CarPlayGlance.setConnected(true)
                 // The gear may have changed since /info.
                 if (videoListener != null) {
@@ -453,6 +455,7 @@ class CarPlayController(
             }
             debugLog("AirPlay session ended peer=${session.host}")
             releaseGuangqiAutoConnect("session ended")
+            GuangqiCarlifeKeys.sessionEnded(appContext, this@CarPlayController)
             uiListener?.onSessionEnded(session)
         }
 
@@ -842,6 +845,7 @@ class CarPlayController(
         }
         firstTcpWatchdog?.terminate()
         releaseGuangqiAutoConnect("controller closed")
+        GuangqiCarlifeKeys.sessionEnded(appContext, this)
         startupTimer.shutdownNow()
         (hotspot as? ManualHotspotManager)?.close()
         val teardownStarted = System.nanoTime()

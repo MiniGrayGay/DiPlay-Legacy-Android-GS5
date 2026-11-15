@@ -3086,7 +3086,10 @@ class DiPlayActivity : ComponentActivity() {
             getString(R.string.carplay_call_controls_experimental_description),
             BydOutputSettings.carPlayCallControls(this)) {
             BydOutputSettings.setCarPlayCallControls(this, it)
-            if (it && !WheelKeyService.connected()) {
+            // Guangqi takes the wheel's call keys through the system key service, not the
+            // accessibility service, so it needs no ADB.
+            com.shilapi.xcertplay.orchestration.GuangqiCarlifeKeys.settingChanged(this, it)
+            if (it && !GuangqiCluster.present(this) && !WheelKeyService.connected()) {
                 Thread({
                     val access = WheelKeyService.enableOverAdb(this)
                     if (access != com.shilapi.xcertplay.adb.LocalAdb.Access.READY) {
