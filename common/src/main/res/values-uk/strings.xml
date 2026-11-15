@@ -750,4 +750,8 @@
     <string name="settings_app_theme_dark">Темне</string>
     <string name="settings_app_theme_hint">Світле чи темне оформлення екранів DiPlay. «Автоматично» стежить за налаштуванням дня й ночі CarPlay. На CarPlay не впливає.</string>
     <string name="home_wired_carplay">CARPLAY ЧЕРЕЗ КАБЕЛЬ</string>
+    <string name="quick_call_keys_note">Кнопка виклику приймає, кнопка відбою завершує, довге натискання голосової кнопки відкриває Siri. Діє одразу.</string>
+    <string name="quick_auto_connect_note">Не дає магнітолі знову підключити телефон через Bluetooth. Діє після перепідключення.</string>
+    <string name="quick_cluster_map_note">Діє після перепідключення.</string>
+    <string name="quick_more_settings">Інші налаштування</string>
 </resources>

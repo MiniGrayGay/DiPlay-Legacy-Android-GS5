@@ -738,4 +738,8 @@
     <string name="settings_app_theme_dark">داكن</string>
     <string name="settings_app_theme_hint">مظهر فاتح أو داكن لشاشات DiPlay. يتبع الوضع التلقائي إعداد النهار والليل في CarPlay. لا يتأثر CarPlay نفسه.</string>
     <string name="home_wired_carplay">CarPlay السلكي</string>
+    <string name="quick_call_keys_note">زر الاتصال يجيب، وزر الإنهاء ينهي، والضغط المطوّل على زر الصوت يفتح Siri. يُطبق فورًا.</string>
+    <string name="quick_auto_connect_note">يمنع السيارة من إعادة توصيل الهاتف عبر البلوتوث. يُطبق بعد إعادة الاتصال.</string>
+    <string name="quick_cluster_map_note">يُطبق بعد إعادة الاتصال.</string>
+    <string name="quick_more_settings">مزيد من الإعدادات</string>
 </resources>

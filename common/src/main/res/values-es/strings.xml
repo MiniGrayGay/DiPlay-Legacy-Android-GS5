@@ -738,4 +738,8 @@
     <string name="settings_app_theme_dark">Oscura</string>
     <string name="settings_app_theme_hint">Claro u oscuro para las pantallas de DiPlay. Automática sigue el ajuste de día y noche de CarPlay. CarPlay no se ve afectado.</string>
     <string name="home_wired_carplay">CARPLAY CON CABLE</string>
+    <string name="quick_call_keys_note">El botón de llamada contesta, el de colgar termina y una pulsación larga del botón de voz abre Siri. Se aplica al instante.</string>
+    <string name="quick_auto_connect_note">Evita que el coche vuelva a conectar el teléfono por Bluetooth. Se aplica al reconectar.</string>
+    <string name="quick_cluster_map_note">Se aplica al reconectar.</string>
+    <string name="quick_more_settings">Más ajustes</string>
 </resources>

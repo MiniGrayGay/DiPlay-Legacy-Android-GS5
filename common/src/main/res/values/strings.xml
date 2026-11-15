@@ -852,4 +852,8 @@
     <string name="settings_app_theme_dark">Dark</string>
     <string name="settings_app_theme_hint">Light or dark for DiPlay\'s own screens. Automatic follows CarPlay\'s day and night setting. CarPlay itself is not affected.</string>
     <string name="home_wired_carplay">WIRED CARPLAY</string>
+    <string name="quick_call_keys_note">Call key answers, hang-up key ends, long press on the voice key opens Siri. Applies at once.</string>
+    <string name="quick_auto_connect_note">Keeps the car from paging the phone back onto its Bluetooth. Applies after reconnecting.</string>
+    <string name="quick_cluster_map_note">Applies after reconnecting.</string>
+    <string name="quick_more_settings">More settings</string>
 </resources>

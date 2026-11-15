@@ -804,4 +804,8 @@
     <string name="settings_app_theme_dark">深色</string>
     <string name="settings_app_theme_hint">DiPlay 自身介面使用淺色還是深色。自動時跟隨 CarPlay 的日夜模式設定。不影響 CarPlay 畫面。</string>
     <string name="home_wired_carplay">有線 CarPlay</string>
+    <string name="quick_call_keys_note">接聽鍵接聽，掛斷鍵掛斷，長按語音鍵喚起 Siri。立即生效。</string>
+    <string name="quick_auto_connect_note">避免車機把手機重新連回藍牙。重新連線後生效。</string>
+    <string name="quick_cluster_map_note">重新連線後生效。</string>
+    <string name="quick_more_settings">更多設定</string>
 </resources>
