@@ -34,8 +34,8 @@
     <string name="marker_up">Угору</string>
     <string name="marker_down">Униз</string>
     <string name="marker_centre_default">По центру · типово</string>
-    <string name="hotspot_mode_manual_desc">Використовувати власну точку доступу автомобіля. Якщо доступно, виберіть 5 ГГц у налаштуваннях автомобіля.</string>
-    <string name="hotspot_mode_p2p_desc">Альтернативний спосіб. Потрібен увімкнений Wi-Fi автомобіля; на частоті 2,4 ГГц можливі затримки.</string>
+    <string name="hotspot_mode_manual_desc">Використовувати власну точку доступу автомобіля.</string>
+    <string name="hotspot_mode_p2p_desc">Автомобіль сам створює групу Wi-Fi Direct для iPhone. Потрібен увімкнений Wi-Fi автомобіля.</string>
     <string name="hotspot_details_off">Точку доступу вимкнено · Увімкніть її в налаштуваннях автомобіля.</string>
     <string name="hotspot_details_saved">Дані збережено · Перед підключенням перевірте, чи ввімкнено точку доступу автомобіля.</string>
     <string name="permission_enabled_ready">Дозвіл надано · готово до використання</string>
@@ -103,7 +103,6 @@
     <string name="language_hint">Виберіть мову DiPlay. Якщо вибрано мову системи, застосунок використовуватиме мову пристрою.</string>
     <string name="language_apply">Застосувати</string>
     <string name="common_cancel">Скасувати</string>
-    <string name="a_familiar_drive">Знайома подорож.</string>
     <string name="a_previous_wi_fi_direct_connection_is_still_running_reset">Попереднє з’єднання Wi-Fi Direct ще активне. Скиньте його, щоб підключитися.</string>
     <string name="about">Про застосунок</string>
     <string name="about_diplay">Про DiPlay</string>
@@ -146,7 +145,6 @@
     <string name="carplay_connected">CarPlay підключено</string>
     <string name="carplay_control_running">Керування CarPlay працює</string>
     <string name="carplay_control_window_ended">Вікно керування CarPlay завершилося</string>
-    <string name="carplay_icon">Значок CarPlay</string>
     <string name="carplay_map_on_instrument_cluster_experimental">Карта CarPlay на приборці (експериментально)</string>
     <string name="carplay_service_already_running">Служба CarPlay уже працює</string>
     <string name="carplay_session_already_running">Сеанс CarPlay уже триває</string>
@@ -181,7 +179,7 @@
     <string name="connection_setup">Налаштування підключення</string>
     <string name="copied_to_the_car_clipboard_run_the_command_on_your_comput">Скопійовано до буфера обміну автомобіля. Виконайте команду на комп’ютері.</string>
     <string name="copy_command">Скопіювати команду</string>
-    <string name="copy_these_from_the_car_s_hotspot_settings_use_5_ghz_if_av">Скопіюйте ці дані з налаштувань точки доступу автомобіля. Якщо доступно, використовуйте 5 ГГц. Збереження тут не змінює точку доступу автомобіля.</string>
+    <string name="copy_these_from_the_car_s_hotspot_settings_use_5_ghz_if_av">Скопіюйте ці дані з налаштувань точки доступу автомобіля. Збереження тут не змінює точку доступу автомобіля.</string>
     <string name="could_not_decode_image">Не вдалося декодувати зображення</string>
     <string name="could_not_encode_image">Не вдалося закодувати зображення</string>
     <string name="could_not_reset_wi_fi_direct_close_the_other_projection_ap">Не вдалося скинути Wi-Fi Direct. Закрийте інший застосунок проєкції та спробуйте знову.</string>
@@ -256,7 +254,6 @@
     <string name="longest_height">Найбільша висота</string>
     <string name="looking_for_your_paired_iphone">Пошук спареного iPhone…</string>
     <string name="made_possible_by_open_source">Створено завдяки відкритому коду</string>
-    <string name="make_diplay_feel_right_for_your_car">Налаштуйте DiPlay під свій автомобіль.</string>
     <string name="manual_hotspot">Точка доступу вручну</string>
     <string name="manual_mode_match_the_cluster_theme_here_the_map_cannot_fo">Ручний режим: виберіть тут тему, яка відповідає приборці. Без доступу до даних використання карта не може реагувати на видимість картки.</string>
     <string name="manufacturer">Виробник</string>
@@ -327,7 +324,7 @@
     <string name="s_1_0x">1.0x</string>
     <string name="s_1_choose_your_connection">1 · Виберіть спосіб підключення</string>
     <string name="s_1_connect_a_computer_with_adb_installed_to_the_car_using">1. Підключіть до автомобіля комп’ютер з установленим ADB через наявне USB-з’єднання або бездротове налагодження. Якщо автомобіль запитає, дозвольте налагодження.\n\n2. Виконайте цю команду в терміналі комп’ютера:</string>
-    <string name="s_1_open_car_hotspot_settings_turn_the_hotspot_on_and_sele">1. Відкрийте налаштування точки доступу автомобіля, увімкніть її та виберіть 5 ГГц, якщо доступно.\n2. Точно скопіюйте її назву й пароль нижче.\n3. Не вимикайте точку доступу під час підключення. DiPlay передасть дані через Bluetooth; iPhone приєднається автоматично.</string>
+    <string name="s_1_open_car_hotspot_settings_turn_the_hotspot_on_and_sele">1. Відкрийте налаштування точки доступу автомобіля, увімкніть її.\n2. Точно скопіюйте її назву й пароль нижче.\n3. Не вимикайте точку доступу під час підключення. DiPlay передасть дані через Bluetooth; iPhone приєднається автоматично.</string>
     <string name="s_2_4_ghz">2,4 ГГц</string>
     <string name="s_2_pair_your_iphone">2 · Спарте свій iPhone</string>
     <string name="s_300_ms_default">300 мс · типово</string>
@@ -337,7 +334,6 @@
     <string name="s_3_connect">3 · Підключіться</string>
     <string name="s_3_tap_check_and_enable_below_this_enables_the_cluster_ma">3. Натисніть «Перевірити й увімкнути» нижче. Це ввімкне карту на приборці та автоматичне стеження за темою. Активний сеанс CarPlay перепідключиться один раз. Після цього комп’ютер можна відключити.</string>
     <string name="s_500_ms">500 мс</string>
-    <string name="s_5_ghz">5 ГГц</string>
     <string name="s_60_fps_smoother_motion">60 кадрів/с · плавніший рух</string>
     <string name="s_60_lightest_load" formatted="false">60% · найменше навантаження</string>
     <string name="s_80_lighter_load" formatted="false">80% · менше навантаження</string>
@@ -384,7 +380,7 @@
     <string name="transport_error_reconnecting">Помилка передавання; повторне підключення</string>
     <string name="turn_on_bluetooth">Увімкніть Bluetooth</string>
     <string name="turn_on_wi_fi_in_the_head_unit_s_settings_to_connect">Увімкніть Wi-Fi у налаштуваннях головного пристрою, щоб підключитися.</string>
-    <string name="turn_the_car_s_wi_fi_switch_on_allow_location_nearby_devic">Увімкніть Wi-Fi автомобіля. Надайте доступ до місцезнаходження та пристроїв поблизу, якщо з’явиться запит, і ввімкніть геолокацію на запит Android. Якщо відтворення переривається, спробуйте вбудовану точку доступу автомобіля на частоті 5 ГГц.</string>
+    <string name="turn_the_car_s_wi_fi_switch_on_allow_location_nearby_devic">Увімкніть Wi-Fi автомобіля. Надайте доступ до місцезнаходження та пристроїв поблизу, якщо з’явиться запит, і ввімкніть геолокацію на запит Android.</string>
     <string name="usage_access_enabled">Доступ до даних використання: надано</string>
     <string name="usage_access_lets_diplay_follow_the_instrument_theme_and_m">Доступ до даних використання дозволяє DiPlay стежити за темою приборки та карткою карти. Локально обробляються лише події екрана приборки BYD. У цьому автомобілі сторінка налаштування такого дозволу не працює.</string>
     <string name="usage_access_setup_needed_for_automatic_mode">Доступ до даних використання: потрібне налаштування для автоматичного режиму</string>
@@ -400,7 +396,6 @@
     <string name="waiting_for_mfi_coprocessor">Очікування співпроцесора MFi</string>
     <string name="waiting_for_paired_iphone">Очікування iPhone — натисніть DiPlay у налаштуваннях iPhone > Загальні > CarPlay</string>
     <string name="wi_fi_direct_is_still_busy_close_the_other_projection_app">Wi-Fi Direct усе ще зайнятий. Закрийте інший застосунок проєкції та спробуйте знову.</string>
-    <string name="wi_fi_p2p_5_ghz">Wi-Fi P2P (5 ГГц)</string>
     <string name="wi_fi_session">Сеанс Wi-Fi</string>
     <string name="widest_width">Найбільша ширина</string>
     <string name="wireless_carplay">БЕЗДРОТОВИЙ CARPLAY</string>
@@ -416,8 +411,6 @@
     <string name="wpa3">WPA3</string>
     <string name="wpa3_transition">Перехідний режим WPA3</string>
     <string name="your_iphone_isn_t_available_unlock_it_and_check_bluetooth">iPhone недоступний. Розблокуйте його й перевірте Bluetooth.</string>
-    <string name="your_maps_music_and_conversations_carplay_right_here_on_yo">Ваші карти, музика й розмови.\nCarPlay прямо на екрані автомобіля.</string>
-    <string name="your_phone_your_drive">ВАШ ТЕЛЕФОН. ВАША ПОЇЗДКА.</string>
     <string name="your_report_was_saved_to_the_selected_location">Звіт збережено у вибраному місці.</string>
     <string name="cluster_waiting_for_map">DiPlay · очікування карти CarPlay</string>
     <string name="option_size_huge">Величезний</string>
@@ -642,7 +635,7 @@
     <string name="carplay_rotation_smoother">Плавніше (1920)</string>
     <string name="carplay_rotation_sharper">Чіткіше (розмір екрана)</string>
     <string name="carplay_call_controls_experimental">Кнопки викликів CarPlay (експериментально)</string>
-    <string name="carplay_call_controls_experimental_description">Увімкнення неперевірених кнопок викликів, голосового керування та відтворення/паузи DiLink 3. Потрібна перевірка в автомобілі. Типово вимкнено; картки викликів на панелі приладів налаштовуються окремо.</string>
+    <string name="carplay_call_controls_experimental_description">Кнопки виклику на кермі приймають і завершують дзвінки CarPlay. На магнітолі Guangqi кнопка виклику приймає дзвінок, кнопка відбою завершує або відхиляє його, а довге натискання голосової кнопки відкриває Siri; поки CarPlay підключено, екран дзвінка магнітоли не з\'являється. Коротке натискання голосової кнопки й далі відкриває голосового помічника магнітоли. На DiLink 3 кнопки ще не перевірено. Потрібна перевірка в автомобілі. Типово вимкнено; картки дзвінків на приладовій панелі налаштовуються окремо.</string>
     <string name="side_panel">Бічна панель поруч із CarPlay (експериментально)</string>
     <string name="side_panel_description">CarPlay може переходити на дві третини екрана, а DiPlay показує в решті свою панель: з боку пасажира на горизонтальному екрані, знизу на вертикальному (годинник і заряд, якщо його зчитано). Показуйте й ховайте її з меню під час сесії. Застосовується з наступного підключення.</string>
     <string name="side_panel_show">Бічна панель</string>
@@ -726,8 +719,8 @@
     <string name="settings_root_hotspot_mode_description">Для рутованих пристроїв, точку доступу яких застосунки відкрити не можуть. DiPlay запускає системний hostapd від root і створює власну точку доступу; оберіть режим Root-точки доступу в налаштуваннях підключення та задайте там назву й пароль. Застосується при наступному підключенні.</string>
     <string name="settings_hostapd_apple_vendor_ie">Apple vendor IE у Root-точці доступу (експериментально)</string>
     <string name="settings_hostapd_apple_vendor_ie_description">Додає елемент Apple vendor до маяка Root-точки доступу (hostapd), щоб iPhone підключалися автоматично. Без нього iPhone самі не асоціюються, хоча ручне підключення працює. Впливає лише на режим Root-точки доступу. Застосується при наступному підключенні.</string>
-    <string name="settings_carplay_auto_disconnect_bt">Відключати Bluetooth телефону після підключення CarPlay (експериментально)</string>
-    <string name="settings_carplay_auto_disconnect_bt_description">Після підключення бездротового CarPlay вимикає Bluetooth головного пристрою, щоб екран виклику штатного Bluetooth більше не з’являвся; після завершення сеансу Bluetooth вмикається знову. Тільки бездротове підключення, діє з наступного підключення. У разі аварійного завершення застосунку Bluetooth може залишитися вимкненим — увімкніть його вручну в налаштуваннях системи.</string>
+    <string name="settings_carplay_auto_disconnect_bt">Вимикати автопідключення Bluetooth на час CarPlay (експериментально)</string>
+    <string name="settings_carplay_auto_disconnect_bt_description">Під час дротового або бездротового CarPlay вимикає загальне автопідключення Bluetooth автомобіля, щоб магнітола не викликала телефон знову після розриву каналу дзвінка. DiPlay також відключає телефон від Bluetooth автомобіля, як це робить сторінка Bluetooth магнітоли. Радіо Bluetooth лишається ввімкненим. Попередній стан перемикача повертається наприкінці сеансу або під час наступного запуску DiPlay, якщо застосунок завершився аварійно. Не діє, поки ввімкнено звук через Bluetooth автомобіля. Діє з наступного підключення.</string>
     <string name="settings_telephony_downlink_via_music">Спрямовувати низхідний звук виклику через музичний потік (експериментально)</string>
     <string name="settings_telephony_downlink_via_music_description">Спрямовувати низхідний звук виклику через музичний потік замість потоку телефонії, не змінюючи режим виклику та мікрофон. Використовуйте лише якщо низхідний звук виклику не чути в потоці телефонії, а звук мультимедіа працює. Діє з наступного підключення.</string>
     <string name="settings_announcement_duck_media">Приглушувати мультимедіа під час підказок (експериментально)</string>
@@ -749,4 +742,16 @@
     <string name="wireless_forget_device_title">Бездротове підключення не вдається</string>
     <string name="wireless_forget_device_message">Бездротовий CarPlay не зміг підключитися 4 рази поспіль. На iPhone відкрийте «Параметри → Wi-Fi», забудьте точку доступу головного пристрою та виконайте сполучення заново.</string>
     <string name="settings_media_focus_exclusive_description">Запитувати постійний фокус для медіа замість приглушення CarPlay іншими програвачами. Допомагає лише на головних пристроях, які приглушують CarPlay до тиші; може заглушити інші програвачі. Діє з наступного підключення.</string>
+    <string name="settings_app_theme">Оформлення</string>
+    <string name="settings_app_theme_auto">Автоматично</string>
+    <string name="settings_app_theme_light">Світле</string>
+    <string name="settings_app_theme_dark">Темне</string>
+    <string name="settings_app_theme_hint">Світле чи темне оформлення екранів DiPlay. «Автоматично» стежить за налаштуванням дня й ночі CarPlay. На CarPlay не впливає.</string>
+    <string name="home_wired_carplay">CARPLAY ЧЕРЕЗ КАБЕЛЬ</string>
+    <string name="quick_call_keys_note">Кнопка виклику приймає, кнопка відбою завершує, довге натискання голосової кнопки відкриває Siri. Діє одразу.</string>
+    <string name="quick_auto_connect_note">Не дає магнітолі знову підключити телефон через Bluetooth. Діє після перепідключення.</string>
+    <string name="quick_cluster_map_note">Діє після перепідключення.</string>
+    <string name="quick_more_settings">Інші налаштування</string>
+    <string name="wireless_mode_recommended">Рекомендовано · перевірено на цьому автомобілі</string>
+    <string name="wireless_mode_not_recommended">Інші способи · не перевірені на цьому автомобілі, не рекомендовані</string>
 </resources>

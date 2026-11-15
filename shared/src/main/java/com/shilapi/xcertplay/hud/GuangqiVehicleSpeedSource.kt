@@ -15,11 +15,16 @@ import java.util.concurrent.TimeUnit
 /**
  * Reads vehicle speed and gear from the Guangqi GS5 head unit via IVehicleManager Binder.
  *
- * SpeedInfo (type 5): field layout `[unknown, speed_kmh, ...]` — `m_nSpeed` at int offset 1.
- * PowerInfo (type 10): field layout `[gear, engineSpeed/100, throttle%, waterTemp, ...]` —
- * `m_byteGear` at int offset 0 (P=13, R=14, N=15, D=12, S=11).
+ * `getDefinedPacket(type)` (CODE_GET_PACKET = 7) replies `[noException] [hasPacket] [typeId]`
+ * and then the packet's fields as ints, in DEX alphabetical order of the field names, already
+ * decoded by the framework (Trumpchi-GS5 docs: can_packet_definitions.txt and the 2026-10
+ * CAN captures).
  *
- * Uses polling (CODE_GET_PACKET = 7) which is simpler and sufficient at 4 Hz.
+ * - SpeedInfo (type 5): `m_nSpeed` (km/h).
+ * - PowerInfo (type 10): `m_bEngineTemAlarmShowReq`, then `m_byteGear`
+ *   (11 S, 12 D, 13 P, 14 R, 15 N; S, D and N seen on the car, P and R from the framework).
+ *
+ * Uses polling, which is simpler and sufficient at 4 Hz.
  */
 object GuangqiVehicleSpeedSource : VehicleSpeedSource {
     private const val TAG = "DiPlay-GQ-Speed"
@@ -85,11 +90,7 @@ object GuangqiVehicleSpeedSource : VehicleSpeedSource {
             data.writeInt(TYPE_SPEED)
             val before = SystemClock.elapsedRealtime()
             b.transact(CODE_GET_PACKET, data, reply, 0)
-            reply.readInt() // exception marker
-            if (reply.readInt() == 0) return // no data
-            reply.readInt() // skip first field (unknown)
-            val kmh = reply.readInt()
-            if (kmh < 0 || kmh > 300) return
+            val kmh = speedKmh(reply) ?: return
             val mps = kmh / 3.6
             val sample = VehicleSpeedSample((before + SystemClock.elapsedRealtime()) / 2, mps)
             synchronized(this) {
@@ -115,16 +116,7 @@ object GuangqiVehicleSpeedSource : VehicleSpeedSource {
             data.writeInterfaceToken(IFACE_VEHICLE)
             data.writeInt(TYPE_POWER)
             b.transact(CODE_GET_PACKET, data, reply, 0)
-            reply.readInt() // exception marker
-            if (reply.readInt() == 0) return // no data
-            val gearRaw = reply.readInt()
-            val next = when (gearRaw) {
-                13 -> VehicleGear.PARK
-                14 -> VehicleGear.REVERSE
-                15 -> VehicleGear.NEUTRAL
-                12, 11 -> VehicleGear.DRIVE // D=12, S=11
-                else -> null
-            } ?: return
+            val next = gear(reply) ?: return
             val changed = synchronized(this) { (gear != next).also { gear = next } }
             if (changed) Log.i(TAG, "gear $next")
         } catch (e: Exception) {
@@ -133,6 +125,32 @@ object GuangqiVehicleSpeedSource : VehicleSpeedSource {
             data.recycle()
             reply.recycle()
         }
+    }
+
+    /** km/h from a `getDefinedPacket(5)` reply, or null when there is none or it is out of range. */
+    internal fun speedKmh(reply: Parcel): Int? {
+        if (!packetHeader(reply, TYPE_SPEED)) return null
+        return reply.readInt().takeIf { it in 0..300 }
+    }
+
+    /** The gear from a `getDefinedPacket(10)` reply, or null when there is none or it is not known. */
+    internal fun gear(reply: Parcel): VehicleGear? {
+        if (!packetHeader(reply, TYPE_POWER)) return null
+        reply.readInt() // m_bEngineTemAlarmShowReq sorts before m_byteGear
+        return when (reply.readInt()) {
+            13 -> VehicleGear.PARK
+            14 -> VehicleGear.REVERSE
+            15 -> VehicleGear.NEUTRAL
+            10, 11, 12 -> VehicleGear.DRIVE // L, S, D
+            else -> null
+        }
+    }
+
+    /** Reads `[noException] [hasPacket] [typeId]`; true when a packet of [type] follows. */
+    private fun packetHeader(reply: Parcel, type: Int): Boolean {
+        if (reply.readInt() != 0) return false
+        if (reply.readInt() == 0) return false
+        return reply.readInt() == type
     }
 
     private fun getVehicleBinder(): IBinder? = try {

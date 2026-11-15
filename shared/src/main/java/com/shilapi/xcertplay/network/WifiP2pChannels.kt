@@ -17,6 +17,16 @@ object WifiP2pChannels {
     val bandChoices: List<Int> = listOf(AUTO_5_GHZ, AUTO_2_4_GHZ)
     val channels: List<Int> = listOf(36, 40, 44, 48, 149, 153, 157, 161, 165) + (1..11)
 
+    /**
+     * The channels offered for choice. The Guangqi head unit's AR6003 is 2.4 GHz only, so a 5 GHz
+     * channel or "Auto · 5 GHz" could never be used there.
+     */
+    val supportedChannels: List<Int> = (1..11).toList()
+
+    /** [channel] as this head unit can use it: anything outside 2.4 GHz falls back to Auto. */
+    fun supported(channel: Int): Int =
+        if (channel == AUTO || channel == AUTO_2_4_GHZ || channel in supportedChannels) channel else AUTO
+
     fun isValid(channel: Int): Boolean = channel == AUTO || channel in bandChoices || channel in channels
 
     /** The band an "Auto · band" choice is restricted to, or null for Auto and manual channels. */

@@ -28,6 +28,16 @@ object AirPlayInfoPlist {
     fun features(config: AirPlayConfig): Long =
         if (config.disableAudioOutput) CARPLAY_FEATURES_NO_AUDIO else CARPLAY_FEATURES
 
+    /** Every Bluetooth address of this car, the pairing address first, without repeats. */
+    fun bluetoothIds(config: AirPlayConfig): List<String> {
+        val ids = ArrayList<String>()
+        for (address in listOf(config.btMac) + config.additionalBluetoothIds) {
+            val trimmed = address.trim()
+            if (trimmed.isNotEmpty() && ids.none { it.equals(trimmed, ignoreCase = true) }) ids.add(trimmed)
+        }
+        return ids
+    }
+
     fun build(config: AirPlayConfig): Map<String, Any?> {
         val displays = arrayListOf<Any?>(
             displayEntry(config.main, STREAM_TYPE_MAIN_SCREEN, MAIN_UUID),
@@ -41,7 +51,7 @@ object AirPlayInfoPlist {
             "model" to config.model,
             "manufacturer" to config.manufacturer,
             "deviceID" to config.deviceId,
-            "bluetoothIDs" to listOf(config.btMac),
+            "bluetoothIDs" to bluetoothIds(config),
             "name" to config.deviceName,
             "rightHandDrive" to config.rightHandDrive,
             "keepAliveLowPower" to false,

@@ -29,6 +29,7 @@ import android.util.Log
 import com.shilapi.xcertplay.airplay.AirPlayListenerIdentity
 import com.shilapi.xcertplay.airplay.AirPlayTcpAccepted
 import com.shilapi.xcertplay.airplay.AirPlayConfig
+import com.shilapi.xcertplay.airplay.AirPlayInfoPlist
 import com.shilapi.xcertplay.airplay.AirPlayMediaActivity
 import com.shilapi.xcertplay.airplay.AirPlayContact
 import com.shilapi.xcertplay.airplay.AirPlayKnobState
@@ -320,11 +321,22 @@ class CarPlayController(
     @Volatile private var vpnBound = false
     private val wirelessHandoffRequested = AtomicBoolean(false)
     private val wirelessTunnelReady = AtomicBoolean(false)
+    /** How this controller reaches the iPhone. */
+    val transport: CarPlayTransport get() = config.transport
+
     private val wirelessActiveReported = AtomicBoolean(false)
     private val wirelessPostTransportConfigurationSent = AtomicBoolean(false)
     private val wirelessBootstrapReleaseScheduled = AtomicBoolean(false)
-    /** Issue #343: true once this session's handoff turned Bluetooth off; restored at session end. */
-    private val autoBtDisabled = AtomicBoolean(false)
+    /**
+     * While CarPlay is up, the car's global Bluetooth auto-connect is held off so a phone
+     * that dropped HFP is not paged straight back. Restored when the session ends.
+     */
+    private val guangqiAutoConnect = guangqiAutoConnect(appContext, ::debugLog)
+
+    init {
+        guangqiAutoConnect.recoverAbandoned()
+        GuangqiCarlifeKeys.recoverAbandoned(appContext)
+    }
     private val wirelessAirPlayRequestsInFlight = AtomicInteger()
     private val wirelessLastAirPlayActivityMs = AtomicLong(0L)
     private val wirelessTcpAcceptedAtMs = AtomicLong(0L)
@@ -365,6 +377,7 @@ class CarPlayController(
             if (replacement) {
                 BydNavigationOutputs.start(appContext)
                 BydNavigationOutputs.carPlaySessionStarted()
+                GuangqiCarlifeKeys.sessionStarted(appContext, this@CarPlayController)
                 com.shilapi.xcertplay.glance.CarPlayGlance.setConnected(true)
                 // The gear may have changed since /info.
                 if (videoListener != null) {
@@ -380,6 +393,9 @@ class CarPlayController(
                 // Persisted, not just in memory: the head unit may kill this process
                 // before the next reconnect (issue #269).
                 persistWiredSessionCompleted(true)
+                // Wired CarPlay does not use the car's Bluetooth. Hold auto-connect
+                // off before the iPhone drops HFP, so the module does not page it back.
+                if (replacement) holdGuangqiAutoConnect("wired session")
             }
             if (config.transport == CarPlayTransport.WIRELESS) {
                 wirelessChain(12, "SUCCESS: AirPlay session active")
@@ -441,6 +457,8 @@ class CarPlayController(
                 if (wasPlaying) playbackListener?.invoke(false)
             }
             debugLog("AirPlay session ended peer=${session.host}")
+            releaseGuangqiAutoConnect("session ended")
+            GuangqiCarlifeKeys.sessionEnded(appContext, this@CarPlayController)
             uiListener?.onSessionEnded(session)
         }
 
@@ -829,6 +847,8 @@ class CarPlayController(
             dashboardMapOutputVisible = false
         }
         firstTcpWatchdog?.terminate()
+        releaseGuangqiAutoConnect("controller closed")
+        GuangqiCarlifeKeys.sessionEnded(appContext, this)
         startupTimer.shutdownNow()
         (hotspot as? ManualHotspotManager)?.close()
         val teardownStarted = System.nanoTime()
@@ -1631,6 +1651,7 @@ class CarPlayController(
                 deviceId = deviceIdentifier,
                 btMac = hostBluetoothMac,
             )
+            debugLog("wireless bluetoothIDs=${AirPlayInfoPlist.bluetoothIds(wirelessAirPlayConfig)}")
 
             onStatus(CarPlayStatus.AttachingNetwork)
             stage = "AirPlay listener startup"
@@ -2178,10 +2199,6 @@ class CarPlayController(
 
             override fun onSessionActive(session: AirPlaySession) {
                 if (isStaleWirelessRun(generation)) return
-                // Issue #343: a new wireless session starts with the auto-disconnect
-                // flag clear, so a previous session whose end never fired cannot
-                // suppress this session's disconnect.
-                autoBtDisabled.set(false)
                 if (!watchdog.sessionEstablished()) return
                 wirelessDiagnostic("AirPlay session active; Bluetooth bootstrap retained until tunnel handoff")
                 wirelessDiagnostics?.let {
@@ -2196,11 +2213,6 @@ class CarPlayController(
 
             override fun onSessionEnded(session: AirPlaySession) {
                 if (isStaleWirelessRun(generation)) return
-                // Issue #343: turn Bluetooth back on if this session disabled it.
-                if (autoBtDisabled.compareAndSet(true, false)) {
-                    runCatching { BluetoothAdapter.getDefaultAdapter()?.enable() }
-                    wirelessDiagnostic("autoBtDisconnect=restored (wireless session ended)")
-                }
                 wirelessDiagnostic("AirPlay session ended activeSessionPresent=${activeSession != null}")
                 if (activeSession == null) {
                     watchdog.onTcpClosedBeforeEstablished()
@@ -2388,37 +2400,9 @@ class CarPlayController(
                     debugLog("wireless handoff ready; closing Bluetooth bootstrap transport")
                     closeBluetoothBootstrapTransport()
                     onStatus(CarPlayStatus.WirelessActive, generation)
-                    // Issue #343: the session is now fully on Wi-Fi (tunnel ready,
-                    // bootstrap transport closed by the app itself), so dropping the
-                    // Bluetooth link cannot break the bootstrap anymore. With the
-                    // experimental switch on, turn the head unit Bluetooth off to
-                    // drop the phone's native Bluetooth link (the native call
-                    // screen rides that link); it is turned back on at session end.
-                    if (config.carplayAutoDisconnectBt && !autoBtDisabled.get()) {
-                        val adapter = runCatching { BluetoothAdapter.getDefaultAdapter() }.getOrNull()
-                        if (adapter == null) {
-                            debugLog("autoBtDisconnect=skipped (no Bluetooth adapter)")
-                        } else if (!adapter.isEnabled) {
-                            debugLog("autoBtDisconnect=skipped (adapter already off)")
-                        } else {
-                            // Issue #343: prefer dropping just the HFP link (the
-                            // native call screen rides it) over turning the whole
-                            // adapter off; fall back to the adapter-off path when
-                            // the HFP release is unavailable or unverified.
-                            val hfpDevices = runCatching {
-                                connectedBluetoothDevices(adapter, BluetoothProfile.HEADSET, BluetoothHeadset::class.java)
-                            }.getOrDefault(emptySet())
-                            debugLog("autoBtDisconnect=hfpDevices=${hfpDevices.size}")
-                            val hfpReleased = releaseHfpLinks(adapter, hfpDevices)
-                            if (hfpReleased) {
-                                debugLog("autoBtDisconnect=hfp-released (native HFP link dropped, Bluetooth stays on)")
-                            } else {
-                                runCatching { adapter.disable() }
-                                autoBtDisabled.set(true)
-                                debugLog("autoBtDisconnect=disabled (wireless CarPlay connected, experimental switch)")
-                            }
-                        }
-                    }
+                    // Bootstrap Bluetooth is already closed. Hold the car's global
+                    // auto-connect off so the phone's HFP drop is not paged back.
+                    holdGuangqiAutoConnect("wireless handoff")
                 }
             },
             "xcertplay-wireless-handoff",
@@ -4013,60 +3997,13 @@ class CarPlayController(
         return synchronized(devices) { devices.toSet() }
     }
 
-    /**
-     * Issue #343: try to drop just the phone's native HFP link instead of
-     * turning the whole head-unit Bluetooth off. There is no public API for
-     * this — BluetoothHeadset.disconnect is hidden — so this is best-effort:
-     * invoke it by reflection, verify the link is actually gone, and fall
-     * back to the whole-adapter-off path on any failure. Returns true only
-     * on a verified release.
-     */
-    private fun releaseHfpLinks(adapter: BluetoothAdapter, targets: Set<BluetoothDevice>): Boolean {
-        if (targets.isEmpty()) return false
-        val latch = CountDownLatch(1)
-        val released = AtomicBoolean(false)
-        val listener = object : BluetoothProfile.ServiceListener {
-            override fun onServiceConnected(profileId: Int, proxy: BluetoothProfile) {
-                try {
-                    if (proxy is BluetoothHeadset) {
-                        for (device in targets) {
-                            val invoked = runCatching {
-                                val method = proxy.javaClass.getMethod("disconnect", BluetoothDevice::class.java)
-                                method.invoke(proxy, device) as? Boolean == true
-                            }.getOrDefault(false)
-                            if (!invoked) continue
-                            var gone = false
-                            for (attempt in 0 until 3) {
-                                if (proxy.connectedDevices.orEmpty().none { it.address == device.address }) {
-                                    gone = true
-                                    break
-                                }
-                                try {
-                                    Thread.sleep(300)
-                                } catch (_: InterruptedException) {
-                                    Thread.currentThread().interrupt()
-                                    break
-                                }
-                            }
-                            if (gone) released.set(true)
-                        }
-                    }
-                } catch (error: SecurityException) {
-                    Log.w(IphoneCarPlayConfiguration.TAG, "Could not release HFP link", error)
-                } finally {
-                    runCatching { adapter.closeProfileProxy(profileId, proxy) }
-                    latch.countDown()
-                }
-            }
+    private fun holdGuangqiAutoConnect(reason: String) {
+        if (!config.carplayAutoDisconnectBt) return
+        guangqiAutoConnect.suspendForSession(reason)
+    }
 
-            override fun onServiceDisconnected(profileId: Int) {
-                latch.countDown()
-            }
-        }
-        val ok = runCatching { adapter.getProfileProxy(appContext, listener, BluetoothProfile.HEADSET) }.getOrDefault(false)
-        if (!ok) return false
-        latch.await(4, TimeUnit.SECONDS)
-        return released.get()
+    private fun releaseGuangqiAutoConnect(reason: String) {
+        guangqiAutoConnect.restore(reason)
     }
 
     @Suppress("DEPRECATION")

@@ -3,6 +3,9 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:sharedUserId="android.uid.system">
 
+    <!-- Guangqi: stops the stock CarLife once CarPlay is up, so DiPlay can take the wheel call keys. -->
+    <uses-permission android:name="android.permission.FORCE_STOP_PACKAGES" tools:ignore="ProtectedPermissions" />
+
     <uses-sdk tools:overrideLibrary="androidx.media3.ui,androidx.media3.extractor,androidx.media3.exoplayer,androidx.media3.exoplayer.hls,androidx.media3.common,androidx.media3.datasource,androidx.media3.database,androidx.media3.container,androidx.media3.decoder,androidx.media,androidx.core,androidx.core.ktx,androidx.annotation.experimental" />
     <application
         android:name="com.shilapi.xcertplay.DiPlayApplication"

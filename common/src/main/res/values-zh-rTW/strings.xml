@@ -25,8 +25,8 @@
     <string name="marker_up">上</string>
     <string name="marker_down">下</string>
     <string name="marker_centre_default">置中 · 預設</string>
-    <string name="hotspot_mode_manual_desc">使用車機內建的熱點。若車機支援，請在車機設定中選擇 5 GHz。</string>
-    <string name="hotspot_mode_p2p_desc">替代方案。需要開啟車機 Wi-Fi 開關；2.4 GHz 連線可能會卡頓。</string>
+    <string name="hotspot_mode_manual_desc">使用車機內建的熱點。</string>
+    <string name="hotspot_mode_p2p_desc">車機自行建立 Wi-Fi 直連供 iPhone 加入。需要開啟車機 Wi-Fi 開關。</string>
     <string name="hotspot_details_off">熱點已關閉 · 請在車機設定中開啟。</string>
     <string name="hotspot_details_saved">詳細資訊已儲存 · 連線前請確認車載熱點已開啟。</string>
     <string name="permission_enabled_ready">權限已啟用 · 可以使用</string>
@@ -86,7 +86,6 @@
     <string name="safe_area_full_screen_at">安全區域：全螢幕，</string>
     <string name="settings_android9_compat">以下設定在 Android 9（API 28）上無法使用且已隱藏：\n• Wi-Fi P2P（5 GHz）— 將改用 LocalOnlyHotspot。\n• HEVC 軟體解碼器 — 將改用硬體解碼。</string>
     <string name="settings_mfi_address_hint">位址必須以 http\:// 或 https\:// 開頭。權杖為選用項目，將以 Authorization bearer token 傳送。</string>
-    <string name="a_familiar_drive">熟悉的駕駛體驗。</string>
     <string name="a_previous_wi_fi_direct_connection_is_still_running_reset">先前的 Wi-Fi Direct 連線仍在執行。請重設後再連線。</string>
     <string name="about">關於</string>
     <string name="about_diplay">關於 DiPlay</string>
@@ -133,7 +132,6 @@
     <string name="carplay_connected">CarPlay 已連線</string>
     <string name="carplay_control_running">CarPlay 控制通道執行中</string>
     <string name="carplay_control_window_ended">CarPlay 控制工作階段已結束</string>
-    <string name="carplay_icon">CarPlay 圖示</string>
     <string name="carplay_map_on_instrument_cluster_experimental">儀表板上的 CarPlay 地圖（實驗性）</string>
     <string name="carplay_service_already_running">CarPlay 服務已在執行</string>
     <string name="carplay_session_already_running">CarPlay 工作階段已在執行</string>
@@ -169,7 +167,7 @@
     <string name="connection_setup">連線設定</string>
     <string name="copied_to_the_car_clipboard_run_the_command_on_your_comput">已複製到車機剪貼簿。在電腦上執行此指令。</string>
     <string name="copy_command">複製指令</string>
-    <string name="copy_these_from_the_car_s_hotspot_settings_use_5_ghz_if_av">從車機熱點設定中複製以下內容。如有 5 GHz，請選擇。儲存在此處不會變更車機的熱點。</string>
+    <string name="copy_these_from_the_car_s_hotspot_settings_use_5_ghz_if_av">從車機熱點設定中複製以下內容。儲存在此處不會變更車機的熱點。</string>
     <string name="could_not_decode_image">無法解碼圖片</string>
     <string name="could_not_encode_image">無法編碼圖片</string>
     <string name="could_not_reset_wi_fi_direct_close_the_other_projection_ap">無法重設 Wi-Fi Direct。請關閉其他投放 App 後再試一次。</string>
@@ -249,7 +247,6 @@
     <string name="longest_height">較長邊</string>
     <string name="looking_for_your_paired_iphone">正在尋找已配對的 iPhone…</string>
     <string name="made_possible_by_open_source">開源專案鳴謝</string>
-    <string name="make_diplay_feel_right_for_your_car">依需求調整 DiPlay 設定。</string>
     <string name="manual_hotspot">手動熱點</string>
     <string name="manual_mode_match_the_cluster_theme_here_the_map_cannot_fo">手動模式：在此處與儀表板主題相符。沒有使用存取權限時，地圖無法跟隨卡片顯示狀態。</string>
     <string name="manufacturer">製造商</string>
@@ -320,7 +317,7 @@
     <string name="s_1_0x">1.0x</string>
     <string name="s_1_choose_your_connection">1 · 選擇連線方式</string>
     <string name="s_1_connect_a_computer_with_adb_installed_to_the_car_using">1. 使用已安裝 ADB 的電腦，透過現有的 USB 或無線除錯連線至車機。如出現除錯授權提示，請予以允許。\n\n2. 在電腦終端機中執行此指令：</string>
-    <string name="s_1_open_car_hotspot_settings_turn_the_hotspot_on_and_sele">1. 開啟車機熱點設定，開啟熱點；如有 5 GHz，請選擇。\n2. 在下方準確輸入熱點名稱和密碼。\n3. 連線時保持車機熱點開啟。DiPlay 會透過藍牙傳送熱點資訊，iPhone 會自動加入。</string>
+    <string name="s_1_open_car_hotspot_settings_turn_the_hotspot_on_and_sele">1. 開啟車機熱點設定，開啟熱點。\n2. 在下方準確輸入熱點名稱和密碼。\n3. 連線時保持車機熱點開啟。DiPlay 會透過藍牙傳送熱點資訊，iPhone 會自動加入。</string>
     <string name="s_2_4_ghz">2.4 GHz</string>
     <string name="s_2_pair_your_iphone">2 · 配對你的 iPhone</string>
     <string name="s_300_ms_default">300 毫秒 · 預設</string>
@@ -330,7 +327,6 @@
     <string name="s_3_connect">3 · 連線</string>
     <string name="s_3_tap_check_and_enable_below_this_enables_the_cluster_ma">3. 點一下下方的「檢查並啟用」。這會啟用儀表板地圖和自動主題跟隨。進行中的 CarPlay 工作階段會重新連線一次，之後即可中斷電腦連線。</string>
     <string name="s_500_ms">500 毫秒</string>
-    <string name="s_5_ghz">5 GHz</string>
     <string name="s_60_fps_smoother_motion">60 fps · 動態更流暢</string>
     <string name="s_60_lightest_load" formatted="false">60% · 最低負載</string>
     <string name="s_80_lighter_load" formatted="false">80% · 較低負載</string>
@@ -377,7 +373,7 @@
     <string name="transport_error_reconnecting">傳輸錯誤；正在重新連線</string>
     <string name="turn_on_bluetooth">開啟藍牙</string>
     <string name="turn_on_wi_fi_in_the_head_unit_s_settings_to_connect">請在車機設定中開啟 Wi-Fi 後再連線。</string>
-    <string name="turn_the_car_s_wi_fi_switch_on_allow_location_nearby_devic">開啟車機的 Wi-Fi 開關。如有提示，請允許位置／附近的裝置權限，並在 Android 詢問時啟用位置。如果播放卡頓，請嘗試使用 5 GHz 的內建車機熱點。</string>
+    <string name="turn_the_car_s_wi_fi_switch_on_allow_location_nearby_devic">開啟車機的 Wi-Fi 開關。如有提示，請允許位置／附近的裝置權限，並在 Android 詢問時啟用位置。</string>
     <string name="usage_access_enabled">使用狀況存取權限：已啟用</string>
     <string name="usage_access_lets_diplay_follow_the_instrument_theme_and_m">使用狀況存取權限可讓 DiPlay 跟隨儀表板主題和地圖卡片。僅在本機處理 BYD 儀表板活動事件。此車機沒有可用的權限設定頁面。</string>
     <string name="usage_access_setup_needed_for_automatic_mode">使用狀況存取權限：自動模式需要設定</string>
@@ -393,7 +389,6 @@
     <string name="waiting_for_mfi_coprocessor">正在等待 MFi 協同處理器</string>
     <string name="waiting_for_paired_iphone">正在等待 iPhone — 請在 iPhone 設定 > 通用 > CarPlay 裡點 DiPlay</string>
     <string name="wi_fi_direct_is_still_busy_close_the_other_projection_app">Wi-Fi Direct 仍被使用中。請關閉其他投放 App 後再試一次。</string>
-    <string name="wi_fi_p2p_5_ghz">Wi-Fi P2P（5 GHz）</string>
     <string name="wi_fi_session">Wi-Fi 工作階段</string>
     <string name="widest_width">較寬邊</string>
     <string name="wireless_carplay">無線 CarPlay</string>
@@ -409,8 +404,6 @@
     <string name="wpa3">WPA3</string>
     <string name="wpa3_transition">WPA3 過渡模式</string>
     <string name="your_iphone_isn_t_available_unlock_it_and_check_bluetooth">暫時找不到 iPhone。請解鎖 iPhone 並檢查藍牙。</string>
-    <string name="your_maps_music_and_conversations_carplay_right_here_on_yo">地圖、音樂與通話，\n在車機螢幕上暢享 CarPlay。</string>
-    <string name="your_phone_your_drive">你的手機，暢享旅程。</string>
     <string name="your_report_was_saved_to_the_selected_location">報告已儲存至所選位置。</string>
     <string name="cluster_waiting_for_map">DiPlay · 等待 CarPlay 地圖</string>
     <string name="option_size_huge">超大</string>
@@ -667,7 +660,7 @@
     <string name="car_button_name">名稱</string>
     <string name="car_button_saved_next_connection">已儲存。下次連線時，CarPlay 會顯示新的圖示和名稱。</string>
     <string name="carplay_call_controls_experimental">CarPlay 通話按鍵（實驗性）</string>
-    <string name="carplay_call_controls_experimental_description">啟用尚未驗證的 DiLink 3 通話、語音與播放／暫停按鍵。仍需實車測試。預設關閉；儀表通話資訊卡是獨立設定。</string>
+    <string name="carplay_call_controls_experimental_description">用方向盤按鍵接聽和掛斷 CarPlay 電話。廣汽車機上：接聽鍵接聽，掛斷鍵掛斷或拒接，長按語音鍵喚起 Siri；CarPlay 連線期間不彈出車機內建的通話畫面。短按語音鍵仍會開啟車機內建的語音助理。DiLink 3 上的按鍵尚未驗證。仍需實車測試。預設關閉；儀表通話卡片為獨立設定。</string>
     <string name="carplay_calls_on_dashboard">在儀表板顯示 CarPlay 通話</string>
     <string name="carplay_calls_on_dashboard_description">CarPlay 來電和通話期間，儀表板會顯示來電者，儀表板與抬頭顯示器會顯示通話時間，與比亞迪原廠 CarPlay 應用程式相同。通話期間車輛也會降低風扇轉速。立即生效。車機須啟用網路 ADB。</string>
     <string name="carplay_dock">CarPlay 程式列</string>
@@ -782,8 +775,8 @@
     <string name="settings_root_hotspot_mode_description">適用於已 root、且應用完全無法打開熱點的車機。DiPlay 以 root 身份運行系統 hostapd 並自行建立熱點；在連接設定中選擇 Root 熱點模式並設定名稱與密碼。下次連接時生效。</string>
     <string name="settings_hostapd_apple_vendor_ie">Root 熱點 Apple 廠商資訊元（實驗性）</string>
     <string name="settings_hostapd_apple_vendor_ie_description">給 Root 熱點（hostapd）的信標加上 Apple 廠商資訊元，iPhone 才會自動加入。沒有它時 iPhone 不會自動關聯（手動點選卻能連上）。僅影響 Root 熱點模式。下次連接時生效。</string>
-    <string name="settings_carplay_auto_disconnect_bt">連上 CarPlay 後自動斷開手機藍牙（實驗性）</string>
-    <string name="settings_carplay_auto_disconnect_bt_description">無線 CarPlay 連上後，關閉車機藍牙，讓手機不再彈出原生藍牙通話介面；工作階段結束時再把藍牙打開。僅無線連線生效，下次連線時生效。如果應用程式異常退出，藍牙可能保持關閉，需在系統設定裡手動重新打開。</string>
+    <string name="settings_carplay_auto_disconnect_bt">CarPlay 期間關閉藍牙自動連接（實驗性）</string>
+    <string name="settings_carplay_auto_disconnect_bt_description">有線或無線 CarPlay 連上後，關掉車機藍牙設定裡的全域「自動連接」，避免手機斷開通話藍牙後車機馬上再連上。同時像車機藍牙設定裡點「中斷連線」那樣，主動中斷已連接的手機。藍牙本身保持開著。工作階段結束時恢復原來的開關；如果應用程式異常退出，下次打開 DiPlay 會恢復。開啟「透過車輛藍牙播放 CarPlay 音訊」時本開關不起作用。下次連線時生效。</string>
     <string name="settings_telephony_downlink_via_music">通話下行改走音樂流（實驗性）</string>
     <string name="settings_telephony_downlink_via_music_description">通話下行改走音樂流而不是通話流，通話模式和麥克風上行不變。僅當通話流下行無聲、而媒體音訊有聲時使用。下次連線時生效。</string>
     <string name="settings_announcement_duck_media">播報時壓低媒體音量（實驗性）</string>
@@ -803,4 +796,16 @@
     <string name="settings_legacy_hotspot_description">在下次連線或打開 DiPlay 時，自動關閉 Wi-Fi 並開啟已儲存的車機熱點。保持熱點名稱與密碼不變。如需開機自動啟動，請同時開啟「車機啟動後打開」。在此車機上無需 ADB 授權。</string>
     <string name="settings_media_focus_exclusive">媒體音訊焦點獨佔</string>
     <string name="settings_media_focus_exclusive_description">媒體改請求永久焦點，不再讓其他播放器壓低 CarPlay。只對會把 CarPlay 壓到無聲的車機有效；可能導致其他播放器無聲。下次連接生效。</string>
+    <string name="settings_app_theme">外觀</string>
+    <string name="settings_app_theme_auto">自動</string>
+    <string name="settings_app_theme_light">淺色</string>
+    <string name="settings_app_theme_dark">深色</string>
+    <string name="settings_app_theme_hint">DiPlay 自身介面使用淺色還是深色。自動時跟隨 CarPlay 的日夜模式設定。不影響 CarPlay 畫面。</string>
+    <string name="home_wired_carplay">有線 CarPlay</string>
+    <string name="quick_call_keys_note">接聽鍵接聽，掛斷鍵掛斷，長按語音鍵喚起 Siri。立即生效。</string>
+    <string name="quick_auto_connect_note">避免車機把手機重新連回藍牙。重新連線後生效。</string>
+    <string name="quick_cluster_map_note">重新連線後生效。</string>
+    <string name="quick_more_settings">更多設定</string>
+    <string name="wireless_mode_recommended">推薦 · 已在本車驗證</string>
+    <string name="wireless_mode_not_recommended">其他方式 · 未在本車驗證，不推薦</string>
 </resources>

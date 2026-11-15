@@ -462,8 +462,10 @@ object AirPlayPersistence {
     fun loadWirelessHotspotMode(context: Context): WirelessHotspotMode {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val stored = prefs.getString(KEY_WIRELESS_HOTSPOT_MODE, null)
+        // Wi-Fi Direct is the wireless path verified on the Guangqi head unit, so a fresh install
+        // and an unusable stored mode start there.
         val mode = WirelessHotspotMode.entries.firstOrNull { it.name == stored }
-            ?: WirelessHotspotMode.MANUAL
+            ?: WirelessHotspotMode.WIFI_P2P
         // Keep the user's Wi-Fi Direct selection on Android 8/9. The runtime
         // controller uses a system-generated P2P group, with LocalOnlyHotspot as a fallback,
         // because the API 29 configurable group APIs are unavailable. Converting it to MANUAL made
@@ -472,9 +474,9 @@ object AirPlayPersistence {
         // Advanced opt-in is on; a stored HOSTAPD value with the opt-in off
         // resolves to MANUAL, the same treatment as LOCAL_ONLY_HOTSPOT.
         val supported = if (mode == WirelessHotspotMode.LOCAL_ONLY_HOTSPOT) {
-            WirelessHotspotMode.MANUAL
+            WirelessHotspotMode.WIFI_P2P
         } else if (mode == WirelessHotspotMode.HOSTAPD && !loadRootHotspotEnabled(context)) {
-            WirelessHotspotMode.MANUAL
+            WirelessHotspotMode.WIFI_P2P
         } else {
             mode
         }
@@ -492,7 +494,7 @@ object AirPlayPersistence {
     fun loadWifiP2pPreferredChannel(context: Context): Int = runCatching {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getInt(KEY_WIFI_P2P_PREFERRED_CHANNEL, WifiP2pChannels.AUTO)
-            .takeIf(WifiP2pChannels::isValid) ?: WifiP2pChannels.AUTO
+            .takeIf(WifiP2pChannels::isValid)?.let(WifiP2pChannels::supported) ?: WifiP2pChannels.AUTO
     }.getOrDefault(WifiP2pChannels.AUTO)
 
     fun saveWifiP2pPreferredChannel(context: Context, channel: Int) {
@@ -540,7 +542,9 @@ object AirPlayPersistence {
     fun loadManualHotspotBand(context: Context): ManualHotspotBand {
         val stored = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getString(KEY_MANUAL_HOTSPOT_BAND, null)
+        // 5 GHz saved by an earlier build cannot be used: the head unit's radio is 2.4 GHz only.
         return ManualHotspotBand.entries.firstOrNull { it.name == stored }
+            ?.takeIf { it != ManualHotspotBand.GHZ_5 }
             ?: ManualHotspotBand.AUTO
     }
 
@@ -742,8 +746,13 @@ object AirPlayPersistence {
     }
 
     /** Issues #294/#299: experimental root hostapd hotspot opt-in (Advanced). */
-    fun loadRootHotspotEnabled(context: Context): Boolean =
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_ROOT_HOTSPOT_ENABLED, false)
+    /**
+     * Always false on the Guangqi head unit: the root hostapd mode runs `su`, and its system image
+     * has none. A value saved by an earlier build is ignored, so a stored HOSTAPD mode resolves
+     * the same way as with the opt-in off.
+     */
+    @Suppress("UNUSED_PARAMETER")
+    fun loadRootHotspotEnabled(context: Context): Boolean = false
 
     fun saveRootHotspotEnabled(context: Context, enabled: Boolean) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_ROOT_HOTSPOT_ENABLED, enabled).apply()
@@ -757,7 +766,7 @@ object AirPlayPersistence {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_HOSTAPD_APPLE_VENDOR_IE, enabled).apply()
     }
 
-    /** Issue #343: auto-disconnect phone Bluetooth after wireless CarPlay connects (Advanced, experimental). */
+    /** Issue #343: hold the car's global Bluetooth auto-connect off during CarPlay (Advanced, experimental). */
     fun loadCarplayAutoDisconnectBt(context: Context): Boolean =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_CARPLAY_AUTO_DISCONNECT_BT, false)
 

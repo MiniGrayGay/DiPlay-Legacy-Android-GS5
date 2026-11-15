@@ -35,8 +35,9 @@ class HomeCompactLayoutTest {
         val activity = Robolectric.buildActivity(DiPlayActivity::class.java).setup().get()
         shadowOf(activity).setInMultiWindowMode(multiWindow)
         ReflectionHelpers.callInstanceMethod<Unit>(activity, "render")
-        val hero = activity.getString(R.string.a_familiar_drive)
-        return descendants(activity.window.decorView).filterIsInstance<TextView>().none { it.text == hero }
+        // The full home has separate wireless and wired panels; the compact one has neither title.
+        val wired = activity.getString(R.string.home_wired_carplay)
+        return descendants(activity.window.decorView).filterIsInstance<TextView>().none { it.text == wired }
     }
 
     private fun descendants(view: View): Sequence<View> = sequence {

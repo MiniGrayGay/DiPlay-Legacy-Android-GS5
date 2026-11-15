@@ -19,15 +19,16 @@ class HotspotModeMigrationTest {
         prefs.edit().putString("wireless_hotspot_mode", "LOCAL_ONLY_HOTSPOT").apply()
         AirPlayPersistence.saveManualHotspotSsid(context, "Test car")
         AirPlayPersistence.saveManualHotspotPassphrase(context, "test-password")
-        assertEquals(WirelessHotspotMode.MANUAL, AirPlayPersistence.loadWirelessHotspotMode(context))
-        assertEquals("MANUAL", prefs.getString("wireless_hotspot_mode", null))
+        assertEquals(WirelessHotspotMode.WIFI_P2P, AirPlayPersistence.loadWirelessHotspotMode(context))
+        assertEquals("WIFI_P2P", prefs.getString("wireless_hotspot_mode", null))
         assertEquals("Test car", AirPlayPersistence.loadManualHotspotSsid(context))
         assertEquals("test-password", AirPlayPersistence.loadManualHotspotPassphrase(context))
     }
 
-    @Test fun freshInstallUsesBuiltInHotspot() {
+    @Test fun freshInstallUsesWifiDirect() {
+        // Wi-Fi Direct is the wireless path verified on the Guangqi head unit.
         prefs.edit().clear().apply()
-        assertEquals(WirelessHotspotMode.MANUAL, AirPlayPersistence.loadWirelessHotspotMode(context))
+        assertEquals(WirelessHotspotMode.WIFI_P2P, AirPlayPersistence.loadWirelessHotspotMode(context))
     }
 
     @Test fun existingWifiDirectSelectionIsPreserved() {
@@ -35,16 +36,17 @@ class HotspotModeMigrationTest {
         assertEquals(WirelessHotspotMode.WIFI_P2P, AirPlayPersistence.loadWirelessHotspotMode(context))
     }
 
-    @Test fun hostapdSelectionFallsBackToManualWhileTheOptInIsOff() {
+    @Test fun hostapdSelectionFallsBackToWifiDirectWhileTheOptInIsOff() {
         prefs.edit().putString("wireless_hotspot_mode", "HOSTAPD").apply()
-        assertEquals(WirelessHotspotMode.MANUAL, AirPlayPersistence.loadWirelessHotspotMode(context))
-        assertEquals("MANUAL", prefs.getString("wireless_hotspot_mode", null))
+        assertEquals(WirelessHotspotMode.WIFI_P2P, AirPlayPersistence.loadWirelessHotspotMode(context))
+        assertEquals("WIFI_P2P", prefs.getString("wireless_hotspot_mode", null))
     }
 
-    @Test fun hostapdSelectionIsPreservedWhileTheOptInIsOn() {
+    @Test fun hostapdIsNotKeptEvenWithAnOldOptIn() {
+        // The root hotspot runs su, which the Guangqi system image does not have.
         AirPlayPersistence.saveRootHotspotEnabled(context, true)
         AirPlayPersistence.saveWirelessHotspotMode(context, WirelessHotspotMode.HOSTAPD)
-        assertEquals(WirelessHotspotMode.HOSTAPD, AirPlayPersistence.loadWirelessHotspotMode(context))
+        assertEquals(WirelessHotspotMode.WIFI_P2P, AirPlayPersistence.loadWirelessHotspotMode(context))
     }
 
     @Test @Config(sdk = [24, 25, 26, 27, 28]) fun olderAndroidKeepsWifiDirectSelected() {

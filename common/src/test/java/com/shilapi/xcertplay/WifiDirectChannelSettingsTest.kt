@@ -43,7 +43,7 @@ class WifiDirectChannelSettingsTest {
         control.performClick()
         val dialog = ShadowAlertDialog.getLatestAlertDialog()
         assertEquals(0, dialog.listView.checkedItemPosition)
-        select(dialog, 149)
+        select(dialog, 1)
         dialog.getButton(AlertDialog.BUTTON_NEGATIVE).performClick()
         shadowOf(Looper.getMainLooper()).idle()
         assertEquals(WifiP2pChannels.AUTO, AirPlayPersistence.loadWifiP2pPreferredChannel(activity))
@@ -54,18 +54,18 @@ class WifiDirectChannelSettingsTest {
         val control = channelControl(controls())!!
         control.performClick()
         val dialog = ShadowAlertDialog.getLatestAlertDialog()
-        select(dialog, 149)
+        select(dialog, 1)
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick()
         shadowOf(Looper.getMainLooper()).idle()
-        assertEquals(149, AirPlayPersistence.loadWifiP2pPreferredChannel(activity))
-        assertTrue(control.text.toString().contains("149"))
+        assertEquals(1, AirPlayPersistence.loadWifiP2pPreferredChannel(activity))
+        assertTrue(control.text.toString().contains("1"))
         AirPlayPersistence.saveWirelessHotspotMode(activity, WirelessHotspotMode.MANUAL)
         assertNull(channelControl(controls()))
-        assertEquals(149, AirPlayPersistence.loadWifiP2pPreferredChannel(activity))
+        assertEquals(1, AirPlayPersistence.loadWifiP2pPreferredChannel(activity))
         AirPlayPersistence.saveWirelessHotspotMode(activity, WirelessHotspotMode.WIFI_P2P)
         channelControl(controls())!!.performClick()
         val reopened = ShadowAlertDialog.getLatestAlertDialog()
-        assertEquals(choices.indexOf(149), reopened.listView.checkedItemPosition)
+        assertEquals(choices.indexOf(1), reopened.listView.checkedItemPosition)
         select(reopened, WifiP2pChannels.AUTO)
         reopened.getButton(AlertDialog.BUTTON_POSITIVE).performClick()
         shadowOf(Looper.getMainLooper()).idle()
@@ -81,17 +81,26 @@ class WifiDirectChannelSettingsTest {
         assertEquals(WifiP2pChannels.AUTO, AirPlayPersistence.loadWifiP2pPreferredChannel(activity))
     }
 
+    @Test fun fiveGhzChannelsAreNotOfferedAndSavedOnesUseAuto() {
+        // The head unit's AR6003 has no 5 GHz radio.
+        assertTrue(choices.none { it >= 36 })
+        for (channel in listOf(36, 149, 165, WifiP2pChannels.AUTO_5_GHZ)) {
+            prefs.edit().putInt("wifi_p2p_preferred_channel", channel).commit()
+            assertEquals(WifiP2pChannels.AUTO, AirPlayPersistence.loadWifiP2pPreferredChannel(activity))
+        }
+    }
+
     @Test fun hostRuntimeConfigReceivesSavedChannel() {
-        AirPlayPersistence.saveWifiP2pPreferredChannel(activity, 149)
+        AirPlayPersistence.saveWifiP2pPreferredChannel(activity, 6)
         val host = Robolectric.buildActivity(CarPlayHostActivity::class.java).get()
         CarPlayHostActivity::class.java.getDeclaredField("airPlayIdentity").apply { isAccessible = true }
             .set(host, AirPlayPersistence.loadIdentity(host))
         val config = CarPlayHostActivity::class.java.getDeclaredMethod("createRuntimeConfig")
             .apply { isAccessible = true }.invoke(host) as CarPlayRuntimeConfig
-        assertEquals(149, config.wifiP2pPreferredChannel)
+        assertEquals(6, config.wifiP2pPreferredChannel)
     }
 
-    private val choices get() = listOf(WifiP2pChannels.AUTO) + WifiP2pChannels.channels
+    private val choices get() = listOf(WifiP2pChannels.AUTO) + WifiP2pChannels.supportedChannels
 
     private fun select(dialog: AlertDialog, channel: Int) {
         val index = choices.indexOf(channel)

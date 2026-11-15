@@ -102,6 +102,9 @@ This fork targets a Guangqi (GAEI) head unit: Freescale i.MX6 SABRESD, Android 4
 - Build car APKs in CI, not locally: `.github/workflows/guangqi-build.yml` takes the platform keystore and the MFi certificate and identity from repository secrets, and uploads the signed release APK as an artifact.
   Unit test failures do not block that build. Neither the platform key nor the MFi assets are checked into this repository.
 - Changing the app between a normal uid and `android.uid.system` cannot be installed as an update. The installed DiPlay must be uninstalled first, which clears its data.
+- The GNSS is the u-blox on `/dev/ttyACM17` behind the system GPS HAL (`hw/gps.SABRESD.so`). Read it through LocationManager's `gps` provider and `addNmeaListener`, as the stock AMap does. `/dev/athrnmea` (Atheros, `ingsvcd`) is not the receiver in use.
+- Vehicle speed and gear come from `ServiceManager.getService("vehicle")`, `getDefinedPacket` (transact 7). The reply is `[noException][hasPacket][typeId]` followed by the fields in DEX alphabetical order; see `/root/carlife/Trumpchi-GS5/docs/can_packet_definitions.txt`.
+- The wheel's call (137), hang-up (138) and long-press voice (57) keys never reach apps. `GuangqiCarlifeKeys` takes them the stock CarLife way: register with the `keyback` service under `com.thundersoft.connectivity.AudioRsManager` and broadcast the CarLife connected state. It force-stops the stock CarLife first, because the service keeps only one listener under that name.
 - Remote access to the unit goes through the car relay at `https://avnt.xyun.host` (`/status`, `/exec`, `/file`, `/app`).
   Send `Authorization: Bearer $CAR_OPERATOR_TOKEN` and never commit the token. Do not connect to port 55666 with the device token: a new hello disconnects the car.
   The unit's toolbox has no `head` or `tail`. DiPlay's log is `/data/data/com.shihab.diplay/files/logs/diplay.log`.

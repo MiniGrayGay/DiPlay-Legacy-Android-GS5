@@ -218,7 +218,9 @@ class CarPlayHostActivity : ComponentActivity() {
             locationInformationEnabled = locationReportingEnabled,
             vehicleStatusEnabled = com.shilapi.xcertplay.hud.BydOutputSettings.batteryToIphoneActive(this),
             chargingConnectors = com.shilapi.xcertplay.hud.BydOutputSettings.chargingConnectors(this),
-            vehicleSpeedEnabled = locationReportingEnabled && com.shilapi.xcertplay.hud.BydOutputSettings.wheelSpeedToIphoneActive(this),
+            // Guangqi reads the speed from its own vehicle service, so no switch or ADB is needed.
+            vehicleSpeedEnabled = locationReportingEnabled && (GuangqiCluster.present(this) ||
+                com.shilapi.xcertplay.hud.BydOutputSettings.wheelSpeedToIphoneActive(this)),
         ),
         label = "DiPlay",
         hostName = "diplay-" + DiPlayBootstrap.deviceId(airPlayIdentity).replace(":", "").lowercase(),
@@ -725,6 +727,11 @@ class CarPlayHostActivity : ComponentActivity() {
     private var vpnDeniedDialog: android.app.AlertDialog? = null
     private var hotspotStatus = HotspotStatus(state = "off")
     private var menuOpen = false
+    /** A quick-menu change that only applies to a new session; Done then reconnects. */
+    private var quickMenuNeedsReconnect = false
+    private var quickMenuDone: Button? = null
+    /** The quick menu, not the full one, is on screen; only it shows the car's top bar. */
+    private var quickMenuShowing = false
     private var latestStage = "Preparing CarPlay"
     private var darkMode = false
     private var paintWaitingScreen: () -> Unit = {}
@@ -1069,7 +1076,10 @@ class CarPlayHostActivity : ComponentActivity() {
         hostapdPassphrase = AirPlayPersistence.loadHostapdPassphrase(this)
         hostapdChannel = AirPlayPersistence.loadHostapdChannel(this)
         hostapdAppleVendorIe = AirPlayPersistence.loadHostapdAppleVendorIe(this)
-        carplayAutoDisconnectBt = AirPlayPersistence.loadCarplayAutoDisconnectBt(this)
+        // The hold disconnects the phone from the car's Bluetooth. Not when sound is meant
+        // to stay on that connection.
+        carplayAutoDisconnectBt = AirPlayPersistence.loadCarplayAutoDisconnectBt(this) &&
+            !AirPlayPersistence.loadCarBluetoothAudio(this)
         telephonyDownlinkViaMusic = AirPlayPersistence.loadTelephonyDownlinkViaMusic(this)
         announcementDuckMedia = AirPlayPersistence.loadAnnouncementDuckMedia(this)
         dockBarRefrontEnabled = AirPlayPersistence.loadDockBarRefront(this)
@@ -2143,7 +2153,7 @@ class CarPlayHostActivity : ComponentActivity() {
             insets
         }
         ViewCompat.requestApplyInsets(viewport)
-        settingsMenu = buildSettingsMenu().apply { visibility = View.GONE }
+        settingsMenu = buildQuickMenu().apply { visibility = View.GONE }
         root.addView(settingsMenu, FrameLayout.LayoutParams(-1, -1))
         safeAreaEditor = buildSafeAreaEditor().apply { visibility = View.GONE }
         root.addView(safeAreaEditor, FrameLayout.LayoutParams(-1, -1))
@@ -2255,6 +2265,173 @@ class CarPlayHostActivity : ComponentActivity() {
             cornerRadius = dp(radiusDp).toFloat()
             setStroke(dp(1), if (fill == MENU_BUTTON) MENU_BORDER else fill)
         }
+
+    /**
+     * The three-finger menu: the Guangqi head unit's everyday switches over CarPlay, each saved at
+     * once. "More settings" opens the full in-session menu; Done closes, and reconnects when a
+     * change only applies to a new session.
+     */
+    private fun buildQuickMenu(): View {
+        val overlay = FrameLayout(this).apply {
+            setBackgroundColor(Color.argb(200, 6, 9, 15))
+            isClickable = true
+            setOnClickListener { closeQuickMenu() }
+        }
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            isClickable = true
+            background = GradientDrawable().apply {
+                setColor(MENU_SURFACE)
+                cornerRadius = dp(24).toFloat()
+                setStroke(dp(1), MENU_BORDER)
+            }
+            setPadding(dp(28), dp(22), dp(28), dp(22))
+        }
+        panel.addView(menuText(getString(R.string.settings_quick_settings), 22f, Color.WHITE, bold = true),
+            LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(6) })
+
+        fun divider() = View(this).apply { setBackgroundColor(MENU_BORDER) }
+        fun addRow(view: View, first: Boolean = false) {
+            if (!first) panel.addView(divider(), LinearLayout.LayoutParams(-1, dp(1)))
+            panel.addView(view, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(10); bottomMargin = dp(10) })
+        }
+        // Title, a one-line note and the switch; the whole row toggles it.
+        fun switchRow(label: String, description: String, checked: Boolean, onChanged: (Boolean) -> Unit): View {
+            val switch = Switch(this).apply {
+                isChecked = checked
+                if (realSdkInt() >= Build.VERSION_CODES.LOLLIPOP) { showText = false; textOn = ""; textOff = "" }
+                SettingsWidgets.styleSwitch(this, this@CarPlayHostActivity, SettingsTheme.OVERLAY)
+                contentDescription = label
+                isFocusable = false
+                setOnCheckedChangeListener { _, on -> onChanged(on) }
+            }
+            return LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                isClickable = true
+                isFocusable = true
+                setOnClickListener { switch.toggle() }
+                addView(LinearLayout(this@CarPlayHostActivity).apply {
+                    orientation = LinearLayout.VERTICAL
+                    addView(menuText(label, 18f, Color.WHITE))
+                    addView(menuText(description, 14f, MENU_SECONDARY).apply { setPadding(0, dp(4), dp(16), 0) })
+                }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                addView(switch)
+            }
+        }
+
+        addRow(switchRow(getString(R.string.carplay_call_controls_experimental),
+            getString(R.string.quick_call_keys_note),
+            com.shilapi.xcertplay.hud.BydOutputSettings.carPlayCallControls(this)) { enabled ->
+            com.shilapi.xcertplay.hud.BydOutputSettings.setCarPlayCallControls(this, enabled)
+            com.shilapi.xcertplay.orchestration.GuangqiCarlifeKeys.settingChanged(this, enabled)
+        }, first = true)
+        addRow(switchRow(getString(R.string.settings_carplay_auto_disconnect_bt),
+            getString(R.string.quick_auto_connect_note),
+            AirPlayPersistence.loadCarplayAutoDisconnectBt(this)) { enabled ->
+            AirPlayPersistence.saveCarplayAutoDisconnectBt(this, enabled)
+            carplayAutoDisconnectBt = enabled && !AirPlayPersistence.loadCarBluetoothAudio(this)
+            quickMenuChangedSession()
+        })
+        addRow(switchRow(getString(R.string.carplay_map_on_instrument_cluster_experimental),
+            getString(R.string.quick_cluster_map_note),
+            AirPlayPersistence.loadClusterMapEnabled(this)) { enabled ->
+            AirPlayPersistence.saveClusterMapEnabled(this, enabled)
+            quickMenuChangedSession()
+        })
+        addRow(quickNightModeRow())
+
+        val footer = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        footer.addView(quickMenuButton(getString(R.string.quick_more_settings), primary = false) { openFullSettingsMenu() },
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(52)))
+        footer.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
+        quickMenuDone = quickMenuButton(getString(R.string.done), primary = true) { closeQuickMenu() }
+        footer.addView(quickMenuDone, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(52)))
+        panel.addView(footer, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(12) })
+
+        val scroll = ScrollView(this).apply { isFillViewport = false; addView(panel) }
+        overlay.addView(scroll, FrameLayout.LayoutParams(dp(860), ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER).apply {
+            setMargins(dp(24), dp(24), dp(24), dp(24))
+        })
+        return overlay
+    }
+
+    /** CarPlay day and night as one row of choices; applied to the running session at once. */
+    private fun quickNightModeRow(): View {
+        val column = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        column.addView(menuText(getString(R.string.carplay_night_mode), 18f, Color.WHITE))
+        val modes = CarPlayNightMode.entries
+        val labels = modes.map {
+            getString(when (it) {
+                CarPlayNightMode.SYSTEM -> R.string.carplay_night_system
+                CarPlayNightMode.AMBIENT -> R.string.carplay_night_ambient
+                CarPlayNightMode.DAY -> R.string.carplay_night_day
+                CarPlayNightMode.NIGHT -> R.string.carplay_night_night
+                CarPlayNightMode.SCHEDULE -> R.string.carplay_night_schedule
+            })
+        }
+        val chips = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        val views = mutableListOf<TextView>()
+        fun paint(selected: CarPlayNightMode) = views.forEachIndexed { index, chip ->
+            val on = modes[index] == selected
+            chip.setTextColor(if (on) MENU_BUTTON_TEXT else Color.WHITE)
+            chip.background = menuButtonBackground(if (on) MENU_ACCENT else MENU_BUTTON, radiusDp = 18)
+        }
+        modes.forEachIndexed { index, mode ->
+            val chip = TextView(this).apply {
+                text = labels[index]
+                textSize = 14f
+                gravity = Gravity.CENTER
+                maxLines = 1
+                ellipsize = android.text.TextUtils.TruncateAt.END
+                setPadding(dp(8), 0, dp(8), 0)
+                isClickable = true
+                contentDescription = labels[index]
+                setOnClickListener {
+                    AirPlayPersistence.saveCarPlayNightMode(this@CarPlayHostActivity, mode)
+                    applyNightModeNow()
+                    paint(mode)
+                }
+            }
+            views += chip
+            chips.addView(chip, LinearLayout.LayoutParams(0, dp(44), 1f).apply { if (index > 0) marginStart = dp(8) })
+        }
+        paint(AirPlayPersistence.loadCarPlayNightMode(this))
+        column.addView(chips, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(10) })
+        return column
+    }
+
+    private fun quickMenuButton(title: String, primary: Boolean, click: () -> Unit): Button = Button(this).apply {
+        text = title
+        isAllCaps = false
+        textSize = 16f
+        typeface = Typeface.DEFAULT_BOLD
+        setTextColor(if (primary) MENU_BUTTON_TEXT else Color.WHITE)
+        background = menuButtonBackground(if (primary) MENU_ACCENT else MENU_BUTTON, radiusDp = 18)
+        minWidth = dp(140)
+        setPadding(dp(22), 0, dp(22), 0)
+        setOnClickListener { click() }
+    }
+
+    /** A quick-menu change for the next session: Done says it reconnects. */
+    private fun quickMenuChangedSession() {
+        quickMenuNeedsReconnect = true
+        quickMenuDone?.text = getString(R.string.save_and_reconnect)
+    }
+
+    /** The saved CarPlay day and night choice, applied to the running session as on resume. */
+    private fun applyNightModeNow() {
+        carPlayNightMode = AirPlayPersistence.loadCarPlayNightMode(this)
+        ambientLightThreshold = AirPlayPersistence.loadAmbientLightThreshold(this)
+        ambientDelaySeconds = AirPlayPersistence.loadAmbientDelaySeconds(this)
+        nightSchedule = AirPlayPersistence.loadCarPlayNightSchedule(this)
+        val systemNight = nightModeOrNull(resources.configuration.uiMode) ?: false
+        nightModeController.configure(carPlayNightMode, systemNight, ambientLightThreshold, ambientDelaySeconds, nightSchedule)
+        syncAirPlayDarkMode(ThemeModeDiagnostics.Source.CARPLAY_MODE)
+    }
 
     private fun buildSettingsMenu(): View {
         val overlay = FrameLayout(this).apply {
@@ -3850,7 +4027,7 @@ class CarPlayHostActivity : ComponentActivity() {
                 add(
                     WirelessHotspotMode.WIFI_P2P to
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                            getString(R.string.wi_fi_p2p_5_ghz)
+                            getString(R.string.wifi_direct)
                         } else {
                             getString(R.string.wifi_direct)
                         },
@@ -3924,8 +4101,8 @@ class CarPlayHostActivity : ComponentActivity() {
                 label = getString(R.string.band),
                 options = listOf(
                     ManualHotspotBand.AUTO to getString(R.string.auto),
+                    // The head unit's AR6003 has no 5 GHz radio.
                     ManualHotspotBand.GHZ_2_4 to getString(R.string.s_2_4_ghz),
-                    ManualHotspotBand.GHZ_5 to getString(R.string.s_5_ghz),
                 ),
                 selected = manualHotspotBand,
             ) { value ->
@@ -4160,7 +4337,7 @@ class CarPlayHostActivity : ComponentActivity() {
     }
 
     private fun hotspotModeLabel(mode: WirelessHotspotMode): String = when (mode) {
-        WirelessHotspotMode.WIFI_P2P -> getString(R.string.wi_fi_p2p_5_ghz)
+        WirelessHotspotMode.WIFI_P2P -> getString(R.string.wifi_direct)
         WirelessHotspotMode.LOCAL_ONLY_HOTSPOT -> getString(R.string.localonlyhotspot)
         WirelessHotspotMode.MANUAL -> getString(R.string.manual_hotspot)
         WirelessHotspotMode.EXISTING_WIFI -> getString(R.string.existing_wifi_title)
@@ -4523,10 +4700,23 @@ class CarPlayHostActivity : ComponentActivity() {
                 appendLog("Car Bluetooth audio: WARNING USB Bluetooth dongle present; the dongle cannot play audio, sound needs the car's own Bluetooth")
             }
         }
+        // The car's own Bluetooth. A wireless session through a USB Bluetooth adapter replaces
+        // btMac with the adapter's address, and this keeps the built-in one declared so the iPhone
+        // releases it. Not declared when sound is meant to stay on that connection.
+        val carBluetoothIds = if (AirPlayPersistence.loadCarBluetoothAudio(this)) {
+            emptyList()
+        } else {
+            listOfNotNull(
+                DiPlayBluetooth.localAddress(this),
+                com.shilapi.xcertplay.bluetooth.BluetoothAddressResolver.resolve(this),
+            ).distinct()
+        }
+        appendLog("Car Bluetooth addresses declared to the iPhone: ${carBluetoothIds.ifEmpty { "none" }}")
         return AirPlayConfig(
             deviceName = "DiPlay",
             deviceId = DiPlayBootstrap.deviceId(airPlayIdentity),
             btMac = DiPlayBluetooth.localAddress(this) ?: DiPlayBootstrap.deviceId(airPlayIdentity),
+            additionalBluetoothIds = carBluetoothIds,
             sourceVersion = "950.7.1",
             main = declared,
             cluster = clusterDisplayConfig(),
@@ -5042,7 +5232,7 @@ class CarPlayHostActivity : ComponentActivity() {
             when {
                 !config.locationReportingEnabled -> null
                 GuangqiCluster.present(this) -> VehicleSpeedLocationProvider(
-                    com.shilapi.xcertplay.location.GuangqiNmeaLocationProvider(),
+                    com.shilapi.xcertplay.location.GuangqiNmeaLocationProvider(this),
                     com.shilapi.xcertplay.hud.GuangqiVehicleSpeedSource,
                 )
                 config.identification.vehicleSpeedEnabled -> VehicleSpeedLocationProvider(
@@ -5976,10 +6166,13 @@ class CarPlayHostActivity : ComponentActivity() {
                 ?: return@let
             val index = parent.indexOfChild(previous).takeIf { it >= 0 } ?: parent.childCount
             if (previous.parent === parent) parent.removeView(previous)
-            settingsMenu = buildSettingsMenu()
+            quickMenuNeedsReconnect = false
+            settingsMenu = buildQuickMenu()
             parent.addView(settingsMenu, index.coerceAtMost(parent.childCount), FrameLayout.LayoutParams(-1, -1))
         }
         menuOpen = true
+        quickMenuShowing = true
+        applyFullscreenMode()
         gestureOverlay?.visibility = View.GONE
         settingsMenu?.visibility = View.VISIBLE
         safeAreaEditor?.visibility = View.GONE
@@ -6025,13 +6218,40 @@ class CarPlayHostActivity : ComponentActivity() {
 
     private fun cancelSettingsEdits() {
         if (!menuOpen) return
+        // Only the full menu buffers edits; quick-menu changes are already saved and may still need
+        // the reconnect they announced.
         restoreSettingsBaseline()
-        finishSettingsMenu("Settings changes discarded", reconnect = false)
+        finishSettingsMenu("Settings changes discarded", reconnect = quickMenuNeedsReconnect)
+    }
+
+    /** Done in the quick menu: its changes are saved; reconnects only when one of them needs it. */
+    private fun closeQuickMenu() {
+        if (!menuOpen) return
+        settingsBaseline = null
+        finishSettingsMenu(if (quickMenuNeedsReconnect) "Quick settings saved" else "Quick settings closed",
+            reconnect = quickMenuNeedsReconnect)
+    }
+
+    /** From the quick menu to the full in-session menu, in the same place. */
+    private fun openFullSettingsMenu() {
+        val previous = settingsMenu ?: return
+        val parent = previous.parent as? ViewGroup ?: return
+        val index = parent.indexOfChild(previous)
+        parent.removeView(previous)
+        settingsMenu = buildSettingsMenu()
+        quickMenuShowing = false
+        applyFullscreenMode()
+        parent.addView(settingsMenu, index.coerceAtLeast(0), FrameLayout.LayoutParams(-1, -1))
+        updateSafeAreaSummary()
+        updateResolutionMenu()
     }
 
     private fun finishSettingsMenu(prefix: String, reconnect: Boolean) {
         if (!menuOpen) return
         menuOpen = false
+        quickMenuNeedsReconnect = false
+        quickMenuShowing = false
+        applyFullscreenMode()
         settingsMenu?.visibility = View.GONE
         gestureOverlay?.visibility = View.VISIBLE
         settingsGestureHint?.text = getString(R.string.open_diplay_settings_hint, gestureFingerCount)
@@ -6663,6 +6883,26 @@ class CarPlayHostActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * While the three-finger quick menu is open the car's top bar shows again, so its home button
+     * and climate controls can be reached. It lies over CarPlay and the menu: the window keeps
+     * laying out behind it, so the CarPlay picture keeps its size. Closing the menu, or going on to
+     * the full menu (which previews its own bar settings), hides it again.
+     */
+    private fun showCarBarOverMenu(hideBottom: Boolean) {
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN)
+        val controller = WindowInsetsControllerCompat(window, window.decorView)
+        controller.show(WindowInsetsCompat.Type.statusBars())
+        @Suppress("DEPRECATION")
+        var flags = window.decorView.systemUiVisibility
+        flags = flags and (View.SYSTEM_UI_FLAG_FULLSCREEN or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY).inv()
+        flags = flags or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+        flags = if (hideBottom) flags or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION else flags and View.SYSTEM_UI_FLAG_HIDE_NAVIGATION.inv()
+        @Suppress("DEPRECATION")
+        window.decorView.systemUiVisibility = flags
+    }
+
     private fun applyFullscreenMode() {
         val multiWindow = isMultiWindowActive()
         if (harmanFullscreenEnabled) {
@@ -6678,6 +6918,10 @@ class CarPlayHostActivity : ComponentActivity() {
         }
         val hideTop = hideTopBar && !multiWindow
         val hideBottom = hideBottomBar && !multiWindow
+        if (menuOpen && quickMenuShowing && hideTop) {
+            showCarBarOverMenu(hideBottom)
+            return
+        }
         WindowCompat.setDecorFitsSystemWindows(window, !(hideTop && hideBottom))
         val controller = WindowInsetsControllerCompat(window, window.decorView)
         if (hideTop) {

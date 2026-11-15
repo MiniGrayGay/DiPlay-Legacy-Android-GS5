@@ -21,6 +21,16 @@ enum class SettingsTheme(
         trackOff = Color.rgb(42, 56, 75),
         buttonText = Color.rgb(12, 17, 27),
     ),
+    // DiPlay's own screens in the light appearance; the in-session menu stays dark over CarPlay.
+    CARD_LIGHT(
+        isOverlay = false,
+        textPrimary = Color.rgb(20, 26, 36),
+        textSecondary = Color.rgb(84, 96, 114),
+        accent = Color.rgb(31, 95, 191),
+        accentTrack = Color.rgb(31, 95, 191),
+        trackOff = Color.rgb(196, 205, 217),
+        buttonText = Color.WHITE,
+    ),
     // The in-session (three-finger) menu shares the main settings palette: it used
     // to carry its own green accent, which made the two settings surfaces look like
     // different products. Layout differences stay (isOverlay), colors do not.
