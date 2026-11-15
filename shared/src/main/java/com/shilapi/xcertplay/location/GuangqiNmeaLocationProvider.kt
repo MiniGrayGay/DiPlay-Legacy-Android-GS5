@@ -15,6 +15,10 @@ import java.util.concurrent.atomic.AtomicReference
  * `android.uid.system` so it can open the device file without extra permissions.
  *
  * Returns raw `$GPGGA` + `$GPRMC` lines, which is exactly what iAP2 0xFFFB sends.
+ *
+ * Only sentences whose checksum matches are passed on. The device can hand over a partial line,
+ * for example the tail of a sentence when the reader opens mid-output, and the iPhone must not
+ * get a position cut in half.
  */
 class GuangqiNmeaLocationProvider : Iap2LocationProvider {
 
@@ -36,6 +40,9 @@ class GuangqiNmeaLocationProvider : Iap2LocationProvider {
                 return false
             }
         }
+        // A fix read before the last stop is no longer current.
+        latestGga.set(null)
+        latestRmc.set(null)
         running = true
         executor.execute(::readLoop)
         Log.i(TAG, "NMEA reader started")
@@ -66,12 +73,7 @@ class GuangqiNmeaLocationProvider : Iap2LocationProvider {
                     var line: String?
                     while (running) {
                         line = reader.readLine() ?: break
-                        when {
-                            line.startsWith("\$GPGGA") || line.startsWith("\$GNGGA") ->
-                                latestGga.set(line.trimEnd())
-                            line.startsWith("\$GPRMC") || line.startsWith("\$GNRMC") ->
-                                latestRmc.set(line.trimEnd())
-                        }
+                        accept(line)
                     }
                 }
             } catch (e: Exception) {
@@ -83,7 +85,28 @@ class GuangqiNmeaLocationProvider : Iap2LocationProvider {
         }
     }
 
+    /** Keeps [line] as the latest GGA or RMC when it is one and its checksum is right. */
+    internal fun accept(line: String) {
+        val sentence = line.trim()
+        val target = when {
+            sentence.startsWith("\$GPGGA,") || sentence.startsWith("\$GNGGA,") -> latestGga
+            sentence.startsWith("\$GPRMC,") || sentence.startsWith("\$GNRMC,") -> latestRmc
+            else -> return
+        }
+        if (checksumValid(sentence)) target.set(sentence)
+    }
+
     companion object {
+        /** `$<body>*HH` where HH is the XOR of every body character, in hex. */
+        internal fun checksumValid(sentence: String): Boolean {
+            val star = sentence.lastIndexOf('*')
+            if (!sentence.startsWith("$") || star < 1 || star + 3 != sentence.length) return false
+            val expected = sentence.substring(star + 1).toIntOrNull(16) ?: return false
+            var sum = 0
+            for (i in 1 until star) sum = sum xor sentence[i].code
+            return sum == expected
+        }
+
         private const val TAG = "DiPlay-GQ-NMEA"
         private const val DEVICE_PATH = "/dev/athrnmea"
         private const val PIPE_PATH = "/dev/athrpipeout"
