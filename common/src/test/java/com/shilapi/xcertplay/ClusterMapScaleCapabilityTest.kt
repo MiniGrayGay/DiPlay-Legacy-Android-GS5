@@ -8,7 +8,6 @@ import android.os.Handler
 import android.view.Display
 import com.shilapi.xcertplay.airplay.AirPlayDisplayConfig
 import com.shilapi.xcertplay.airplay.CarPlayClusterDisplay
-import com.shilapi.xcertplay.airplay.SafeAreaRect
 import org.junit.After
 import org.junit.Assert.*
 import org.junit.Before
@@ -40,7 +39,7 @@ class ClusterMapScaleCapabilityTest {
         ShadowMediaCodecList.reset()
         displayId = ShadowDisplayManager.addDisplay("w1920dp-h720dp-mdpi", 5)
         val display = app.getSystemService(DisplayManager::class.java).getDisplay(displayId)
-        shadowOf(display).apply { setName(DiLink51ClusterLayout.BASE); setFlags(Display.FLAG_PRESENTATION) }
+        shadowOf(display).apply { setName("HDMI 屏幕"); setFlags(Display.FLAG_PRESENTATION) }
         AirPlayPersistence.saveClusterMapEnabled(activity, true)
     }
 
@@ -79,12 +78,11 @@ class ClusterMapScaleCapabilityTest {
         assertSize(100, 1920, 720, cluster(100))
     }
 
-    @Test fun smallerDilink3ProjectionAdvertisesItsPanelAndIgnoresThe1920Calibration() {
+    @Test fun smallerPanelAdvertisesItsOwnSize() {
         projectionDisplay(1280, 480)
         AirPlayPersistence.saveClusterContent(activity, CarPlayClusterDisplay.Content.INSTRUMENTS)
         AirPlayPersistence.saveClusterMarkerHorizontalStep(activity, 1)
         AirPlayPersistence.saveClusterMarkerVerticalStep(activity, -1)
-        AirPlayPersistence.saveClusterSafeAreaRect(activity, SafeAreaRect(300, 100, 1500, 620))
 
         val actual = cluster(100)
         val expected = CarPlayClusterDisplay.config(1280, 480, 100, 1, -1,
@@ -93,14 +91,6 @@ class ClusterMapScaleCapabilityTest {
         assertEquals(1280.0 / 480.0, MapMirrors.streamAspect, 0.0001)
         assertTrue(activity.javaClass.getDeclaredField("clusterStreamOnDisplay")
             .apply { isAccessible = true }.getBoolean(activity))
-    }
-
-    @Test fun measuredDilink4ProjectionRetainsItsSaved1920Calibration() {
-        projectionDisplay(1920, 720)
-        val rect = SafeAreaRect(300, 100, 1500, 620)
-        AirPlayPersistence.saveClusterSafeAreaRect(activity, rect)
-        assertEquals(DiLink4ClusterDisplay.streamConfig(CarPlayClusterDisplay.Content.MAP,
-            safeAreaRect = rect), cluster(100))
     }
 
     @Test fun theNewPresetRoundTripsThroughTheSettingsPreferences() {
@@ -120,7 +110,7 @@ class ClusterMapScaleCapabilityTest {
         ShadowDisplayManager.removeDisplay(displayId)
         displayId = ShadowDisplayManager.addDisplay("w${width}dp-h${height}dp-mdpi", 5)
         val display = activity.getSystemService(DisplayManager::class.java).getDisplay(displayId)
-        shadowOf(display).apply { setName(DiLink4ClusterDisplay.NAME); setFlags(Display.FLAG_PRESENTATION) }
+        shadowOf(display).apply { setName("HDMI 屏幕"); setFlags(Display.FLAG_PRESENTATION) }
     }
 
     private fun assertSize(scale: Int, width: Int, height: Int, config: AirPlayDisplayConfig) {

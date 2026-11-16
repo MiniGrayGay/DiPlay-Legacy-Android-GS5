@@ -46,13 +46,6 @@ class HsaeRfcommStream private constructor(
         }
     }
 
-    fun onDisconnected() {
-        synchronized(lock) {
-            peerEnded = true
-            lock.notifyAll()
-        }
-    }
-
     override fun send(data: ByteArray) {
         synchronized(sendLock) {
             synchronized(lock) {

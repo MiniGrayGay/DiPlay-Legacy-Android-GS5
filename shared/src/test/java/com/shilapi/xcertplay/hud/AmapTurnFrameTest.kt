@@ -3,20 +3,20 @@ package com.shilapi.xcertplay.hud
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-class BydClusterFrameTest {
+class AmapTurnFrameTest {
     @Test
     fun `maps basic turns to amap icons`() {
-        assertEquals(BydClusterFrame(2, 0, 53), frame(type = 1, distance = 53))
-        assertEquals(BydClusterFrame(3, 0, 53), frame(type = 2, distance = 53))
-        assertEquals(BydClusterFrame(9, 0, 53), frame(type = 3, distance = 53))
-        assertEquals(BydClusterFrame(4, 0, 53), frame(type = 49, distance = 53))
-        assertEquals(BydClusterFrame(5, 0, 53), frame(type = 14, distance = 53))
+        assertEquals(AmapTurnFrame(2, 0, 53), frame(type = 1, distance = 53))
+        assertEquals(AmapTurnFrame(3, 0, 53), frame(type = 2, distance = 53))
+        assertEquals(AmapTurnFrame(9, 0, 53), frame(type = 3, distance = 53))
+        assertEquals(AmapTurnFrame(4, 0, 53), frame(type = 49, distance = 53))
+        assertEquals(AmapTurnFrame(5, 0, 53), frame(type = 14, distance = 53))
     }
 
     @Test
     fun `numbered roundabout exit carries exit number`() {
-        assertEquals(BydClusterFrame(11, 2, 120), frame(type = 29, distance = 120))
-        assertEquals(BydClusterFrame(17, 2, 120), frame(type = 29, distance = 120, drivingSide = 1))
+        assertEquals(AmapTurnFrame(11, 2, 120), frame(type = 29, distance = 120))
+        assertEquals(AmapTurnFrame(17, 2, 120), frame(type = 29, distance = 120, drivingSide = 1))
     }
 
     @Test
@@ -37,5 +37,5 @@ class BydClusterFrameTest {
     }
 
     private fun frame(type: Int, distance: Int = 0, drivingSide: Int = 0) =
-        BydClusterFrame.from(BydAppleManeuver(distance, type, drivingSide))
+        AmapTurnFrame.from(AppleManeuver(distance, type, drivingSide))
 }

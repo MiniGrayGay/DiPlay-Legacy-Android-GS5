@@ -82,14 +82,6 @@ class SettingsWidgetsTest {
         assertEquals("Title", row.switch.contentDescription)
     }
 
-    @Test @Config(sdk = [28]) fun android9HotspotChoiceDoesNotExposeUnavailableWifiDirect() {
-        val row = ConnectionSettingsSection.createHotspotModeChoice(context, WirelessHotspotMode.MANUAL,
-            onSelected = {})
-        val options = views(row.container).filterIsInstance<RadioButton>().toList()
-        assertEquals(listOf(WirelessHotspotMode.MANUAL, WirelessHotspotMode.EXISTING_WIFI), options.map { it.tag })
-        assertEquals(WirelessHotspotMode.MANUAL, options.first { it.isChecked }.tag)
-    }
-
     private fun views(view: View): Sequence<View> = sequence {
         yield(view)
         if (view is ViewGroup) for (i in 0 until view.childCount) yieldAll(views(view.getChildAt(i)))

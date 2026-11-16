@@ -166,21 +166,6 @@ object Iap2WirelessMessages {
         u8(4, channel)
     }
 
-    fun wifiInformation(frame: Iap2Frame): Iap2WifiInformation {
-        require(frame.messageId == Iap2Endpoints.WIFI_INFORMATION.id) {
-            "Expected WiFiInformation, got 0x${frame.messageId.toString(16)}"
-        }
-        val body = Iap2Messages.reader(frame)
-        val status = body.u8(0)
-        if (status != 0) return Iap2WifiInformation(status)
-        return Iap2WifiInformation(
-            status = status,
-            securityType = body.optionalU8(1),
-            ssid = body.optionalString(2),
-            passphrase = body.optionalString(3),
-        )
-    }
-
     fun wirelessCarPlayAvailability(frame: Iap2Frame): Boolean {
         require(frame.messageId == Iap2Endpoints.WIRELESS_CARPLAY_UPDATE.id) {
             "Expected WirelessCarPlayUpdate, got 0x${frame.messageId.toString(16)}"
@@ -243,15 +228,6 @@ object Iap2AuthenticationMessages {
         }
         return Iap2Messages.reader(frame).bytes(0)
     }
-}
-
-data class Iap2WifiInformation(
-    val status: Int,
-    val securityType: Int? = null,
-    val ssid: String? = null,
-    val passphrase: String? = null,
-) {
-    val successful: Boolean get() = status == 0
 }
 
 data class Iap2DeviceTransportIdentifier(

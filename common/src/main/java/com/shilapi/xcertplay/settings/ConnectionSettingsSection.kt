@@ -41,32 +41,4 @@ object ConnectionSettingsSection {
         onChanged = onChanged,
     )
 
-    fun createHotspotModeChoice(
-        context: Context,
-        selected: WirelessHotspotMode,
-        theme: SettingsTheme = SettingsTheme.OVERLAY,
-        rootHotspotEnabled: Boolean = false,
-        onSelected: (WirelessHotspotMode) -> Unit,
-    ): SettingsWidgets.ChoiceRowResult<WirelessHotspotMode> {
-        val modes = buildList {
-            // First: the recommended choice. Android 9 has no usable Wi-Fi Direct group for this; Android 4.4 uses the legacy group,
-            // which is the wireless path verified on the Guangqi head unit.
-            if (com.shilapi.xcertplay.compat.realSdkInt() != Build.VERSION_CODES.P) {
-                add(WirelessHotspotMode.WIFI_P2P to context.getString(R.string.wifi_direct))
-            }
-            add(WirelessHotspotMode.MANUAL to context.getString(R.string.built_in_car_hotspot))
-            add(WirelessHotspotMode.EXISTING_WIFI to context.getString(R.string.existing_wifi_title))
-            if (rootHotspotEnabled) {
-                add(WirelessHotspotMode.HOSTAPD to context.getString(R.string.hotspot_mode_hostapd))
-            }
-        }
-        return SettingsWidgets.createChoiceRow(
-            context = context,
-            label = context.getString(R.string.wi_fi_session),
-            options = modes,
-            selected = selected,
-            theme = theme,
-            onSelected = onSelected,
-        )
-    }
 }

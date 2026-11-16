@@ -1,7 +1,7 @@
 package com.shilapi.xcertplay.hud
 
 /** One instrument-cluster frame in the AMap broadcast vocabulary accepted by the stock AMap adapter. */
-internal data class BydClusterFrame(
+internal data class AmapTurnFrame(
     val icon: Int,
     val roundaboutExit: Int,
     val distanceMeters: Int,
@@ -26,7 +26,7 @@ internal data class BydClusterFrame(
         private const val U_TURN_RIGHT = 19
 
         /** Apple iAP2 RouteGuidanceManeuverType -> AMap NEW_ICON (+ ROUNG_ABOUT_NUM). */
-        fun from(maneuver: BydAppleManeuver): BydClusterFrame {
+        fun from(maneuver: AppleManeuver): AmapTurnFrame {
             val leftHandTraffic = maneuver.drivingSide == 1
             val distance = maneuver.distanceMeters.coerceAtLeast(0)
             val type = maneuver.type
@@ -35,7 +35,7 @@ internal data class BydClusterFrame(
             val remainingSeconds = maneuver.remainingSeconds?.coerceIn(0, Int.MAX_VALUE.toLong())?.toInt() ?: -1
             if (type in 28..46) {
                 val icon = if (leftHandTraffic) ROUNDABOUT_ENTER_CLOCKWISE else ROUNDABOUT_ENTER
-                return BydClusterFrame(icon, type - 27, distance, road, remainingMeters, remainingSeconds)
+                return AmapTurnFrame(icon, type - 27, distance, road, remainingMeters, remainingSeconds)
             }
             val icon = when (type) {
                 1, 20 -> LEFT
@@ -51,7 +51,7 @@ internal data class BydClusterFrame(
                 3, 5, 8, 9, 11, 51 -> STRAIGHT
                 else -> 0 // Unknown/no maneuver must not become a false straight arrow.
             }
-            return BydClusterFrame(icon, 0, distance, road, remainingMeters, remainingSeconds)
+            return AmapTurnFrame(icon, 0, distance, road, remainingMeters, remainingSeconds)
         }
     }
 }

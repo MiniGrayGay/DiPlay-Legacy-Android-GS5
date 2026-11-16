@@ -3,10 +3,10 @@ package com.shilapi.xcertplay.hud
 import android.content.Context
 
 /**
- * The two opt-in settings that are left of upstream's BYD outputs. The preference file and
- * keys are upstream's, so a value the driver set before this build still applies.
+ * Two opt-in settings: the car's speed to the iPhone, and the wheel's call keys. The preference
+ * file and keys are upstream's (`BydOutputSettings`), so a value the driver set before still applies.
  */
-object BydOutputSettings {
+object WheelIntegrationSettings {
     private const val PREFS = "diplay_byd_outputs"
     private const val KEY_WHEEL_SPEED_TO_IPHONE = "wheel_speed_to_iphone"
     private const val KEY_CARPLAY_CALL_CONTROLS = "carplay_call_controls_experimental"

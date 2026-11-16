@@ -78,12 +78,6 @@ object AirPlayDisplaySettings {
         )
     }
 
-    fun fpsProgress(value: Int): Int =
-        (sanitizeFps(value) - MIN_FPS) / FPS_STEP
-
-    fun widthPhysicalMmProgress(value: Int): Int =
-        (sanitizeWidthPhysicalMm(value) - MIN_WIDTH_PHYSICAL_MM) / WIDTH_PHYSICAL_MM_STEP
-
     private fun snapToStep(value: Int, minimum: Int, maximum: Int, step: Int): Int {
         val clamped = value.coerceIn(minimum, maximum)
         return (((clamped - minimum) + step / 2) / step) * step + minimum

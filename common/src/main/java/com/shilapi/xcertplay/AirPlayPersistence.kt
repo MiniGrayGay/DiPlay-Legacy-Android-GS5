@@ -103,7 +103,6 @@ object AirPlayPersistence {
     private const val KEY_DIRECT_SURFACE_VIEW = "direct_surface_view"
     private const val KEY_DIRECT_USBFS_MODE = "direct_usbfs_mode"
     private const val KEY_CLUSTER_MAP = "cluster_map_enabled"
-    private const val KEY_ADB_CLUSTER_ACTIVITY = "adb_cluster_activity_enabled"
     private const val KEY_CENTER_MAP_OVERLAY = "center_map_overlay"
     private const val KEY_FLOATING_DOT = "floating_dot"
     private const val KEY_CENTER_MAP_AUTO_HIDE = "center_map_auto_hide"
@@ -202,11 +201,6 @@ object AirPlayPersistence {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getBoolean(KEY_HEVC_ENABLED, false)
 
-    fun loadUiScalePercent(context: Context): Int = CarPlayUiScale.sanitize(
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .getInt(KEY_UI_SCALE_PERCENT, CarPlayUiScale.DEFAULT),
-    )
-
     fun saveUiScalePercent(context: Context, percent: Int) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putInt(KEY_UI_SCALE_PERCENT, CarPlayUiScale.sanitize(percent)).apply()
@@ -239,14 +233,10 @@ object AirPlayPersistence {
     }
 
     fun loadNavigationStreamType(context: Context): Int {
-        val defaultStream = if (CarHotspotSetup.isBydHeadUnit(context)) 14 else android.media.AudioManager.STREAM_MUSIC
         val saved = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .getInt(KEY_NAVIGATION_STREAM_TYPE, defaultStream)
-        return if (!CarHotspotSetup.isBydHeadUnit(context) && saved == 14) {
-            android.media.AudioManager.STREAM_MUSIC
-        } else {
-            saved
-        }
+            .getInt(KEY_NAVIGATION_STREAM_TYPE, android.media.AudioManager.STREAM_MUSIC)
+        // 14 was upstream's BYD-only navigation stream; no other head unit has it.
+        return if (saved == 14) android.media.AudioManager.STREAM_MUSIC else saved
     }
 
     fun saveNavigationStreamType(context: Context, streamType: Int) {
@@ -765,10 +755,6 @@ object AirPlayPersistence {
     fun loadHostapdAppleVendorIe(context: Context): Boolean =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_HOSTAPD_APPLE_VENDOR_IE, false)
 
-    fun saveHostapdAppleVendorIe(context: Context, enabled: Boolean) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_HOSTAPD_APPLE_VENDOR_IE, enabled).apply()
-    }
-
     /** Issue #343: hold the car's global Bluetooth auto-connect off during CarPlay (Advanced, experimental). */
     fun loadCarplayAutoDisconnectBt(context: Context): Boolean =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_CARPLAY_AUTO_DISCONNECT_BT, false)
@@ -950,16 +936,6 @@ object AirPlayPersistence {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getBoolean(KEY_CLUSTER_MAP, GuangqiCluster.present(context))
 
-    fun loadAdbClusterEnabled(context: Context): Boolean = loadClusterMapEnabled(context) &&
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_ADB_CLUSTER_ACTIVITY, false)
-
-    fun saveAdbClusterEnabled(context: Context, enabled: Boolean) {
-        val edit = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-            .putBoolean(KEY_ADB_CLUSTER_ACTIVITY, enabled)
-        if (enabled) edit.putBoolean(KEY_CLUSTER_MAP, true)
-        edit.apply()
-    }
-
     fun saveClusterMapEnabled(context: Context, enabled: Boolean) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_CLUSTER_MAP, enabled).apply()
     }
@@ -1016,7 +992,7 @@ object AirPlayPersistence {
     fun loadClusterContent(context: Context): CarPlayClusterDisplay.Content =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_CLUSTER_CONTENT, null)
             ?.let { name -> CarPlayClusterDisplay.Content.entries.firstOrNull { it.name == name } }
-            ?: if (AdbClusterRouter.enabled(context)) CarPlayClusterDisplay.Content.INSTRUMENTS else CarPlayClusterDisplay.Content.MAP
+            ?: CarPlayClusterDisplay.Content.MAP
 
     fun saveClusterContent(context: Context, content: CarPlayClusterDisplay.Content) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY_CLUSTER_CONTENT, content.name).apply()
@@ -1174,21 +1150,6 @@ object AirPlayPersistence {
     fun saveClusterMarkerVerticalStep(context: Context, step: Int) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putInt(KEY_CLUSTER_MARKER_Y, step.coerceIn(CarPlayClusterDisplay.verticalSteps)).apply()
-    }
-
-    // Cluster mapping has its own key; never reuse the main display mapping at the same resolution.
-    fun loadClusterSafeAreaRect(context: Context): SafeAreaRect? =
-        SafeAreaCodec.decode(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .getString("cluster_safe_area_1920x720", null))?.clampTo(1920, 720)
-
-    fun saveClusterSafeAreaRect(context: Context, rect: SafeAreaRect) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-            .putString("cluster_safe_area_1920x720", SafeAreaCodec.encode(rect.clampTo(1920, 720))).apply()
-    }
-
-    fun clearClusterSafeAreaRect(context: Context) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-            .remove("cluster_safe_area_1920x720").apply()
     }
 
     fun loadRightHandDrive(context: Context): Boolean =

@@ -45,12 +45,6 @@ object WifiP2pChannels {
         }
     }
 
-    /** Diagnostic and error text; never localized. */
-    fun describe(channel: Int): String = when {
-        channel == AUTO -> "auto"
-        band(channel) != null -> "auto-${requireNotNull(band(channel)).label.replace(" ", "")}"
-        else -> channel.toString()
-    }
 }
 
 internal class P2pChannelUnavailableException(channel: Int, details: String, cause: Throwable? = null) :

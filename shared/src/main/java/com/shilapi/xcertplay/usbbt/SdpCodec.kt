@@ -88,47 +88,6 @@ object SdpCodec {
     }
 
     /**
-     * Creates an SDP record for Handsfree Audio (HFP):
-     * - ServiceClassIDList: Handsfree (0x111E), GenericAudio (0x1203)
-     * - ProtocolDescriptorList: L2CAP + RFCOMM (channel 2)
-     * - BrowseGroupList: PublicBrowseRoot
-     * - ProfileDescriptorList: Handsfree Profile (v1.7)
-     * - ServiceName: "Handsfree Audio"
-     */
-    fun handsfreeRecord(
-        rfcommChannel: Int = 2,
-        serviceName: String = "Handsfree Audio",
-    ): SdpRecord {
-        return SdpRecord(
-            handle = HANDLE_HANDSFREE,
-            attributes = mapOf(
-                ATTR_SERVICE_CLASS_ID_LIST to DataElement.Sequence(
-                    DataElement.Uuid.of16(UUID_HANDSFREE),
-                    DataElement.Uuid.of16(UUID_GENERIC_AUDIO),
-                ),
-                ATTR_PROTOCOL_DESCRIPTOR_LIST to DataElement.Sequence(
-                    DataElement.Sequence(DataElement.Uuid.of16(UUID_L2CAP)),
-                    DataElement.Sequence(
-                        DataElement.Uuid.of16(UUID_RFCOMM),
-                        DataElement.UInt(1, rfcommChannel.toLong()),
-                    )
-                ),
-                ATTR_BROWSE_GROUP_LIST to DataElement.Sequence(
-                    DataElement.Uuid.of16(UUID_PUBLIC_BROWSE_ROOT),
-                ),
-                ATTR_PROFILE_DESCRIPTOR_LIST to DataElement.Sequence(
-                    DataElement.Sequence(
-                        DataElement.Uuid.of16(UUID_HANDSFREE),
-                        DataElement.UInt(2, 0x0107L),
-                    )
-                ),
-                ATTR_SERVICE_NAME to DataElement.Text(serviceName),
-                0x0311 to DataElement.UInt(2, 0x003FL), // Supported features
-            )
-        )
-    }
-
-    /**
      * Builds standard records list for a given [UsbBtIdentity].
      */
     fun defaultRecords(identity: UsbBtIdentity): List<SdpRecord> {

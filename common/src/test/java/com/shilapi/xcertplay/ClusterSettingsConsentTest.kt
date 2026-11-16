@@ -43,7 +43,6 @@ class ClusterSettingsConsentTest {
         app.getSharedPreferences("diplay", 0).edit().putBoolean("notification_asked", true).commit()
         PendingReconnect.clear()
         CarPlayBackgroundSession.clear()
-        ClusterActivityOutput.stopForSettings()
         activity = Robolectric.buildActivity(DiPlayActivity::class.java)
         screen = activity.get()
         screen.setTheme(android.R.style.Theme_Material_NoActionBar)
@@ -56,39 +55,21 @@ class ClusterSettingsConsentTest {
         CarPlayBackgroundSession.store(session, mock(AndroidMediaSink::class.java), 800, 480,
             routeOwner, CarPlaySessionDisplay(800, 480, Surface.ROTATION_0, false, false, 800, 480)) { done ->
             events += "stop-session"
-            ClusterActivityOutput.stop(routeOwner)
             CarPlayBackgroundSession.clear(session)
             done()
         }
         CarPlayBackgroundSession.active = true
-        ClusterActivityOutput.bind(routeOwner, 0) { events += "release-cluster-surface" }
-        events.clear() // bind publishes the current surface once.
         render()
     }
 
     @After fun tearDown() {
         ShadowAlertDialog.getLatestAlertDialog()?.dismiss()
         CarPlayBackgroundSession.clear()
-        ClusterActivityOutput.stop(routeOwner)
         PendingReconnect.clear()
         activity.pause().stop().destroy()
         val app = RuntimeEnvironment.getApplication()
         app.getSharedPreferences("xcertplay_airplay", 0).edit().clear().commit()
         app.getSharedPreferences("diplay", 0).edit().clear().commit()
-    }
-
-    @Test fun cancellingAdbRoutingKeepsTheSessionAndItsClusterLease() {
-        setting(R.string.adb_cluster_activity_mode).performClick()
-        assertCurrentSessionUnchanged()
-        assertFalse(AirPlayPersistence.loadAdbClusterEnabled(screen))
-        assertFalse(AirPlayPersistence.loadClusterMapEnabled(screen))
-
-        dialog().getButton(AlertDialog.BUTTON_NEGATIVE).performClick()
-        shadowOf(Looper.getMainLooper()).idle()
-
-        assertFalse(setting(R.string.adb_cluster_activity_mode).isChecked)
-        assertFalse(AirPlayPersistence.loadClusterMapEnabled(screen))
-        assertCurrentSessionUnchanged()
     }
 
     @Test fun cancellingClusterMapByBackRestoresTheSavedSwitchWithoutReleasingOutput() {
@@ -106,24 +87,6 @@ class ClusterSettingsConsentTest {
         assertCurrentSessionUnchanged()
     }
 
-    @Test fun applyingAdbRoutingReleasesItsOldLeaseAndReconnectsOnlyAfterConsent() {
-        setting(R.string.adb_cluster_activity_mode).performClick()
-        assertCurrentSessionUnchanged()
-        assertFalse(AirPlayPersistence.loadAdbClusterEnabled(screen))
-        assertEquals(screen.getString(R.string.apply_and_reconnect),
-            dialog().getButton(AlertDialog.BUTTON_POSITIVE).text.toString())
-
-        dialog().getButton(AlertDialog.BUTTON_POSITIVE).performClick()
-        shadowOf(Looper.getMainLooper()).idle()
-
-        assertTrue(AirPlayPersistence.loadAdbClusterEnabled(screen))
-        assertTrue(AirPlayPersistence.loadClusterMapEnabled(screen))
-        assertEquals(listOf("release-cluster-surface", "stop-session"), events)
-        assertNull(CarPlayBackgroundSession.snapshot())
-        assertEquals(CarPlayHostActivity::class.java.name,
-            shadowOf(screen).nextStartedActivity?.component?.className)
-    }
-
     @Test fun applyingClusterMapOffReconnectsOnlyAfterConsent() {
         AirPlayPersistence.saveClusterMapEnabled(screen, true)
         render()
@@ -135,7 +98,7 @@ class ClusterSettingsConsentTest {
         shadowOf(Looper.getMainLooper()).idle()
 
         assertFalse(AirPlayPersistence.loadClusterMapEnabled(screen))
-        assertEquals(listOf("stop-session", "release-cluster-surface"), events)
+        assertEquals(listOf("stop-session"), events)
         assertNull(CarPlayBackgroundSession.snapshot())
         assertEquals(CarPlayHostActivity::class.java.name,
             shadowOf(screen).nextStartedActivity?.component?.className)

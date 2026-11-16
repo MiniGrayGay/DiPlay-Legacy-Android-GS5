@@ -14,18 +14,6 @@ internal fun CarPlaySize.localizedLabel(context: Context): String = context.getS
     CarPlaySize.SMALL -> R.string.option_size_small
 })
 
-internal fun DiLink51ClusterLayout.Theme.localizedLabel(context: Context): String = context.getString(when (this) {
-    DiLink51ClusterLayout.Theme.SCENARIO -> R.string.option_theme_scenario
-    DiLink51ClusterLayout.Theme.MAP -> R.string.option_theme_map
-    DiLink51ClusterLayout.Theme.SIMPLE -> R.string.option_theme_simple
-})
-
-internal fun DiLink51ClusterLayout.Contrast.localizedLabel(context: Context): String = context.getString(when (this) {
-    DiLink51ClusterLayout.Contrast.DEFAULT -> R.string.option_contrast_default
-    DiLink51ClusterLayout.Contrast.LIGHT -> R.string.option_contrast_light
-    DiLink51ClusterLayout.Contrast.DARK -> R.string.option_contrast_dark
-})
-
 internal fun EvChargingConnectors.localizedLabel(context: Context): String = context.getString(when (this) {
     EvChargingConnectors.CCS2_TYPE2 -> R.string.connectors_ccs2_type2
     EvChargingConnectors.GB_T -> R.string.connectors_gb_t

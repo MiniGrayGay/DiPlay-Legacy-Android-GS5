@@ -41,11 +41,6 @@ class LinkKeyStore(appContext: Context) {
         }.getOrNull()
     }
 
-    /** Forget the link key for [bdAddr]. */
-    fun forget(bdAddr: String) {
-        prefs.edit().remove(KEY_PREFIX + bdAddr.uppercase()).apply()
-    }
-
     /** All stored peer addresses. */
     fun peers(): Set<String> {
         return prefs.all.keys

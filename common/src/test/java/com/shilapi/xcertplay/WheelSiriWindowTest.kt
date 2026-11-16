@@ -14,7 +14,7 @@ import android.widget.TextView
 import com.shilapi.xcertplay.host.R
 import com.shilapi.xcertplay.airplay.AirPlaySession
 import com.shilapi.xcertplay.airplay.CarPlayMediaButton
-import com.shilapi.xcertplay.hud.BydNavigationOutputs
+import com.shilapi.xcertplay.hud.NavigationOutputs
 import com.shilapi.xcertplay.hud.CarPlayCallState
 import com.shilapi.xcertplay.iap2.message.Iap2Messages
 import com.shilapi.xcertplay.orchestration.CarPlayController
@@ -41,7 +41,7 @@ class WheelSiriWindowTest {
     private lateinit var controller: CarPlayController
 
     @Before fun setUp() {
-        BydNavigationOutputs.endNow()
+        NavigationOutputs.endNow()
         CarPlayBackgroundSession.clear()
         host = Robolectric.buildActivity(CarPlayHostActivity::class.java).get()
         settings = Robolectric.buildActivity(DiPlayActivity::class.java).get()
@@ -63,7 +63,7 @@ class WheelSiriWindowTest {
         for ((activity, name) in listOf(host to "mainHandler", settings to "handler")) {
             (activity.javaClass.getDeclaredField(name).apply { isAccessible = true }.get(activity) as Handler).removeCallbacksAndMessages(null)
         }
-        BydNavigationOutputs.endNow()
+        NavigationOutputs.endNow()
         CarPlayBackgroundSession.clear()
         host.getSharedPreferences("xcertplay_airplay", Context.MODE_PRIVATE).edit().clear().commit()
     }
@@ -108,13 +108,13 @@ class WheelSiriWindowTest {
     }
 
     @Test fun carPlayCallStateBlocksAssignedSiriWhileAndroidModeIsNormal() {
-        BydNavigationOutputs.onFrame(Iap2Messages.buildRaw(CarPlayCallState.CALL_STATE_UPDATE) {
+        NavigationOutputs.onFrame(Iap2Messages.buildRaw(CarPlayCallState.CALL_STATE_UPDATE) {
             u8(2, 4); string(4, "active-call")
         })
         assertEquals(AudioManager.MODE_NORMAL, host.getSystemService(AudioManager::class.java).mode)
         assertTrue(inCall(host))
         host.dispatchKeyEvent(key(KeyEvent.KEYCODE_F6, true))
-        BydNavigationOutputs.endNow()
+        NavigationOutputs.endNow()
         host.dispatchKeyEvent(key(KeyEvent.KEYCODE_F6, false))
         verify(controller, never()).requestSiri()
     }
@@ -144,9 +144,6 @@ class WheelSiriWindowTest {
         WheelZoomSettings.setEnabled(settings, true)
         WheelZoomSettings.setJoystick(settings, true)
         WheelZoomSettings.setSiriKey(settings, true)
-        // A recognized BYD unit offers its wheel controls even without an available map.
-        org.robolectric.Shadows.shadowOf(settings.packageManager)
-            .installPackage(android.content.pm.PackageInfo().apply { packageName = "com.byd.amapservice" })
         val controls = LinearLayout(settings)
         settings.javaClass.getDeclaredMethod("wheelKeysSettings", LinearLayout::class.java)
             .apply { isAccessible = true }.invoke(settings, controls)
@@ -156,8 +153,7 @@ class WheelSiriWindowTest {
             else -> emptyList()
         }
         val texts = labels(controls)
-        for (label in listOf(R.string.wheel_keys_enable_adb, R.string.wheel_keys_open_settings,
-            R.string.wheel_keys_service_off)) {
+        for (label in listOf(R.string.wheel_keys_open_settings, R.string.wheel_keys_service_off)) {
             assertEquals(1, texts.count { it == settings.getString(label) })
         }
         // The setup sits above the features it serves.
@@ -166,14 +162,13 @@ class WheelSiriWindowTest {
         assertTrue(texts.any { it == settings.getString(R.string.wheel_joystick) })
     }
 
-    @Test fun nonBydUnitKeepsItsSavedJoystickControlsWithoutOfferingUnavailableMapZoom() {
+    @Test fun savedJoystickControlsStayWithoutOfferingUnavailableMapZoom() {
         settings.setTheme(android.R.style.Theme_Material_NoActionBar)
         WheelZoomSettings.setSiriKey(settings, false)
         WheelZoomSettings.setJoystick(settings, true)
         val joystickKey = WheelKey(KeyEvent.KEYCODE_F8, 0, "external-wheel")
         WheelZoomSettings.assign(settings, WheelZoomSettings.Role.JOYSTICK, joystickKey)
         AirPlayPersistence.saveClusterMapEnabled(settings, false)
-        assertFalse(CarHotspotSetup.isBydHeadUnit(settings))
 
         val controls = wheelControls()
         val joystick = views(controls).filterIsInstance<Switch>().single {
@@ -195,17 +190,16 @@ class WheelSiriWindowTest {
         assertEquals(joystickKey, WheelZoomSettings.key(settings, WheelZoomSettings.Role.JOYSTICK))
     }
 
-    @Test fun nonBydUnitWithThePreviouslySupportedClusterDisplayKeepsWheelControls() {
+    @Test fun aClusterDisplayOffersTheMapZoomWheelControls() {
         settings.setTheme(android.R.style.Theme_Material_NoActionBar)
         WheelZoomSettings.setSiriKey(settings, false)
         AirPlayPersistence.saveClusterMapEnabled(settings, true)
         val displayId = ShadowDisplayManager.addDisplay("w1920dp-h720dp-mdpi", 5)
         shadowOf(settings.getSystemService(DisplayManager::class.java).getDisplay(displayId)).apply {
-            setName(DiLink4ClusterDisplay.NAME)
+            setName("HDMI 屏幕")
             setFlags(Display.FLAG_PRESENTATION)
         }
         try {
-            assertFalse(CarHotspotSetup.isBydHeadUnit(settings))
             assertEquals(displayId, ClusterMapPresentation.findDisplay(settings)?.displayId)
             val controls = wheelControls()
             val zoom = views(controls).filterIsInstance<Switch>().single {
@@ -232,8 +226,7 @@ class WheelSiriWindowTest {
 
     private fun assertSharedServiceSetupOnce(controls: View) {
         val labels = views(controls).filterIsInstance<TextView>().map { it.text.toString() }.toList()
-        for (id in listOf(R.string.wheel_keys_service_off, R.string.wheel_keys_enable_adb,
-            R.string.wheel_keys_open_settings)) {
+        for (id in listOf(R.string.wheel_keys_service_off, R.string.wheel_keys_open_settings)) {
             assertEquals(settings.getString(id), 1, labels.count { it == settings.getString(id) })
         }
     }

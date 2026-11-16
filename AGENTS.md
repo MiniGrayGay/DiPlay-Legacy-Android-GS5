@@ -42,11 +42,11 @@ Ask which goal the driver has when they look for the setting. Use the first row 
 
 | Category | Put a setting here when it controls… | Examples |
 | --- | --- | --- |
-| Connection | how the iPhone connects and how DiPlay starts | connection setup, connect on open, start with the car, USB permissions, car hotspot automation, iPhone choice, Android permissions |
+| Connection | how the iPhone connects and how DiPlay starts | connection setup, connect on open, start with the car, car hotspot automation, iPhone choice, Android permissions |
 | Display | how CarPlay looks on the head-unit screen | day/night mode, picture, size, resolution, frame rate, dock, system bars, multi-window resolution |
 | Audio | what the driver hears | media and navigation streams, music buffer |
-| Navigation | location and turn-by-turn guidance | location to iPhone, BYD HUD and cluster guidance |
-| Vehicle | how CarPlay fits this car and its driver | driving side, wheel keys (Siri, BYD joystick and map zoom), car button, gestures that conflict with the head unit |
+| Navigation | location and turn-by-turn guidance | location to iPhone |
+| Vehicle | how CarPlay fits this car and its driver | driving side, wheel keys (Siri, joystick and map zoom), car button, gestures that conflict with the head unit |
 | Diagnostics | troubleshooting evidence | diagnostic reports |
 | Advanced | experimental, firmware-specific or risky behavior | dashboard map, split screen, screen rotation, side panel, HEVC video, audio focus, audio channel mapping, buffered music, vehicle data |
 | Overview | nothing new | see "Overview" below |
@@ -54,7 +54,7 @@ Ask which goal the driver has when they look for the setting. Use the first row 
 A setting goes to Advanced when it is experimental, depends on specific firmware, or is an opt-in that can break sound, video or the connection on some head units.
 A control that fixes a common problem and is safe at its default (for example the audio stream choice) stays in its category.
 Exception: a gated control that only its own audience sees, and that completes an everyday goal, stays in that goal's category.
-Example: auto car hotspot needs ADB but appears only for car-hotspot users, so it is in Connection.
+Example: auto car hotspot appears only for car-hotspot users, so it is in Connection.
 
 Mark an experimental setting or card with the title suffix ` (experimental)`, never `· experimental`, a dash, or an `Experimental …` prefix.
 Each locale MUST use its existing form: `(تجريبي)`, `(experimental)`, `(экспериментально)`, `(експериментально)`, `（实验性）`, `（實驗性）`.
@@ -88,9 +88,17 @@ This fork targets a Guangqi (GAEI) head unit: Freescale i.MX6 SABRESD, Android 4
 
 - Upstream's BYD outputs are removed from this fork: HUD and cluster navigation, dashboard song and call card, battery, BYD wheel speed and gear, vehicle-data probe, DiLink 3 output.
   The system image has no `android.hardware.bydauto` classes and no BYD packages, so none of them could run.
-  `BydNavigationOutputs` is kept as the place for the turn overlay, the call state for the wheel's call keys and the one-second cluster stream tick. Do not remove the tick: the session relies on it until the iPhone has reported the cluster URL.
-  `BydOutputSettings` keeps two settings in upstream's preference file: wheel speed to the iPhone and the wheel's call keys.
-  The DiLink 4 and DiLink 5.1 cluster layouts and the ADB cluster activity are still in the tree.
+  What is left of them was renamed: `NavigationOutputs` (upstream `BydNavigationOutputs`) holds the turn overlay, the call state for the wheel's call keys and the one-second cluster stream tick. Do not remove the tick: the session relies on it until the iPhone has reported the cluster URL.
+  `WheelIntegrationSettings` (upstream `BydOutputSettings`) keeps two settings in upstream's preference file `diplay_byd_outputs`: wheel speed to the iPhone and the wheel's call keys.
+  `RouteGuidanceState`, `RouteGuidance`, `AppleManeuver`, `GaodeManeuverCodes` and `AmapTurnFrame` are upstream's `BydHudRouteState`, `BydHudGuidance`, `BydAppleManeuver`, `BydManeuverCodes` and `BydClusterFrame`.
+- Upstream's BYD adaptation layer is removed as well. Do not bring any of it back from upstream:
+  - `LocalAdb` (a shell on the head unit's own adbd at 127.0.0.1:5555) and everything that ran through it: the ADB cluster activity, permission grants, the car hotspot fallback, the hotspot auto-join repair helper, the Wi-Fi scan pause, the wheel-key service's self-enable and the system log collection in Bluetooth diagnostics.
+    This unit's adbd has no `service.adb.tcp.port`, so it never listens on TCP, and the app runs as `android.uid.system`, so it needs no grant from a shell.
+  - The DiLink 4 and DiLink 5.1 cluster layouts, the usage-access cluster theme monitor and the cluster safe-area editor. `ClusterMapPresentation` is now one full-screen `SurfaceView` on the first other presentation display.
+  - BYD's hang-up broadcast receiver, the `com.byd.carsettings` detours and the BYD home packages.
+  - The USB auto-confirm accessibility service and the "Set up USB and map permissions" dialog. SystemUI's manifest declares only `UsbDebuggingActivity`, so there is no USB permission dialog to confirm, and the system uid has USB access without one. Settings.apk has no accessibility screen, Usage Access does not exist on API 19, and drawing over other apps needs no grant before API 23.
+  - The in-app updater. It checked upstream's GitHub releases, and the install step requires the downloaded APK's signature to match the installed one, which a platform-signed build never does. Car builds come from CI.
+  Still in the tree, because the code is shared and not BYD-only: the BYD key codes in `CarPlayMediaButton` and `CarPlayCallKeyPolicy`, the wheel-key service's default keys (a BYD Tang's wheel; every key can be reassigned), the ECARX car-hotspot path, and the upstream documents under `docs/`, which still describe BYD.
 - The ROM strips the USB and VPN permission activities, so an ordinary app never gets USB access.
   Every build for this unit MUST be platform-signed AND declare `android:sharedUserId="android.uid.system"` in `mobile/src/main/AndroidManifest.xml`.
   Platform certificate SHA-256: `7fbae817b7db24642d8959c347b561c003c6cfde2cb10f909c932f21a4d6d804` (`android@freescale.com`).

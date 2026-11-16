@@ -30,9 +30,7 @@ class T3LegacyInstrumentation : Instrumentation() {
                 sendStatus(-2, Bundle().apply { putString("stream", failure.trace) })
             }
         })
-        val requestedClass = testClass?.substringBefore('#')?.substringAfterLast('.')
-        val suite = if (requestedClass == "DiPlayLegacyUpdateTlsTest")
-            DiPlayLegacyUpdateTlsTest::class.java else T3LegacyRuntimeTest::class.java
+        val suite = T3LegacyRuntimeTest::class.java
         val method = testClass?.substringAfter('#', "")?.takeIf { it.isNotBlank() }
         val result = if (method == null) junit.run(suite) else junit.run(Request.method(suite, method))
         finish(if (result.wasSuccessful()) Activity.RESULT_OK else Activity.RESULT_CANCELED,

@@ -17,14 +17,6 @@ data class CarBrandPreset(
         return if (isZh) "$nameZh ($nameEn)" else nameEn
     }
 
-    fun loadBitmap(context: Context): Bitmap? = try {
-        context.assets.open("car_brands/$assetFileName").use {
-            BitmapFactory.decodeStream(it)
-        }
-    } catch (_: Exception) {
-        null
-    }
-
     fun loadBytes(context: Context): ByteArray? = try {
         context.assets.open("car_brands/$assetFileName").use {
             it.readBytes()

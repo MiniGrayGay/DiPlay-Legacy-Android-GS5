@@ -6,7 +6,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class BydClusterSongTest {
+class ClusterSongStateTest {
     private fun update(block: com.shilapi.xcertplay.iap2.body.Iap2BodyBuilder.() -> Unit) =
         Iap2Messages.buildRaw(ClusterSongState.NOW_PLAYING_UPDATE, block)
 

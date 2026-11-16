@@ -13,15 +13,12 @@ import android.view.InputDevice
 import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
 import android.widget.Toast
-import java.util.concurrent.atomic.AtomicBoolean
-import com.shilapi.xcertplay.adb.AdbKeys
-import com.shilapi.xcertplay.adb.LocalAdb
 import com.shilapi.xcertplay.airplay.AirPlayKnobState
 import com.shilapi.xcertplay.airplay.CarPlayMediaButton
 import com.shilapi.xcertplay.glance.CarPlayGlance
 import com.shilapi.xcertplay.host.R
-import com.shilapi.xcertplay.hud.BydNavigationOutputs
-import com.shilapi.xcertplay.hud.BydOutputSettings
+import com.shilapi.xcertplay.hud.NavigationOutputs
+import com.shilapi.xcertplay.hud.WheelIntegrationSettings
 
 /**
  * Optional: steering-wheel keys zoom CarPlay's dashboard map and work as a CarPlay joystick. BYD's window
@@ -52,7 +49,7 @@ class WheelKeyService : AccessibilityService() {
         refreshEligibility()
         if (keys.timeOut() && eligibleRoute() != null) announce(zoomOn = false)
     }
-    // This read is nonblocking: no ADB, input-device query or network lock in the periodic poll.
+    // This read is nonblocking: no input-device query or network lock in the periodic poll.
     internal var mapRoute: () -> Any? = { CarPlayBackgroundSession.snapshot()?.controller?.dashboardMapRoute() }
     internal var session: () -> Any? = { CarPlayBackgroundSession.snapshot()?.controller?.activeAirPlaySessionToken() }
     internal var knob: (AirPlayKnobState) -> Boolean = { CarPlayBackgroundSession.snapshot()?.controller?.sendKnob(it) == true }
@@ -85,7 +82,6 @@ class WheelKeyService : AccessibilityService() {
 
     override fun onServiceConnected() {
         running = this
-        CarPlayCallKeys.install(this)
         refreshEligibility()
         handler.removeCallbacks(pollEligibility)
         handler.postDelayed(pollEligibility, ELIGIBILITY_POLL_MILLIS)
@@ -130,7 +126,7 @@ class WheelKeyService : AccessibilityService() {
             return true
         }
         if (CarPlayCallKeys.onKey(this, event.keyCode, down)) return true
-        if (BydOutputSettings.carPlayCallControls(this) &&
+        if (WheelIntegrationSettings.carPlayCallControls(this) &&
             CarPlayMediaButton.opensSiriWhileCarPlay(event.keyCode) && session() != null) {
             if (!down) Log.i(TAG, "CarPlay voice key ${event.keyCode}: Siri sent=${CarPlayBackgroundSession.snapshot()?.controller?.requestSiri() == true}")
             return true
@@ -299,13 +295,10 @@ class WheelKeyService : AccessibilityService() {
 
     companion object {
         internal const val TAG = "DiPlay-WheelKeys"
-        private const val ZOOM_NOTE_SOURCE = 6
         private const val ELIGIBILITY_POLL_MILLIS = 250L
         private const val ROUTE_CHECK_MILLIS = 1_000L
         internal const val LEARNING_TIMEOUT_MILLIS = 10_000L
-        private const val RESTORE_GRACE_MILLIS = 4_000L
         @Volatile private var running: WheelKeyService? = null
-        private val restoring = AtomicBoolean(false)
 
         fun connected(): Boolean = running != null
 
@@ -333,101 +326,6 @@ class WheelKeyService : AccessibilityService() {
             return component(context).flattenToString() in list.orEmpty().split(':')
         }
 
-        /**
-         * BYD's settings have no accessibility page, so the user can turn the service on through the car's
-         * own adb (allowed once on the car screen). Services already in the list stay there.
-         */
-        fun enableOverAdb(context: Context, mayAsk: Boolean = true): LocalAdb.Access = LocalAdb(AdbKeys.load(context)).use { adb ->
-            val access = adb.connect(mayAsk)
-            if (access != LocalAdb.Access.READY) return@use access
-            if (!mayAsk && !needsRestore(context)) return@use if (connected()) access else LocalAdb.Access.UNREACHABLE
-            val allowed = applyServiceSettings(context, adb::shell) {
-                mayAsk || wanted(context)
-            }
-            if (allowed) Log.i(TAG, "wheel key service allowed over adb")
-            if (allowed) access else LocalAdb.Access.UNREACHABLE
-        }
-
-        private const val GRANT_EXIT = "DIPLAY_WHEEL_EXIT"
-        private fun checkedShell(command: String, shell: (String) -> String?): String? {
-            val lines = shell("( $command ); result=\$?; printf '\\n$GRANT_EXIT:%s\\n' \"\$result\"")
-                ?.trimEnd()?.lines() ?: return null
-            if (lines.lastOrNull() != "$GRANT_EXIT:0") return null
-            return lines.dropLast(1).joinToString("\n").trim()
-        }
-
-        /** Failed reads and shell commands must not replace the accessibility list or claim success. */
-        internal fun applyServiceSettings(context: Context, shell: (String) -> String?,
-            shouldContinue: () -> Boolean = { true }): Boolean = synchronized(UsbPermissionSetup.accessibilityLock) {
-            applyServiceSettingsLocked(context, shell, shouldContinue)
-        }
-
-        private fun applyServiceSettingsLocked(context: Context, shell: (String) -> String?,
-            shouldContinue: () -> Boolean): Boolean {
-            if (!shouldContinue()) return false
-            val current = checkedShell("settings get secure enabled_accessibility_services", shell) ?: return false
-            val lists = allowedServices(current, component(context).flattenToString()) ?: return false
-            // Binding may finish after the read. Check again immediately before a destructive rebind,
-            // after the continuation callback, without blocking the service's main-thread callback.
-            lists.first?.let {
-                if (!shouldContinue()) return false
-                if (!connected() && checkedShell("settings put secure enabled_accessibility_services '$it'", shell) == null) return false
-            }
-            for (command in listOf(
-                "settings put secure enabled_accessibility_services '${lists.second}'",
-                "settings put secure accessibility_enabled 1",
-            )) {
-                if (!shouldContinue() || checkedShell(command, shell) == null) return false
-            }
-            return enabledInSettings(context) &&
-                Settings.Secure.getInt(context.contentResolver, Settings.Secure.ACCESSIBILITY_ENABLED, 0) == 1
-        }
-
-        internal fun needsRestore(context: Context): Boolean = !connected() && wanted(context)
-
-        /**
-         * The call controls need the service too: outside the CarPlay screen the call key reaches DiPlay
-         * only through it, and without it BYD's window manager opens its own phone app instead.
-         */
-        internal fun wanted(context: Context): Boolean = WheelZoomSettings.anyEnabled(context) ||
-            BydOutputSettings.carPlayCallControls(context)
-
-        /**
-         * Android takes the service off the allowed list when the app is force-stopped (BYD's system does
-         * that), and an update or a crash can leave it unbound. With a wheel key setting or the call controls on, DiPlay
-         * puts it back over the car's adb, already allowed, when it is still not running a few seconds after
-         * DiPlay starts, so the keys work without a visit to the settings.
-         */
-        fun restoreIfNeeded(context: Context) {
-            val app = context.applicationContext
-            if (!needsRestore(app) || !restoring.compareAndSet(false, true)) return
-            Thread({
-                try {
-                    Thread.sleep(RESTORE_GRACE_MILLIS)
-                    if (needsRestore(app)) Log.i(TAG, "wheel key service not running; restoring over adb: ${enableOverAdb(app, mayAsk = false)}")
-                } catch (error: Exception) {
-                    Log.w(TAG, "wheel key service restore failed", error)
-                } finally {
-                    restoring.set(false)
-                }
-            }, "diplay-wheel-keys-restore").start()
-        }
-
-        /**
-         * The allowed-services setting without and with [ours]: the first is null when [ours] is not listed,
-         * the second keeps every other service in its place.
-         */
-        internal fun allowedServices(current: String?, ours: String): Pair<String?, String>? {
-            val value = current?.trim() ?: return null
-            val component = Regex("[A-Za-z0-9_.]+/[A-Za-z0-9_.$]+")
-            if (!component.matches(ours)) return null
-            val listed = value.takeUnless { it.isEmpty() || it == "null" }?.split(':').orEmpty()
-            if (listed.any { !component.matches(it) }) return null
-            val others = listed.filter { it != ours }
-            val without = if (ours in listed) others.joinToString(":") else null
-            return without to (others + ours).joinToString(":")
-        }
-
         private fun component(context: Context) = ComponentName(context, WheelKeyService::class.java)
     }
 
@@ -439,7 +337,7 @@ class WheelKeyService : AccessibilityService() {
 // CarPlay's iAP2 call state can be active even when the head unit leaves Android's mode normal.
 // Native Bluetooth calls also use a call/communication audio mode.
 internal fun inCall(context: Context): Boolean =
-    BydNavigationOutputs.carPlayCall() != null ||
+    NavigationOutputs.carPlayCall() != null ||
         (context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager)?.mode.let { it != null && it != AudioManager.MODE_NORMAL }
 
 /** Use the input-device ID for a held press; saved assignments still use the stable device name. */
@@ -578,8 +476,6 @@ class WheelJoystick {
 class WheelSiriKey {
     private var lastPressMillis: Long? = null
 
-    enum class DoublePressAction { FIRST, REPEAT, CONFIRMED }
-
     /**
      * Some head units send a held key as a new press about every 100 ms. Presses closer together than
      * [REPEAT_GAP_MILLIS] belong to the press before them, so a hold opens Siri once.
@@ -590,36 +486,8 @@ class WheelSiriKey {
         return last == null || eventTimeMillis - last >= REPEAT_GAP_MILLIS
     }
 
-    /**
-     * Port of upstream #813: distinguishes the first press, held-key repeats and the second distinct
-     * press inside [maximumGapMillis]. Very close presses move the hold boundary so a long stream of
-     * repeats can never look like a double press.
-     */
-    fun onDoublePress(eventTimeMillis: Long, maximumGapMillis: Long): DoublePressAction {
-        require(maximumGapMillis >= MIN_DOUBLE_PRESS_GAP_MILLIS)
-        val last = lastPressMillis
-        val gap = last?.let { eventTimeMillis - it }
-        return when {
-            gap == null || gap <= 0 || gap > maximumGapMillis -> {
-                lastPressMillis = eventTimeMillis
-                DoublePressAction.FIRST
-            }
-            gap < MIN_DOUBLE_PRESS_GAP_MILLIS -> {
-                lastPressMillis = eventTimeMillis
-                DoublePressAction.REPEAT
-            }
-            else -> {
-                lastPressMillis = null
-                DoublePressAction.CONFIRMED
-            }
-        }
-    }
-
-    fun reset() { lastPressMillis = null }
-
     companion object {
         const val REPEAT_GAP_MILLIS = 400L
-        const val MIN_DOUBLE_PRESS_GAP_MILLIS = 120L
     }
 }
 

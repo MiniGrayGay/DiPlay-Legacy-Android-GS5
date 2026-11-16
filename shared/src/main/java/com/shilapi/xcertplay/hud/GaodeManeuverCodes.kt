@@ -3,7 +3,7 @@ package com.shilapi.xcertplay.hud
 /**
  * Apple iAP2 RouteGuidanceManeuverType -> Gaode maneuver code.
  */
-internal object BydManeuverCodes {
+internal object GaodeManeuverCodes {
     const val NONE = 0
     const val LEFT = 1
     const val RIGHT = 2

@@ -25,9 +25,6 @@ object CarPlayClusterDisplay {
 
     fun usesCustomTurnCard(content: Content): Boolean = content == Content.MAP_WITH_CUSTOM_CARD
 
-    fun usesOfficialTurnCard(content: Content): Boolean =
-        content == Content.TURN_CARD || content == Content.INSTRUMENTS
-
     /**
      * Where the car marker goes, as percent of the panel (left, top, right, bottom). Measured on a
      * DiLink 5.0 cluster with a calibration grid. In "Full screen navi" BYD draws a status row,

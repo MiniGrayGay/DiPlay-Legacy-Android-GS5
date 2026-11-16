@@ -75,10 +75,6 @@ internal fun writeUsbChunks(
     return offset
 }
 
-internal fun waitForUsbRequest(connection: UsbDeviceConnection, timeoutMillis: Long): UsbRequest? =
-    if (realSdkInt() >= Build.VERSION_CODES.O) connection.requestWait(timeoutMillis.coerceAtLeast(1))
-    else connection.requestWait()
-
 internal fun selectUsbConfiguration(
     connection: UsbDeviceConnection,
     configuration: CarPlayUsbConfiguration,
@@ -113,25 +109,6 @@ internal fun selectUsbConfiguration(
         9,
         configuration.id,
         0,
-        null,
-        0,
-        1_000,
-    ) >= 0
-}
-
-internal fun selectUsbInterface(connection: UsbDeviceConnection, usbInterface: UsbInterface): Boolean {
-    if (realSdkInt() >= Build.VERSION_CODES.LOLLIPOP) {
-        try {
-            return connection.setInterface(usbInterface)
-        } catch (_: NoSuchMethodError) {
-            // Fall through to control transfer
-        }
-    }
-    return connection.controlTransfer(
-        UsbConstants.USB_DIR_OUT or UsbConstants.USB_TYPE_STANDARD or 1,
-        11,
-        IphoneCarPlayConfiguration.alternateSetting(usbInterface),
-        usbInterface.id,
         null,
         0,
         1_000,

@@ -55,16 +55,4 @@ object UsbDefaultGrant {
         }
     }
 
-    /**
-     * Build the shell command to execute UsbDefaultGrantMain (e.g. for Local ADB).
-     */
-    fun buildAppProcessCommand(context: Context, device: UsbDevice): String {
-        val apkPath = context.packageCodePath
-        val pkg = context.packageName
-        val uid = context.applicationInfo.uid
-        val vid = device.vendorId
-        val pid = device.productId
-        return "/system/bin/app_process -Djava.class.path=$apkPath /system/bin " +
-            "com.shilapi.xcertplay.usbbt.UsbDefaultGrantMain $pkg $uid $vid $pid 0"
-    }
 }

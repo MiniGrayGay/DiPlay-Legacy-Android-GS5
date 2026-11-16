@@ -37,7 +37,6 @@ class BluetoothDiagnosticActivity : ComponentActivity() {
     private lateinit var output: TextView
     private lateinit var start: Button
     private lateinit var modeSelector: Spinner
-    private lateinit var adbApproval: CheckBox
     private val report = StringBuilder()
     @Volatile private var probePid = 0
     @Volatile private var cancelled = false
@@ -83,9 +82,6 @@ class BluetoothDiagnosticActivity : ComponentActivity() {
         }
         modeSelector.visibility = if (usingUsb) android.view.View.GONE else android.view.View.VISIBLE
         layout.addView(modeSelector)
-        adbApproval = CheckBox(this).apply { text = "尝试请求本机 ADB 授权（需开启网络 ADB 5555；可跳过）" }
-        adbApproval.visibility = if (usingUsb) android.view.View.GONE else android.view.View.VISIBLE
-        layout.addView(adbApproval)
         start = Button(this).apply { text = if (usingUsb) getString(R.string.settings_usb_bluetooth_self_test) else "一键完整诊断（约 2–4 分钟）"; setOnClickListener { requestProbe() } }
         layout.addView(start)
         layout.addView(Button(this).apply { text = "停止诊断"; setOnClickListener { cancel() } })
@@ -172,7 +168,6 @@ class BluetoothDiagnosticActivity : ComponentActivity() {
         sdpReceived.set(false)
         busy = true
         start.isEnabled = false
-        val allowAdbApproval = adbApproval.isChecked
         val modes = when (modeSelector.selectedItemPosition) {
             1 -> listOf(true)
             2 -> listOf(false)
@@ -195,7 +190,6 @@ class BluetoothDiagnosticActivity : ComponentActivity() {
                 adapter.bondedDevices.mapNotNull { it.name }.filter { it.isNotBlank() }.forEach { knownNames.add(it) }
                 adapter.name?.takeIf { it.isNotBlank() }?.let { knownNames.add(it) }
                 record("Profile states A2DP=${adapter.getProfileConnectionState(android.bluetooth.BluetoothProfile.A2DP)} headset=${adapter.getProfileConnectionState(android.bluetooth.BluetoothProfile.HEADSET)}; states are adapter-wide, not proof for selected peer")
-                collector.prepare(allowAdbApproval)
                 collector.snapshot("before connection tests", since)
                 if (cancelled) return@execute
                 record("Selected peer bond=${peer.bondState}; type=${peer.type}; class=${peer.bluetoothClass?.deviceClass}; bondedCount=${adapter.bondedDevices.size}")
@@ -216,7 +210,6 @@ class BluetoothDiagnosticActivity : ComponentActivity() {
                 record("Diagnostic error ${error.javaClass.simpleName}: ${error.message}")
             } finally {
                 collector.snapshot("after connection tests", since)
-                collector.close()
                 record("完整诊断结束。系统日志若显示不可用，本报告不能确定底层拒绝原因。请保存报告。")
                 runOnUiThread { busy = false; start.isEnabled = true }
             }
