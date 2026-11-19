@@ -20,7 +20,6 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextClock
 import android.widget.TextView
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 
@@ -53,7 +52,6 @@ class HomeActivity : ComponentActivity() {
             addView(LinearLayout(context).apply {
                 addView(pill("Apps") { showApps(true) }, weighted())
                 addView(pill("CarPlay") { mapPanel.openCarPlay() }, weighted())
-                addView(pill("BYD home") { openBydHome() }, weighted())
             }, LinearLayout.LayoutParams(-1, dp(72)).apply { topMargin = dp(16) })
         }
         editButton = pill("Edit") { setEditing(!board.editing) }
@@ -128,13 +126,6 @@ class HomeActivity : ComponentActivity() {
         editButton.text = if (editing) "Done" else "Edit"
     }
 
-    private fun openBydHome() {
-        val byd = Intent().setClassName(BYD_HOME_PACKAGE, BYD_HOME_ACTIVITY).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        if (runCatching { startActivity(byd) }.isFailure) {
-            Toast.makeText(this, "BYD home is not available", Toast.LENGTH_LONG).show()
-        }
-    }
-
     private fun showApps(show: Boolean) {
         if (show) appsAdapter.load()
         appsOverlay.visibility = if (show) View.VISIBLE else View.GONE
@@ -204,8 +195,6 @@ class HomeActivity : ComponentActivity() {
     private companion object {
         val BACKGROUND = Color.rgb(14, 19, 26)
         val MUTED = Color.rgb(150, 162, 178)
-        const val BYD_HOME_PACKAGE = "com.android.launcher3"
-        const val BYD_HOME_ACTIVITY = "com.android.launcher3.home.MainActivity"
     }
 }
 

@@ -391,9 +391,6 @@ class AirPlaySession(
         if (momentary) sendHidReport(AirPlayHid.KNOB_HID_UID, AirPlayHid.knobReport(AirPlayKnobState()))
     }
 
-    fun sendKnobSelect(down: Boolean) =
-        sendHidReport(AirPlayHid.KNOB_HID_UID, AirPlayHid.knobReport(AirPlayKnobState(select = down)))
-
     fun sendMedia(index: Int) {
         sendHidReport(AirPlayHid.MEDIA_HID_UID, AirPlayHid.mediaReport(index))
         sendHidReport(AirPlayHid.MEDIA_HID_UID, AirPlayHid.mediaReport(0))

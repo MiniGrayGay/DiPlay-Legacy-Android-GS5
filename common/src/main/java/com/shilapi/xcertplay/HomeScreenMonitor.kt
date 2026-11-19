@@ -14,8 +14,8 @@ import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
 
 /**
- * Whether a home screen is in front (BYD's normal home, map home or MyCar, or whichever
- * launcher is the default home, such as a third-party car launcher), from the newest resumed
+ * Whether a home screen is in front (whichever launcher is the default home, such as a
+ * third-party car launcher), from the newest resumed
  * activity in the owner's Usage Access events or Accessibility events.
  * Overlays and panels are not activities, so they leave the answer as it is.
  */
@@ -45,7 +45,7 @@ internal class HomeScreenMonitor(context: Context, private val onChange: (Boolea
         foregroundListener = listener
 
         // UsageStatsManager poller fallback
-        if (realSdkInt() >= 21 && DiLink51ClusterMonitor.hasAccess(context)) {
+        if (hasAccess(context)) {
             since = System.currentTimeMillis() - FIRST_LOOK_BACK_MILLIS
             newestTime = 0L
             newestPackage = null
@@ -115,8 +115,8 @@ internal class HomeScreenMonitor(context: Context, private val onChange: (Boolea
             foregroundListener?.invoke(pkg)
         }
 
-        // BYD's home list (Launcher3 HomeHelper): MyCar, the normal home, and the map home.
-        val HOME_PACKAGES = setOf("com.android.launcher3", "com.byd.launchermap", "com.byd.naviauto", "com.byd.mycar")
+        // The AOSP launcher; the launchers this head unit declares are added by queryHomePackages.
+        val HOME_PACKAGES = setOf("com.android.launcher3")
 
         // Known third-party car launchers
         val KNOWN_CAR_LAUNCHERS = setOf(
@@ -125,7 +125,6 @@ internal class HomeScreenMonitor(context: Context, private val onChange: (Boolea
             "com.dy.launcher",            // 迪友桌面 (部分渠道)
             "com.king.dyzm",              // 迪友桌面
             "com.king.diyou",
-            "com.byd.diyou",
             "com.dudu.android.launcher",  // 嘟嘟桌面
             "com.dudu.android.launcher.mini",
             "com.tencent.autolauncher",   // 腾讯车联
@@ -133,7 +132,10 @@ internal class HomeScreenMonitor(context: Context, private val onChange: (Boolea
         )
 
         // Accessibility alone is not a foreground source: this PR has no service dispatching events.
-        fun hasAccess(context: Context): Boolean = realSdkInt() >= 21 && DiLink51ClusterMonitor.hasAccess(context)
+        fun hasAccess(context: Context): Boolean = realSdkInt() >= 21 &&
+            (context.getSystemService(Context.APP_OPS_SERVICE) as android.app.AppOpsManager).checkOpNoThrow(
+                android.app.AppOpsManager.OPSTR_GET_USAGE_STATS, android.os.Process.myUid(), context.packageName,
+            ) == android.app.AppOpsManager.MODE_ALLOWED
 
         /** Query all launcher packages declared on the system. */
         fun queryHomePackages(context: Context): Set<String> {

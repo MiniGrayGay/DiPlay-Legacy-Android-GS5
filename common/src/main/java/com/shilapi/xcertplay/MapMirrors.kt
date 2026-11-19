@@ -28,9 +28,6 @@ internal object MapMirrors {
             main.post { aspectListeners.forEach { it() } }
         }
 
-    /** The active dashboard stream's shape (defaults to PHYSICAL_STREAM_ASPECT or VIRTUAL_STREAM_ASPECT). */
-    val STREAM_ASPECT: Double get() = streamAspect
-
     private val main = Handler(Looper.getMainLooper())
     private val surfaces = LinkedHashMap<String, Surface>()
     private val aspectListeners = CopyOnWriteArraySet<() -> Unit>()
@@ -61,8 +58,6 @@ internal object MapMirrors {
         sink?.invoke(key, surface)
         onChanged?.invoke()
     }
-
-    val any: Boolean get() = surfaces.isNotEmpty()
 
     /** Whether a launcher shows the map (see [MapEmbedService]), so the centre card is not needed. */
     val launcherShowsMap: Boolean get() = surfaces.keys.any { it != CARD }

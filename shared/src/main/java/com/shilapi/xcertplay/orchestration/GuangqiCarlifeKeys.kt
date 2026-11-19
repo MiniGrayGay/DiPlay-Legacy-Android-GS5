@@ -5,8 +5,8 @@ import android.content.Context
 import android.content.Intent
 import android.os.Looper
 import android.util.Log
-import com.shilapi.xcertplay.hud.BydNavigationOutputs
-import com.shilapi.xcertplay.hud.BydOutputSettings
+import com.shilapi.xcertplay.hud.NavigationOutputs
+import com.shilapi.xcertplay.hud.WheelIntegrationSettings
 import com.shilapi.xcertplay.hud.CarPlayCallCard
 import java.lang.reflect.Proxy
 import java.util.concurrent.Executors
@@ -61,7 +61,7 @@ object GuangqiCarlifeKeys {
         worker.execute {
             if (app.getSystemService(KEYBACK_SERVICE) == null) return@execute
             stopStockCarlife(app)
-            if (controller === owner && BydOutputSettings.carPlayCallControls(app)) hold(app)
+            if (controller === owner && WheelIntegrationSettings.carPlayCallControls(app)) hold(app)
         }
     }
 
@@ -165,7 +165,7 @@ object GuangqiCarlifeKeys {
 
     private fun onKeyUp(keyCode: Int) {
         val owner = controller ?: return
-        val action = action(keyCode, BydNavigationOutputs.carPlayCall())
+        val action = action(keyCode, NavigationOutputs.carPlayCall())
         val sent = when (action) {
             Action.NONE -> return
             Action.ANSWER -> owner.answerCall()

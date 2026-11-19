@@ -64,13 +64,6 @@ object RootShell {
         return result.success && result.output.contains("uid=0")
     }
 
-    /** Writes [content] to [path] through the root shell (single-quoted heredoc). */
-    fun writeFile(path: String, content: String, timeoutMillis: Long = 10_000): Result {
-        val delimiter = "DIPLAY_EOF"
-        check(delimiter !in content) { "content must not contain the heredoc delimiter" }
-        return run("cat > $path <<'$delimiter'\n$content$delimiter", timeoutMillis)
-    }
-
     /** Process.waitFor(long, TimeUnit) is API 26+; poll exitValue on older releases. */
     private fun waitForProcess(process: Process, timeoutMillis: Long): Boolean {
         if (realSdkInt() >= 26) {

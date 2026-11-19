@@ -37,14 +37,14 @@ import org.robolectric.annotation.Implements
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [29], manifest = Config.NONE, shadows = [CarHotspotFallbackTest.ApState::class,
     CarHotspotFallbackTest.ManualAttachment::class, CarHotspotFallbackTest.ExistingAttachment::class,
-    CarHotspotAdbGrantTest.WritePermission::class])
+    CarHotspotFallbackTest.WritePermission::class])
 class CarHotspotFallbackTest {
     private val app get() = RuntimeEnvironment.getApplication()
 
     @Before fun setUp() {
         app.getSharedPreferences("diplay_byd_outputs", 0).edit().clear().commit()
         CarHotspotSettings.setEnabled(app, true)
-        CarHotspotAdbGrantTest.WritePermission.allowed = true
+        WritePermission.allowed = true
         ApState.enabled = null
         ManualAttachment.starts = 0
     }
@@ -60,7 +60,7 @@ class CarHotspotFallbackTest {
 
     @Test fun enabledHotspotStillAttachesWithoutControlPermission() {
         ApState.enabled = true
-        CarHotspotAdbGrantTest.WritePermission.allowed = false
+        WritePermission.allowed = false
         controller().use { assertEquals(WirelessHotspotBackend.MANUAL_HOTSPOT, start(it).backend) }
         assertEquals(1, ManualAttachment.starts)
     }
@@ -75,7 +75,7 @@ class CarHotspotFallbackTest {
 
     @Test fun missingControlPermissionIsStillReported() {
         ApState.enabled = false
-        CarHotspotAdbGrantTest.WritePermission.allowed = false
+        WritePermission.allowed = false
         assertStartupFailure("Hotspot control permission is missing")
     }
 
@@ -85,7 +85,7 @@ class CarHotspotFallbackTest {
 
     @Test fun existingWifiBypassesHotspotControlEvenWithAutoStartupSavedAndApOff() {
         ApState.enabled = false
-        CarHotspotAdbGrantTest.WritePermission.allowed = false
+        WritePermission.allowed = false
         controller(WirelessHotspotMode.EXISTING_WIFI).use {
             assertEquals(WirelessHotspotBackend.EXISTING_WIFI, start(it).backend)
         }
@@ -120,6 +120,14 @@ class CarHotspotFallbackTest {
         object : AirPlayMediaHandler {}, {}).also { controller ->
         val phase = controller.javaClass.getDeclaredField("phase").apply { isAccessible = true }
         phase.set(controller, phase.type.enumConstants!!.first { it.toString() == "WIRELESS" })
+    }
+
+    @Implements(android.provider.Settings.System::class)
+    class WritePermission {
+        companion object {
+            @Volatile var allowed = false
+            @JvmStatic @Implementation fun canWrite(context: android.content.Context): Boolean = allowed
+        }
     }
 
     @Implements(WifiManager::class)

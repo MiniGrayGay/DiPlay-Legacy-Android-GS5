@@ -8,15 +8,13 @@ import android.view.KeyEvent
  *
  * On DiLink 3 BYD's window manager (PhoneWindowManager.interceptKeyBeforeQueueing) acts on the call keys
  * before any app or accessibility service: the call key (313) still reaches the focused app and the
- * wheel key service, but the hang-up key (314) and the multifunction key (309) reach no app, only BYD's
- * hang-up broadcast (com.byd.btcall.action.CLOSE_BLUETOOTHSETTING with the key code), see [onHangUpBroadcast].
+ * wheel key service, but the hang-up key (314) and the multifunction key (309) reach no app;
+ * upstream took those from BYD's hang-up broadcast, which this fork no longer listens for.
  */
 object CarPlayCallKeyPolicy {
     const val KEYCODE_BYD_DIAL_ANSWER = 313
     const val KEYCODE_BYD_HANG_UP = 314
     const val KEYCODE_BYD_MULTIPLEXING = 309
-    const val ACTION_BYD_HANG_UP = "com.byd.btcall.action.CLOSE_BLUETOOTHSETTING"
-    const val EXTRA_KEYCODE = "keycode"
 
     enum class Action { PASS, CONSUME, ANSWER, END }
 
@@ -43,11 +41,4 @@ object CarPlayCallKeyPolicy {
         }
     }
 
-    /** BYD's hang-up broadcast, sent when the hang-up or multifunction key is released. */
-    fun onHangUpBroadcast(keyCode: Int, call: CarPlayCallCard?, session: Boolean): Action =
-        if (session && call != null && (keyCode == KEYCODE_BYD_HANG_UP || keyCode == KEYCODE_BYD_MULTIPLEXING)) {
-            Action.END
-        } else {
-            Action.PASS
-        }
 }

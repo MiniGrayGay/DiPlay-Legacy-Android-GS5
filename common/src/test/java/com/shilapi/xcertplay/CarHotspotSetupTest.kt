@@ -2,8 +2,7 @@ package com.shilapi.xcertplay
 
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
-import com.shilapi.xcertplay.adb.LocalAdb
-import com.shilapi.xcertplay.hud.BydOutputSettings
+import com.shilapi.xcertplay.hud.WheelIntegrationSettings
 import com.shilapi.xcertplay.network.CarHotspotSettings
 import com.shilapi.xcertplay.orchestration.WirelessHotspotMode
 import org.junit.Assert.*
@@ -30,50 +29,6 @@ class CarHotspotSetupTest {
         assertFalse(CarHotspotSettings.enabled(context))
         configureHotspot()
         assertFalse(eligible())
-    }
-
-    @Test fun qualcommBydWithoutNavigationServicesCanReachHotspotSetup() {
-        ShadowBuild.setManufacturer("QUALCOMM")
-        ShadowBuild.setBrand("qti")
-        installPackage("com.byd.carsettings", system = true)
-        assertFalse(BydOutputSettings.navigationAvailable(context))
-        assertTrue(CarHotspotSetup.isBydHeadUnit(context))
-        assertTrue(CarHotspotSettings.visible(CarHotspotSetup.isBydHeadUnit(context), LocalAdb.Access.NOT_APPROVED))
-        assertFalse(CarHotspotSettings.visible(CarHotspotSetup.isBydHeadUnit(context), LocalAdb.Access.UNREACHABLE))
-    }
-
-    @Test fun userInstalledLookalikeDoesNotIdentifyABydHeadUnit() {
-        installPackage("com.byd.carsettings", system = false)
-        assertFalse(CarHotspotSetup.isBydHeadUnit(context))
-    }
-
-    @Test fun genericHeadUnitRemainsHiddenEvenWithAdbReady() {
-        assertFalse(CarHotspotSetup.isBydHeadUnit(context))
-        assertFalse(CarHotspotSettings.visible(CarHotspotSetup.isBydHeadUnit(context), LocalAdb.Access.READY))
-    }
-
-    @Test fun existingNavigationBasedDetectionIsPreserved() {
-        installPackage("com.byd.amapservice", system = true)
-        assertTrue(BydOutputSettings.navigationAvailable(context))
-        assertTrue(CarHotspotSetup.isBydHeadUnit(context))
-    }
-
-    @Test fun onlyBydWithSupportedAdbSeesTheSettingIncludingBeforeApproval() {
-        for (access in LocalAdb.Access.entries) {
-            assertFalse(CarHotspotSettings.visible(false, access))
-        }
-        assertTrue(CarHotspotSettings.visible(true, LocalAdb.Access.NOT_APPROVED))
-        assertTrue(CarHotspotSettings.visible(true, LocalAdb.Access.READY))
-        assertFalse(CarHotspotSettings.visible(true, LocalAdb.Access.UNREACHABLE))
-        assertFalse(CarHotspotSettings.visible(true, LocalAdb.Access.UNSUPPORTED))
-    }
-
-    @Test fun losingAdbHidesTheSettingWithoutClearingOrDisablingTheSavedChoice() {
-        configureHotspot()
-        CarHotspotSettings.setEnabled(context, true)
-        assertFalse(CarHotspotSettings.visible(true, LocalAdb.Access.UNREACHABLE))
-        assertTrue(CarHotspotSettings.enabled(context))
-        assertTrue(eligible())
     }
 
     @Test fun startupNeedsValidCredentialsAndNoExistingSession() {
@@ -120,14 +75,11 @@ class CarHotspotSetupTest {
         ShadowBuild.setDevice("xea406m")
         installPackage("ecarx.settings", system = true)
         assertTrue(CarHotspotSetup.isLegacyEcarxHeadUnit(context))
-        assertFalse(CarHotspotSetup.isBydHeadUnit(context))
         assertFalse(CarHotspotSettings.enabled(context))
         configureHotspot()
         CarHotspotSettings.setEnabled(context, true)
         assertTrue(eligible())
-        assertFalse(CarHotspotSetup.bootLaunchNeedsAdb(context))
-        assertTrue(CarHotspotSetup.Permission.HOTSPOT.granted(context))
-        assertTrue(CarHotspotSetup.Permission.BOOT_LAUNCH.granted(context))
+        assertTrue(CarHotspotSetup.isDirectHotspotSupported(context))
     }
 
     @Test @Config(sdk = [29])
@@ -141,23 +93,13 @@ class CarHotspotSetupTest {
         assertFalse(CarHotspotSetup.isLegacyEcarxHeadUnit(context))
     }
 
-    @Test fun newerEcarxDoesNotBypassTheExistingAdbPermissionPath() {
-        ShadowBuild.setDevice("xea406m")
-        installPackage("ecarx.settings", system = true)
-        configureHotspot()
-        CarHotspotSettings.setEnabled(context, true)
-        assertFalse(CarHotspotSetup.isLegacyEcarxHeadUnit(context))
-        assertTrue(CarHotspotSetup.bootLaunchNeedsAdb(context))
-    }
-
     @Test @Config(sdk = [29])
     fun legacyAndroidCanConfigureHotspotAndBootWithoutAdb() {
         ShadowBuild.setVersionRelease("4.4.2")
-        assertFalse(CarHotspotSetup.isBydHeadUnit(context))
         assertTrue(CarHotspotSetup.isDirectHotspotSupported(context))
         configureHotspot()
         CarHotspotSettings.setEnabled(context, true)
-        assertFalse(CarHotspotSetup.bootLaunchNeedsAdb(context))
+        assertTrue(eligible())
     }
 
     private fun eligible() = CarHotspotSetup.shouldStartOnLaunch(context, hasSession = false)

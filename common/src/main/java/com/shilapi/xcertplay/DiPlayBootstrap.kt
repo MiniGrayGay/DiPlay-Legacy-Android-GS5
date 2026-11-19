@@ -120,26 +120,6 @@ internal object DiPlayBootstrap {
         }
     }
 
-    private fun sameAuthenticationFiles(first: File, second: File): Boolean =
-        AUTH_FILES.all { name ->
-            val left = File(first, name)
-            val right = File(second, name)
-            left.isFile && right.isFile &&
-                MessageDigest.isEqual(sha256(left), sha256(right))
-        }
-
-    private fun sha256(file: File): ByteArray =
-        file.inputStream().use { stream ->
-            val digest = MessageDigest.getInstance("SHA-256")
-            val buffer = ByteArray(1024)
-            while (true) {
-                val count = stream.read(buffer)
-                if (count < 0) break
-                digest.update(buffer, 0, count)
-            }
-            digest.digest()
-        }
-
     fun deviceId(identity: AirPlayIdentity): String {
         val bytes = MessageDigest.getInstance("SHA-256").digest(identity.publicKey).take(6).toByteArray()
         bytes[0] = ((bytes[0].toInt() and 0xfc) or 0x02).toByte()

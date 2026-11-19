@@ -100,8 +100,6 @@ class CarPlayCallKeyPolicyTest {
     fun theHangUpKeysEndOrDecline() {
         assertEquals(Action.CONSUME to Action.END, press(KeyEvent.KEYCODE_ENDCALL, ringing))
         assertEquals(Action.CONSUME to Action.END, press(314, active))
-        assertEquals(Action.END, CarPlayCallKeyPolicy.onHangUpBroadcast(314, active, session = true))
-        assertEquals(Action.END, CarPlayCallKeyPolicy.onHangUpBroadcast(309, ringing, session = true))
     }
 
     @Test
@@ -109,7 +107,5 @@ class CarPlayCallKeyPolicyTest {
         assertEquals(Action.PASS to Action.PASS, press(313, null))
         assertEquals(Action.PASS to Action.PASS, press(313, ringing, session = false))
         assertEquals(Action.PASS to Action.PASS, press(KeyEvent.KEYCODE_VOLUME_UP, ringing))
-        assertEquals(Action.PASS, CarPlayCallKeyPolicy.onHangUpBroadcast(314, null, session = true))
-        assertEquals(Action.PASS, CarPlayCallKeyPolicy.onHangUpBroadcast(305, active, session = true))
     }
 }

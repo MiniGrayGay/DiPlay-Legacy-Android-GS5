@@ -251,9 +251,9 @@ class CarPlayHostSettingsTest {
     @Test fun quickMenuChangeThatAppliesAtOnceClosesWithoutReconnecting() {
         val controller = attachController()
         invoke("openSettingsMenu")
-        val before = com.shilapi.xcertplay.hud.BydOutputSettings.carPlayCallControls(activity)
+        val before = com.shilapi.xcertplay.hud.WheelIntegrationSettings.carPlayCallControls(activity)
         quickRow(R.string.carplay_call_controls_experimental).performClick()
-        assertEquals(!before, com.shilapi.xcertplay.hud.BydOutputSettings.carPlayCallControls(activity))
+        assertEquals(!before, com.shilapi.xcertplay.hud.WheelIntegrationSettings.carPlayCallControls(activity))
         invoke("closeQuickMenu")
         assertSame(controller, field("controller"))
         assertEquals(0, field("restartGeneration"))

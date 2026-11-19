@@ -27,7 +27,7 @@ import androidx.core.graphics.drawable.toBitmap
 import com.shilapi.xcertplay.airplay.CarPlayMediaButton
 import com.shilapi.xcertplay.compat.realSdkInt
 import com.shilapi.xcertplay.host.R
-import com.shilapi.xcertplay.hud.BydOutputSettings
+import com.shilapi.xcertplay.hud.WheelIntegrationSettings
 import com.shilapi.xcertplay.media.CarPlayNowPlaying
 import com.shilapi.xcertplay.orchestration.CarPlayController
 import java.util.concurrent.Executors
@@ -381,7 +381,7 @@ internal object CarPlayMediaKeys {
     }
 
     private val callback by lazy { if (realSdkInt() >= 21) CarPlayMediaCallback(
-        experimentalDiLink3Keys = { appContext?.let(BydOutputSettings::carPlayCallControls) == true },
+        experimentalDiLink3Keys = { appContext?.let(WheelIntegrationSettings::carPlayCallControls) == true },
         send = ::send,
     ) else null }
 

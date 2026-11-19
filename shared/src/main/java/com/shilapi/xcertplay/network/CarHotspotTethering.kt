@@ -9,11 +9,8 @@ import com.shilapi.xcertplay.compat.realSdkInt
 import android.os.Bundle
 import android.os.ResultReceiver
 import android.provider.Settings
-import com.shilapi.xcertplay.adb.AdbKeys
-import com.shilapi.xcertplay.adb.LocalAdb
 import java.lang.reflect.InvocationTargetException
 import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.ReentrantLock
 
@@ -32,7 +29,7 @@ object CarHotspotTethering {
     fun permitted(context: Context): Boolean = realSdkInt() < 23 || Settings.System.canWrite(context)
 
     /** Blocking; serialize startup and connection requests, checking cancellation after acquiring the lock. */
-    @android.annotation.SuppressLint("SoonBlockedPrivateApi") // API 37+ uses the bounded ADB fallback instead.
+    @android.annotation.SuppressLint("SoonBlockedPrivateApi")
     fun enable(
         context: Context,
         isCancelled: () -> Boolean,
@@ -41,7 +38,6 @@ object CarHotspotTethering {
     ): Result {
         disableWifiBeforeHotspot(context, log)
         val deadline = System.nanoTime() + timeoutMillis * 1_000_000L
-        val observedAdbState = AtomicReference<Boolean?>()
         val startReflection: (ResultReceiver) -> Unit = { receiver ->
             if (realSdkInt() >= 37) throw NoSuchMethodException("Hidden tethering service is unavailable on API 37+")
             val conn = if (realSdkInt() >= Build.VERSION_CODES.M) {
@@ -65,32 +61,15 @@ object CarHotspotTethering {
                 if (!error.isReflectionFailure()) throw error
                 // T3-class ROMs may lack the tethering service. Fall back to
                 // the pre-O WifiManager.setWifiApEnabled hidden API (P0-3).
-                // It exists on API 19; on newer ROMs it throws and the
-                // caller falls back to ADB as before.
+                // It exists on API 19; on newer ROMs it throws and startup is reported as unsupported.
                 startWifiApFallback(context, receiver)
-            }
-        }
-        val startAdb: () -> Boolean = {
-            val client = AtomicReference<LocalAdb?>()
-            CarHotspotAdbFallback.bounded(deadline, isCancelled,
-                abort = { client.get()?.cancelPendingOperations() }) {
-                val adb = LocalAdb(AdbKeys.load(context))
-                client.set(adb)
-                adb.use {
-                    if (isCancelled() || Thread.currentThread().isInterrupted || System.nanoTime() >= deadline) false
-                    else if (adb.connect(mayAsk = false) != LocalAdb.Access.READY) false
-                    else CarHotspotAdbFallback.start(deadline, isCancelled,
-                        state = { CarHotspotStatus.isEnabled(context) }, shell = adb::shell, log = log)
-                        .also { if (it) observedAdbState.set(true) }
-                }
             }
         }
         return enableUntil(
             deadline,
             isCancelled,
             { permitted(context) },
-            stateWithAdbObservation({ CarHotspotStatus.isEnabled(context) }, observedAdbState),
-            startFallback = startAdb,
+            { CarHotspotStatus.isEnabled(context) },
             start = startReflection,
         ).also { log("car hotspot auto-enable: ${it.diagnostic}") }
     }
@@ -160,36 +139,20 @@ object CarHotspotTethering {
         log("car hotspot: wifi turned off before AP start")
     }
 
-    /** An ADB observation supplements hidden platform status, but never overrides a current off state. */
-    internal fun stateWithAdbObservation(
-        platformState: () -> Boolean?,
-        observation: AtomicReference<Boolean?>,
-    ): () -> Boolean? = { platformState() ?: observation.get() }
-
     internal fun enable(
         timeoutMillis: Long,
         isCancelled: () -> Boolean,
         canWrite: () -> Boolean,
         isEnabled: () -> Boolean?,
-        start: (ResultReceiver) -> Unit,
-    ): Result = enable(timeoutMillis, isCancelled, canWrite, isEnabled, null, start)
-
-    internal fun enable(
-        timeoutMillis: Long,
-        isCancelled: () -> Boolean,
-        canWrite: () -> Boolean,
-        isEnabled: () -> Boolean?,
-        startFallback: (() -> Boolean)?,
         start: (ResultReceiver) -> Unit,
     ): Result = enableUntil(System.nanoTime() + timeoutMillis * 1_000_000L,
-        isCancelled, canWrite, isEnabled, startFallback, start)
+        isCancelled, canWrite, isEnabled, start)
 
     private fun enableUntil(
         deadline: Long,
         isCancelled: () -> Boolean,
         canWrite: () -> Boolean,
         isEnabled: () -> Boolean?,
-        startFallback: (() -> Boolean)?,
         start: (ResultReceiver) -> Unit,
     ): Result {
         fun stopped(): Result? = when {
@@ -216,40 +179,23 @@ object CarHotspotTethering {
             val permission = canWrite()
             stopped()?.let { return it }
             if (!permission) return Result.PERMISSION_REQUIRED
-            fun fallback(): Boolean {
-                stopped()?.let { return false }
-                return try { startFallback?.invoke() == true } catch (error: Exception) {
-                    if (error is InterruptedException) Thread.currentThread().interrupt()
-                    false
-                }
-            }
-            val unknown = initialState == null
-            if (unknown) {
-                if (!fallback()) return stopped() ?: Result.UNSUPPORTED
-            }
+            // Never start blindly: without a readable AP state there is no way to confirm the result.
+            if (initialState == null) return stopped() ?: Result.UNSUPPORTED
             val response = AtomicInteger(-1)
             try {
                 stopped()?.let { return it }
-                if (!unknown) {
-                    start(object : ResultReceiver(null) {
-                        override fun onReceiveResult(resultCode: Int, resultData: Bundle?) {
-                            response.set(resultCode)
-                        }
-                    })
-                }
-            } catch (error: Exception) {
-                val adbRecovered = ((error.isReflectionFailure() && error !is InvocationTargetException) ||
-                    error is SecurityException ||
-                    (error is InvocationTargetException && error.targetException is SecurityException)) &&
-                    fallback()
-                if (!adbRecovered) {
-                    stopped()?.let { return it }
-                    return when {
-                        error is InvocationTargetException -> if (error.targetException is SecurityException) Result.PERMISSION_REQUIRED else Result.FAILED
-                        error.isReflectionFailure() -> Result.UNSUPPORTED
-                        error is SecurityException -> Result.PERMISSION_REQUIRED
-                        else -> Result.FAILED
+                start(object : ResultReceiver(null) {
+                    override fun onReceiveResult(resultCode: Int, resultData: Bundle?) {
+                        response.set(resultCode)
                     }
+                })
+            } catch (error: Exception) {
+                stopped()?.let { return it }
+                return when {
+                    error is InvocationTargetException -> if (error.targetException is SecurityException) Result.PERMISSION_REQUIRED else Result.FAILED
+                    error.isReflectionFailure() -> Result.UNSUPPORTED
+                    error is SecurityException -> Result.PERMISSION_REQUIRED
+                    else -> Result.FAILED
                 }
             }
             while (true) {

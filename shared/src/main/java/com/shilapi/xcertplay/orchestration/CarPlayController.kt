@@ -41,7 +41,7 @@ import com.shilapi.xcertplay.airplay.AirPlaySessionListener
 import com.shilapi.xcertplay.airplay.PairingStore
 import com.shilapi.xcertplay.airplay.VideoInCar
 import com.shilapi.xcertplay.airplay.VideoPlaybackDelivery
-import com.shilapi.xcertplay.hud.BydNavigationOutputs
+import com.shilapi.xcertplay.hud.NavigationOutputs
 import com.shilapi.xcertplay.iap2.session.Iap2Session
 import com.shilapi.xcertplay.mfi.Iap2MfiAuthenticationClient
 import com.shilapi.xcertplay.mfi.MfiAuthenticationClient
@@ -60,7 +60,6 @@ import com.shilapi.xcertplay.network.ExistingWifiManager
 import com.shilapi.xcertplay.network.WifiP2pGroupManager
 import com.shilapi.xcertplay.network.MdnsSniffer
 import com.shilapi.xcertplay.network.PhoneProbe
-import com.shilapi.xcertplay.network.WifiScanPause
 import com.shilapi.xcertplay.network.WirelessHotspotInfo
 import com.shilapi.xcertplay.network.WirelessHotspotBackend
 import com.shilapi.xcertplay.network.WirelessHotspotManager
@@ -187,9 +186,8 @@ class CarPlayController(
         require(!config.locationReportingEnabled || locationProvider != null) {
             "A location provider is required when location reporting is enabled"
         }
-        WifiScanPause.restoreIfNeeded(context.applicationContext)
-        BydNavigationOutputs.start(context.applicationContext)
-        BydNavigationOutputs.setClusterStreamControl(::applyClusterUi)
+        NavigationOutputs.start()
+        NavigationOutputs.setClusterStreamControl(::applyClusterUi)
     }
 
     private enum class Phase { IDLE, MFI, WIRELESS, IPHONE, REENUMERATION, DATAPATHS, CONTROL }
@@ -290,7 +288,6 @@ class CarPlayController(
         activeSession?.sendRemoteControlMessage(streamId, message) ?: false
 
     @Volatile private var hotspot: WirelessHotspotManager? = null
-    @Volatile private var wifiScanPause: WifiScanPause? = null
     @Volatile private var bonjour: CarPlayBonjour? = null
     private val wirelessResourceLock = Any()
     private val wirelessFailureReported = AtomicBoolean(false)
@@ -375,8 +372,7 @@ class CarPlayController(
                 }
             }
             if (replacement) {
-                BydNavigationOutputs.start(appContext)
-                BydNavigationOutputs.carPlaySessionStarted()
+                NavigationOutputs.start()
                 GuangqiCarlifeKeys.sessionStarted(appContext, this@CarPlayController)
                 com.shilapi.xcertplay.glance.CarPlayGlance.setConnected(true)
                 // The gear may have changed since /info.
@@ -446,7 +442,7 @@ class CarPlayController(
                 renderedSession = null
                 activeSession = null
             }
-            BydNavigationOutputs.endNow(preserveTurnOverlay = !closed && config.transport == CarPlayTransport.WIRELESS)
+            NavigationOutputs.endNow(preserveTurnOverlay = !closed && config.transport == CarPlayTransport.WIRELESS)
             com.shilapi.xcertplay.glance.CarPlayGlance.setConnected(false)
             videoListener?.onVideoSessionEnded()
             synchronized(playbackStatus) {
@@ -543,8 +539,6 @@ class CarPlayController(
             debugLog(message)
         }
     }
-
-    fun currentAppStates(): List<Map<String, Any?>> = activeSession?.currentAppStates() ?: emptyList()
 
     fun changeModes(
         appStates: List<Map<String, Any?>> = emptyList(),
@@ -689,25 +683,6 @@ class CarPlayController(
         startMfi()
     }
 
-    /** Reopens the CH341/MFi path without restarting the app. */
-    fun reconnectMfi() = synchronized(lifecycleLock) {
-        if (closed) return
-        closeMfiSession()
-        startMfi()
-    }
-
-    /** Re-runs iPhone discovery/bring-up using the already-open MFi session. */
-    fun reconnectIphone() = synchronized(lifecycleLock) {
-        if (closed) return
-        if (mfiSession == null) {
-            startMfi()
-        } else if (config.transport == CarPlayTransport.WIRELESS) {
-            restartWireless()
-        } else {
-            startIphone()
-        }
-    }
-
     /** Returns true if this wired controller is waiting for an iPhone to be plugged in or reconnected. */
     fun isWiredWaitingForIphone(): Boolean =
         config.transport == CarPlayTransport.WIRED && !closed && (phase == Phase.IPHONE || wiredAborted)
@@ -767,9 +742,6 @@ class CarPlayController(
         dashboardMapEpoch.incrementAndGet()
     }
 
-    /** Immutable stream geometry retained when a new host adopts this background controller. */
-    fun configuredClusterSize(): Pair<Int, Int>? = airPlayConfig.cluster?.let { it.widthPixels to it.heightPixels }
-
     /** A visible physical map and its session/stream generation; null for a paused/virtual/turn-card route. */
     fun dashboardMapRoute(): Any? {
         val session = activeSession ?: return null
@@ -782,9 +754,6 @@ class CarPlayController(
                 dashboardMapOutputVisible, stream, shown, closed)) return null
         return Triple(session, stream, dashboardMapEpoch.get() to content.third)
     }
-
-    /** Whether the wheel can currently control the visible dashboard map. */
-    fun dashboardMapStreaming(): Boolean = dashboardMapRoute() != null
 
     /** One zoom step for the dashboard map, as the car's own zoom controls send it. */
     fun zoomDashboardMap(zoomIn: Boolean): Boolean {
@@ -854,9 +823,9 @@ class CarPlayController(
         val teardownStarted = System.nanoTime()
         connectionDiagnostic("teardown begin transport=${config.transport}")
         videoGate?.close()
-        BydNavigationOutputs.endNow()
+        NavigationOutputs.endNow()
         com.shilapi.xcertplay.glance.CarPlayGlance.setConnected(false)
-        BydNavigationOutputs.clearClusterStreamControl(::applyClusterUi)
+        NavigationOutputs.clearClusterStreamControl(::applyClusterUi)
         closeReceivers()
         availabilityPollGeneration.incrementAndGet()
         wirelessGeneration.incrementAndGet()
@@ -870,8 +839,6 @@ class CarPlayController(
                 try {
                     if (config.transport == CarPlayTransport.WIRELESS) {
                         closeBestEffort("wireless stack") { closeWirelessStack(service) }
-                        closeBestEffort("Wi-Fi scan pause") { wifiScanPause?.close() }
-                        wifiScanPause = null
                     } else {
                         closeBestEffort("CSM") { csm?.close() }
                         csm = null
@@ -996,7 +963,7 @@ class CarPlayController(
 
     // HUD (SOME/IP) and cluster (AMap broadcast) keep separate state so one failing cannot stall the other.
     private fun onRouteFrame(frame: com.shilapi.xcertplay.iap2.wire.Iap2Frame) {
-        BydNavigationOutputs.onFrame(frame)
+        NavigationOutputs.onFrame(frame)
         com.shilapi.xcertplay.glance.CarPlayGlance.onFrame(frame)
         synchronized(playbackStatus) {
             val previousPlaying = playbackStatus.playing
@@ -1233,7 +1200,6 @@ class CarPlayController(
     }
 
     private val mfiCandidateAddresses = listOf(0x10, 0x11)
-    private val maxMfiCertificateBytes = 1280
 
     private data class MfiCandidateProbe(
         val deviceVersion: Int?,
@@ -1525,7 +1491,6 @@ class CarPlayController(
             if (isStaleWirelessRun(generation)) {
                 return
             }
-            pauseWifiScans(hotspotInfo.backend)
             val startedHotspot = hotspot
             wirelessConnectionProof.begin(generation) {
                 if (!isStaleWirelessRun(generation)) startedHotspot?.onCarPlayConfirmed()
@@ -3706,20 +3671,9 @@ class CarPlayController(
             }
         }
     }
-    @androidx.annotation.RequiresApi(Build.VERSION_CODES.Q)
-    private fun createWifiP2pManager(): WirelessHotspotManager = WifiP2pGroupManager(appContext, ::debugLog)
-
-    @androidx.annotation.RequiresApi(Build.VERSION_CODES.O)
-    private fun createLocalOnlyHotspotManager(): WirelessHotspotManager = LocalOnlyHotspotManager(appContext, ::debugLog)
 
     private fun isStaleWirelessRun(generation: Int): Boolean =
         closed || phase != Phase.WIRELESS || generation != wirelessGeneration.get() || wirelessFailureReported.get()
-
-    // Kept across reconnects within this controller: resuming between attempts would start a scan.
-    private fun pauseWifiScans(backend: WirelessHotspotBackend) = synchronized(this) {
-        if (closed || !WifiScanPause.eligible(backend)) return@synchronized
-        (wifiScanPause ?: WifiScanPause(appContext, ::debugLog).also { wifiScanPause = it }).pause()
-    }
 
     private fun selectWirelessBluetoothDevice(adapter: BluetoothAdapter): BluetoothDevice {
         val hybridBt = CarPlayBluetoothManager.get(appContext)
@@ -3826,50 +3780,6 @@ class CarPlayController(
         throw IOException(
             "No unambiguous bonded iPhone found; pair one iPhone and retry",
         )
-    }
-
-    private fun connectBluetoothSocket(socket: BluetoothSocket, address: String) {
-        runCatching { bluetoothAdapter?.cancelDiscovery() }
-            .onFailure { debugLog("wireless Bluetooth discovery cancel failed: ${it.javaClass.simpleName}") }
-        val result = AtomicReference<Throwable?>()
-        val connected = CountDownLatch(1)
-        Thread(
-            {
-                try {
-                    socket.connect()
-                } catch (error: Throwable) {
-                    result.set(error)
-                } finally {
-                    connected.countDown()
-                }
-            },
-            "wireless-rfcomm-connect",
-        ).apply {
-            isDaemon = true
-            start()
-        }
-        val completed = try {
-            connected.await(RFCOMM_CONNECT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
-        } catch (error: InterruptedException) {
-            Thread.currentThread().interrupt()
-            runCatching { socket.close() }
-            throw IOException("Interrupted while connecting RFCOMM to $address", error)
-        }
-        if (!completed) {
-            debugLog(
-                "wireless RFCOMM connect timed out after " +
-                    "${RFCOMM_CONNECT_TIMEOUT_MILLIS}ms address=$address",
-            )
-            runCatching { socket.close() }
-            throw IOException(
-                "Timed out after ${RFCOMM_CONNECT_TIMEOUT_MILLIS}ms connecting RFCOMM to $address",
-            )
-        }
-        when (val failure = result.get()) {
-            null -> Unit
-            is IOException -> throw failure
-            else -> throw IOException("Could not connect RFCOMM to $address", failure)
-        }
     }
 
     /** Reads cached service metadata only; it does not start/cancel discovery or require SCAN. */
@@ -4234,20 +4144,6 @@ class CarPlayController(
         ch341PermissionCloseable = null
     }
 
-    private fun closeMfiSession() {
-        val session = mfiSession
-        mfiSession = null
-        if (session != null) {
-            executor.execute {
-                try {
-                    session.close()
-                } catch (_: Exception) {
-                    // Best effort.
-                }
-            }
-        }
-    }
-
     private fun requireUsbManager(): UsbManager =
         usbManager ?: throw IOException("USB service is unavailable on this device")
 
@@ -4480,7 +4376,6 @@ class CarPlayController(
         /** Issue #281: per-resource bound for teardown closes; a stuck close is abandoned. */
         private const val TEARDOWN_RESOURCE_TIMEOUT_MILLIS = 3_000L
         private const val ADAPTER_ADDRESS_PLACEHOLDER = "02:00:00:00:00:00"
-        private val BLUETOOTH_ADDRESS = Regex("^[0-9A-Fa-f]{2}(:[0-9A-Fa-f]{2}){5}$")
     }
 }
 

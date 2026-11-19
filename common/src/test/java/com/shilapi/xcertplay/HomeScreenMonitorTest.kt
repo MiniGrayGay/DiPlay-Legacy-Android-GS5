@@ -31,17 +31,13 @@ class HomeScreenMonitorTest {
     }
 
     @Test
-    fun isHomePackageRecognizesBYDAndThirdPartyLaunchers() {
+    fun isHomePackageRecognizesStockAndThirdPartyLaunchers() {
         val monitor = HomeScreenMonitor(context) {}
         val isHomeMethod = HomeScreenMonitor::class.java.getDeclaredMethod("isHomePackage", String::class.java).apply {
             isAccessible = true
         }
 
-        // Standard BYD launchers
         assertTrue(isHomeMethod.invoke(monitor, "com.android.launcher3") as Boolean)
-        assertTrue(isHomeMethod.invoke(monitor, "com.byd.launchermap") as Boolean)
-        assertTrue(isHomeMethod.invoke(monitor, "com.byd.naviauto") as Boolean)
-        assertTrue(isHomeMethod.invoke(monitor, "com.byd.mycar") as Boolean)
 
         // Third-party launchers
         assertTrue(isHomeMethod.invoke(monitor, "com.smg.dydesktop") as Boolean)

@@ -13,12 +13,6 @@ internal object DisplayDiagnosticSnapshot {
     private fun stamp() = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US).format(Date())
 
     @Synchronized
-    fun selection(context: Context, previous: Int, selected: Int, reconnect: Boolean) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("selection",
-            "${stamp()} Size setting previous=$previous% selected=$selected% reconnect=$reconnect").apply()
-    }
-
-    @Synchronized
     fun begin(context: Context, request: String, capability: String, effective: String): String {
         val attempt = UUID.randomUUID().toString()
         val editor = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
