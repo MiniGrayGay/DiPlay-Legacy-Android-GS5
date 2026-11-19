@@ -1,5 +1,7 @@
 # DiPlay Legacy Android — 广汽 GS5 适配版
 
+# 最近转坑 2020奥迪45TSFL B&Q音响的 Q5L 了，可能咕咕咕+++，理论不会弃坑
+
 [简体中文](README.md) · [English](README_EN.md)
 
 > 本项目基于 [DiPlay Legacy Android](https://github.com/programmerguohuajing/DiPlay-Legacy-Android)（[shihabal3amri/DiPlay](https://github.com/shihabal3amri/DiPlay) 的低版本 Android 适配分支）进行二次深度适配，专门针对 **广汽传祺 2019–2022 款车机（GAEI AVNTG2A10）** 进行定制。
