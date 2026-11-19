@@ -23,6 +23,7 @@ enum class VideoCodec { H264, H265 }
  */
 class ScreenStream(
     private val key: ByteArray,
+    private val expectedPeer: InetAddress,
     private val onDiagnostic: (String) -> Unit = {},
     private val bindReference: InetAddress? = null,
 ) : Closeable {
@@ -116,7 +117,7 @@ class ScreenStream(
 
     private fun accept(bound: ServerSocket) {
         try {
-            val accepted = bound.accept()
+            val accepted = bound.acceptFrom(expectedPeer) { onDiagnostic("Video: rejected sender outside the control session") }
             socket = accepted
             run(accepted)
         } catch (error: Exception) {
@@ -154,6 +155,10 @@ class ScreenStream(
     private fun onMessage(header: ByteArray, body: ByteArray, stats: StreamReceiveStats, arrivalNanos: Long) {
         when (header[OPCODE_OFFSET].toInt() and 0xff) {
             OP_VIDEO_FRAME -> {
+                // A body shorter than the Poly1305 tag cannot be a sealed frame: drop it unread
+                // and leave the nonce alone, never hand it to the decoder unauthenticated
+                // (upstream #1123).
+                if (body.size < ScreenCodec.TAG_SIZE) return
                 // Every received video frame from iPhone advances the ChaCha nonce by 1.
                 // We capture the nonce at reception time so each frame keeps its exact
                 // nonce regardless of worker queue depth, delays, or dropped frames (#249).
@@ -229,7 +234,8 @@ class ScreenStream(
                 return
             }
         } else {
-            body
+            // onMessage already drops these; never deliver an unauthenticated body.
+            return
         }
         if (firstFrameLogged.compareAndSet(false, true)) {
             Log.i(
