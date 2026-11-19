@@ -13,6 +13,7 @@ import java.util.WeakHashMap
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledFuture
+import java.util.concurrent.ScheduledThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 
 /** Identity of one CarPlay audio stream: the stream type plus its CarPlay audio type. */
@@ -88,6 +89,13 @@ class CarPlayMediaEngine(
     private val streams = ConcurrentHashMap<StreamKey, Closeable>()
     private val audioMeta = ConcurrentHashMap<StreamKey, AudioMeta>()
     private val pendingMicrophone = ConcurrentHashMap<StreamKey, MicrophoneConfig>()
+    private val microphoneScheduler by lazy {
+        ScheduledThreadPoolExecutor(1) { task -> Thread(task, "carplay-mic-start").apply { isDaemon = true } }.apply {
+            removeOnCancelPolicy = true
+            setKeepAliveTime(MICROPHONE_SCHEDULER_IDLE_SECONDS, TimeUnit.SECONDS)
+            allowCoreThreadTimeOut(true)
+        }
+    }
     private val audioCaptures = ConcurrentHashMap<StreamKey, AudioPacketCapture>()
     private val pendingIapTunnels = ConcurrentHashMap<AirPlaySession, PendingIapTunnel>()
     private val videoSettingsChannels = ConcurrentHashMap<AirPlaySession, VideoSettingsChannel>()
@@ -144,7 +152,8 @@ class CarPlayMediaEngine(
         val key = outputKey(session, stream) ?: return null
         val streamKey = StreamKey(session, type)
         Log.i(TAG, "airplay screen key connectionID=${unsignedPlistDecimal(stream["streamConnectionID"])}")
-        val screen = ScreenStream(key, session::logDebug, session.localAddress)
+        val peer = session.remoteAddress ?: return null
+        val screen = ScreenStream(key, peer, session::logDebug, session.localAddress)
         sink.setVideoDiagnosticHandler(type) {
             if (type == STREAM_TYPE_MAIN_SCREEN && it == "first frame rendered") session.videoFrameRendered()
             session.logDebug("Video: $it")
@@ -290,8 +299,14 @@ class CarPlayMediaEngine(
 
         val capture = audioCaptureDirectory?.let { AudioPacketCapture(it, type) }
         if (capture != null) audioCaptures[streamKey] = capture
+        val clockProbe = RtpClockProbe()
         val audio = AudioStream(key, type, session::logDebug, session.localAddress)
         var localDataPort = 0
+        // Upstream #566: a voice message opens a speech stream without downlink audio, so the
+        // microphone also starts SILENT_START_MILLIS after SETUP; calls still wait for the downlink.
+        val microphoneStart = microphone?.let { config ->
+            MicrophoneStart { sink.onMicrophoneStarted(streamId, config.copy(relayPort = localDataPort)) }
+        }
         val (dataPort, controlPort) = audio.listen(
             object : AudioStream.Listener {
                 override fun onStarted(firstSample: Int) {
@@ -299,11 +314,19 @@ class CarPlayMediaEngine(
                     meta.firstSample = firstSample
                     meta.originNs = System.nanoTime()
                     sink.onAudioStarted(streamId, format, firstSample)
-                    microphone?.let { sink.onMicrophoneStarted(streamId, it.copy(relayPort = localDataPort)) }
+                    microphoneStart?.onDownlink()
                 }
 
-                override fun onRtp(rtp: ByteArray, sample: Int) =
+                override fun onRtp(rtp: ByteArray, sample: Int) {
+                    clockProbe.observe(sample, System.nanoTime())?.let { hz ->
+                        session.logDebug(
+                            "Audio: rtp clock type=$type audioType=$audioType " +
+                                "audioFormat=0x${java.lang.Long.toHexString((stream["audioFormat"] as? Number)?.toLong() ?: 0L)} " +
+                                "measuredHz=$hz microphoneClockHz=${microphone?.opusClockRate ?: "none"}",
+                        )
+                    }
                     sink.onAudioRtp(streamId, format, rtp, sample)
+                }
 
                 override fun onPacket(
                     wire: ByteArray,
@@ -318,6 +341,22 @@ class CarPlayMediaEngine(
         localDataPort = dataPort
         streams[streamKey] = audio
         audioMeta[streamKey] = meta
+        if (microphoneStart != null && MicrophoneStart.startsWithoutDownlink(audioType)) {
+            microphoneStart.scheduleSilentStart(microphoneScheduler, MicrophoneStart.SILENT_START_MILLIS) { startNow ->
+                // Atomic with TEARDOWN, which removes the pending entry before it stops the microphone.
+                var started = false
+                pendingMicrophone.computeIfPresent(streamKey) { _, pending ->
+                    if (pending === microphone) started = startNow()
+                    pending
+                }
+                if (started) {
+                    session.logDebug(
+                        "Audio: microphone started without downlink audio type=$type audioType=$audioType " +
+                            "afterMs=${MicrophoneStart.SILENT_START_MILLIS}",
+                    )
+                }
+            }
+        }
         return linkedMapOf(
             "type" to type,
             "dataPort" to dataPort,
@@ -442,8 +481,10 @@ class CarPlayMediaEngine(
             DATASTREAM_OUTPUT_KEY.toByteArray(Charsets.US_ASCII),
             32,
         )
+        val peer = session.remoteAddress ?: return null
         val tunnel = IapTunnel(
             readKey = key,
+            expectedPeer = peer,
             bindAddress = session.localAddress
                 ?: when (session.remoteAddress) {
                     is Inet6Address -> InetAddress.getByName("::")
@@ -506,7 +547,8 @@ class CarPlayMediaEngine(
         fun key(label: String) = AirPlayCrypto.hkdfSha512(
             shared, "DataStream-Salt$seed".toByteArray(Charsets.US_ASCII), label.toByteArray(Charsets.US_ASCII), 32,
         )
-        val channel = VideoSettingsChannel(key(DATASTREAM_OUTPUT_KEY), key(DATASTREAM_INPUT_KEY)) { session.logDebug(it) }
+        val peer = session.remoteAddress ?: return null
+        val channel = VideoSettingsChannel(key(DATASTREAM_OUTPUT_KEY), key(DATASTREAM_INPUT_KEY), peer) { session.logDebug(it) }
         val port = channel.listen(session.localAddress ?: InetAddress.getByName("::"))
         videoSettingsChannels.put(session, channel)?.close()
         session.logTrace("video settings stream listening port=$port")
@@ -538,9 +580,13 @@ class CarPlayMediaEngine(
         val buffered = bufferedStreams[session]
         if (active.isEmpty() && buffered == null) return null
         val streams = active.map { meta ->
+            // sampleTime counts on the stream's RTP clock. Counted at the 48 kHz Opus decode rate,
+            // a 16 kHz call stream ran 3x ahead of the audio that had arrived, 14.5 s ahead after
+            // 20 s, in a call whose far end the driver could not understand (upstream #473).
+            val clockRate = meta.format.rtpClockRate
             val entry = linkedMapOf<String, Any?>(
                 "type" to meta.type,
-                "sampleRate" to meta.format.sampleRate,
+                "sampleRate" to clockRate,
             )
             val firstSample = meta.firstSample
             val originNs = meta.originNs
@@ -551,7 +597,7 @@ class CarPlayMediaEngine(
                     (nowNs - originNs) / 1e9 - meta.playoutLatencyMs / 1000.0,
                 )
                 val firstUnsigned = firstSample.toLong() and 0xffff_ffffL
-                val sampleTime = (firstUnsigned + Math.round(elapsedSec * meta.format.sampleRate)) and
+                val sampleTime = (firstUnsigned + Math.round(elapsedSec * clockRate)) and
                     0xffff_ffffL
                 entry["streamConnectionID"] = unsignedPlistInteger(meta.connectionId ?: 0L)
                 entry["timestamp"] = session.syncedNtp()
@@ -675,7 +721,7 @@ class CarPlayMediaEngine(
         } else if (framesPerPacket > 0) {
             Math.round(framesPerPacket * 1000.0 / format.sampleRate).toInt().coerceIn(5, 60)
         } else {
-            20
+            MicrophoneConfig.pcmFrameMillis(format.sampleRate, format.channels)
         }
         val opusBitrate = when {
             formatBits and OPUS_48K != 0L -> 96_000
@@ -717,6 +763,7 @@ class CarPlayMediaEngine(
 
     private companion object {
         const val TAG = "xcertplay-usb"
+        private const val MICROPHONE_SCHEDULER_IDLE_SECONDS = 5L
         const val STREAM_TYPE_MAIN_SCREEN = 110
         const val STREAM_TYPE_ALT_SCREEN = 111
         /**

@@ -157,8 +157,13 @@ class CurrentScreenListenerTest {
         ScreenStream::class.java.getDeclaredField("listener").apply { isAccessible = true }
             .get(screen) as ScreenStream.Listener
 
+    // onScreen needs the control peer's address.
+    private fun connectedSocket(): Socket = java.net.ServerSocket(0, 1, java.net.InetAddress.getLoopbackAddress()).use { server ->
+        Socket(server.inetAddress, server.localPort)
+    }
+
     private fun testSession(): AirPlaySession = AirPlaySession(
-        socket = Socket(),
+        socket = connectedSocket(),
         config = AirPlayConfig(
             deviceName = "test",
             deviceId = "02:00:00:00:00:02",

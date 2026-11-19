@@ -17,6 +17,12 @@ object Ntb16Codec {
     private const val DATAGRAM_INDEX = 28
     private const val USB_PACKET_SIZE = 512
 
+    // Same bound as the bridge's frame queue, which fails the session past it (upstream #1128).
+    private const val MAX_ENTRIES_PER_BLOCK = 256
+
+    // A real block carries one NDP16. A longer chain, a looping nextNdp included, is dropped whole.
+    private const val MAX_NDPS_PER_BLOCK = 32
+
     /** Wraps one Ethernet frame in one NTB16 block, padding an exact 512-byte boundary. */
     fun build(frame: ByteArray, sequence: Int): ByteArray {
         require(frame.isNotEmpty()) { "frame must not be empty" }
@@ -106,7 +112,9 @@ object Ntb16Codec {
      * Extracts the Ethernet frames carried by one NTB16 block.
      *
      * Wire garbage returns an empty list instead of throwing; malformed entries are skipped where
-     * a bounds check fails. A step guard stops a malformed NDP pointer chain from cycling.
+     * a bounds check fails. A block whose NDP chain loops or runs past [MAX_NDPS_PER_BLOCK],
+     * that lists more than [MAX_ENTRIES_PER_BLOCK] entries, or that yields more datagram bytes
+     * than its own length (entries that overlap) is dropped whole.
      */
     fun parse(block: ByteArray): List<ByteArray> = parse(block, 0, block.size)
 
@@ -130,10 +138,10 @@ object Ntb16Codec {
         val end = offset + length
         if (length < NTH_LENGTH || u32(block, offset) != NTH16_SIG) return
 
+        if (!withinBounds(block, offset, length)) return
+
         var ndpOffset = offset + u16(block, offset + 10)
-        var hops = 0
-        val maxHops = maxOf(1, length / 4)
-        while (ndpOffset != 0 && hops < maxHops) {
+        while (ndpOffset != 0) {
             if (ndpOffset < offset || ndpOffset + 12 > end) break
             if (u32(block, ndpOffset) and 0x00ffffff != NDP16_SIG and 0x00ffffff) break
             val ndpLength = u16(block, ndpOffset + 4)
@@ -152,8 +160,45 @@ object Ntb16Codec {
                 entry += 4
             }
             ndpOffset = if (nextNdp == 0) 0 else offset + nextNdp
-            hops++
         }
+    }
+
+    /**
+     * Walks the block the same way [forEachDatagram] does, without delivering anything, and says
+     * whether it stays within the NDP, entry and byte bounds. Each NDP entry would otherwise be
+     * handed out before the bridge's queue bound applies, so overlapping entries or a looping
+     * nextNdp pointer turned one 64 KB block into far more work (upstream #1128).
+     */
+    internal fun withinBounds(block: ByteArray, offset: Int, length: Int): Boolean {
+        val end = offset + length
+        var ndpOffset = offset + u16(block, offset + 10)
+        var ndps = 0
+        var entries = 0
+        var totalBytes = 0
+        while (ndpOffset != 0) {
+            if (ndpOffset < offset || ndpOffset + 12 > end) break
+            if (++ndps > MAX_NDPS_PER_BLOCK) return false
+            if (u32(block, ndpOffset) and 0x00ffffff != NDP16_SIG and 0x00ffffff) break
+            val ndpLength = u16(block, ndpOffset + 4)
+            val nextNdp = u16(block, ndpOffset + 6)
+            var entry = ndpOffset + 8
+            val ndpEnd = minOf(ndpOffset + ndpLength, end)
+            while (entry + 4 <= ndpEnd) {
+                val datagramIndex = u16(block, entry)
+                val datagramLength = u16(block, entry + 2)
+                if (datagramIndex == 0 || datagramLength == 0) break
+                if (++entries > MAX_ENTRIES_PER_BLOCK) return false
+                val datagramStart = offset + datagramIndex
+                val datagramEnd = datagramStart + datagramLength
+                if (datagramStart >= offset && datagramStart <= end && datagramEnd <= end) {
+                    totalBytes += datagramLength
+                    if (totalBytes > length) return false
+                }
+                entry += 4
+            }
+            ndpOffset = if (nextNdp == 0) 0 else offset + nextNdp
+        }
+        return true
     }
 
     internal fun u16(source: ByteArray, offset: Int): Int = readU16(source, offset)
