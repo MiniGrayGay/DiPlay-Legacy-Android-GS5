@@ -30,14 +30,6 @@ class CarPlayMediaButtonTest {
     }
 
     @Test
-    fun dilink3CarPlayVoiceKeysOpenSiriOnlyThroughTheWheelKeyService() {
-        assertTrue(CarPlayMediaButton.opensSiriWhileCarPlay(327))
-        assertTrue(CarPlayMediaButton.opensSiriWhileCarPlay(328))
-        assertFalse(CarPlayMediaButton.opensSiriWhileCarPlay(304))
-        assertFalse(CarPlayMediaButton.opensSiri(327))
-    }
-
-    @Test
     fun theVoiceKeyOpensSiri() {
         // Recorded on DiLink 5.0: short press 304 (scan 290), long press 312 (scan 312).
         assertTrue(CarPlayMediaButton.opensSiri(304))

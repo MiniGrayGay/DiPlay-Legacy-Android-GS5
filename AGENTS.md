@@ -46,7 +46,7 @@ Ask which goal the driver has when they look for the setting. Use the first row 
 | Display | how CarPlay looks on the head-unit screen | day/night mode, picture, size, resolution, frame rate, dock, system bars, multi-window resolution |
 | Audio | what the driver hears | media and navigation streams, music buffer |
 | Navigation | location and turn-by-turn guidance | location to iPhone |
-| Vehicle | how CarPlay fits this car and its driver | driving side, wheel keys (Siri, joystick and map zoom), car button, gestures that conflict with the head unit |
+| Vehicle | how CarPlay fits this car and its driver | driving side, car button, gestures that conflict with the head unit |
 | Diagnostics | troubleshooting evidence | diagnostic reports |
 | Advanced | experimental, firmware-specific or risky behavior | dashboard map, split screen, screen rotation, side panel, HEVC video, audio focus, audio channel mapping, buffered music, vehicle data |
 | Overview | nothing new | see "Overview" below |
@@ -97,8 +97,10 @@ This fork targets a Guangqi (GAEI) head unit: Freescale i.MX6 SABRESD, Android 4
   - The DiLink 4 and DiLink 5.1 cluster layouts, the usage-access cluster theme monitor and the cluster safe-area editor. `ClusterMapPresentation` is now one full-screen `SurfaceView` on the first other presentation display.
   - BYD's hang-up broadcast receiver, the `com.byd.carsettings` detours and the BYD home packages.
   - The USB auto-confirm accessibility service and the "Set up USB and map permissions" dialog. SystemUI's manifest declares only `UsbDebuggingActivity`, so there is no USB permission dialog to confirm, and the system uid has USB access without one. Settings.apk has no accessibility screen, Usage Access does not exist on API 19, and drawing over other apps needs no grant before API 23.
+  - `WheelKeyService` and the vehicle "Wheel keys" card (dashboard-map zoom, the CarPlay joystick and the assignable Siri key). Those keys are a BYD Tang's, taken in an accessibility service before the window manager. This unit has no accessibility settings screen. Its call, hang-up and long-press voice keys are `GuangqiCarlifeKeys`.
+  - The Nissan Hangsheng Bluetooth stack (`com.hsae.bluetoothservice`, `HsaeBluetoothAdapter`, `HsaeRfcommStream`). This unit uses the Parrot module and an optional USB dongle. `HybridBluetoothAdapter` is the Android adapter plus that dongle.
   - The in-app updater. It checked upstream's GitHub releases, and the install step requires the downloaded APK's signature to match the installed one, which a platform-signed build never does. Car builds come from CI.
-  Still in the tree, because the code is shared and not BYD-only: the BYD key codes in `CarPlayMediaButton` and `CarPlayCallKeyPolicy`, the wheel-key service's default keys (a BYD Tang's wheel; every key can be reassigned), the ECARX car-hotspot path, and the upstream documents under `docs/`, which still describe BYD.
+  Still in the tree, because the code is shared and not BYD-only: the BYD key codes in `CarPlayMediaButton` and `CarPlayCallKeyPolicy`, the ECARX car-hotspot path, and the upstream documents under `docs/`, which still describe BYD.
 - The ROM strips the USB and VPN permission activities, so an ordinary app never gets USB access.
   Every build for this unit MUST be platform-signed AND declare `android:sharedUserId="android.uid.system"` in `mobile/src/main/AndroidManifest.xml`.
   Platform certificate SHA-256: `7fbae817b7db24642d8959c347b561c003c6cfde2cb10f909c932f21a4d6d804` (`android@freescale.com`).

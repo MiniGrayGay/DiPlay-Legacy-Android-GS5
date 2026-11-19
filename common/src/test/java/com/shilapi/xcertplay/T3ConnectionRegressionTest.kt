@@ -109,13 +109,12 @@ class T3ConnectionRegressionTest {
         rfcomm.close(); layer.close()
     }
 
-    @Test fun pluggedInDongleRequiresItsOwnServiceAndNeverFallsBackToGoc() {
+    @Test fun pluggedInDongleRequiresItsOwnServiceAndNeverFallsBackToTheBuiltInAdapter() {
         val dongle = mock(UsbBtBluetoothAdapter::class.java)
         val native = mock(AndroidBluetoothAdapter::class.java)
-        val hsae = mock(HsaeBluetoothAdapter::class.java)
         `when`(dongle.isSupported()).thenReturn(true)
         `when`(native.isEnabled()).thenReturn(true)
-        val hybrid = HybridBluetoothAdapter(hsae, native, dongle)
+        val hybrid = HybridBluetoothAdapter(native, dongle)
         assertFalse(hybrid.isEnabled())
         `when`(dongle.isEnabled()).thenReturn(true)
         `when`(dongle.openRfcommStream("peer", "uuid")).thenAnswer { throw IOException("SDP rejected") }
