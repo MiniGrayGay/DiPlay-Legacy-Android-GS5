@@ -290,6 +290,7 @@ class CarPlayController(
     @Volatile private var hotspot: WirelessHotspotManager? = null
     @Volatile private var bonjour: CarPlayBonjour? = null
     private val wirelessResourceLock = Any()
+    private val wirelessPerformanceLock = com.shilapi.xcertplay.network.WirelessPerformanceLock(appContext, ::debugLog)
     private val wirelessFailureReported = AtomicBoolean(false)
     @Volatile private var firstTcpWatchdog: FirstTcpWatchdog? = null
     // Issue #293 (upstream port): the address family advertised to the phone, its
@@ -1311,6 +1312,7 @@ class CarPlayController(
     private fun startWireless(expectedGeneration: Int? = null) {
         val generation = synchronized(wirelessResourceLock) {
             if (closed || expectedGeneration != null && expectedGeneration != wirelessGeneration.get()) return
+            wirelessPerformanceLock.acquire()
             wirelessFailureReported.set(false)
             diagnosticRun.incrementAndGet()
             availabilityPollGeneration.incrementAndGet()
@@ -1541,6 +1543,7 @@ class CarPlayController(
                     "band=${hotspotInfo.bandLabel} channel=${hotspotInfo.channel} " +
                     "frequency=${hotspotInfo.frequencyMHz?.toString() ?: "unknown"}MHz",
             )
+            wirelessPerformanceLock.disableP2pPowerSave(hotspotInfo.interfaceName)
             var startedBonjour: CarPlayBonjour? = null
             val receiveDiagnostics = WirelessReceiveDiagnostics(hotspotInfo.interfaceName)
             val diagnostics = WirelessStartupDiagnostics(
@@ -3825,6 +3828,7 @@ class CarPlayController(
     private fun closeWirelessStack(service: CarPlayVpnService? = vpnService, generation: Int? = null) =
         synchronized(wirelessResourceLock) {
             if (generation != null && generation != wirelessGeneration.get()) return@synchronized
+            wirelessPerformanceLock.close()
             val owner = firstTcpWatchdog?.listener
             firstTcpWatchdog?.terminate()
             val diagnostics = wirelessDiagnostics

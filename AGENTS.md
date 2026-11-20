@@ -84,42 +84,62 @@ Do not add a new setting to Overview. Add it to its category. Then promote it to
 
 ## Guangqi head unit (GAEI AVNTG2A10)
 
-This fork targets a Guangqi (GAEI) head unit: Freescale i.MX6 SABRESD, Android 4.4.2 (API 19), kernel 3.0.35.
+`main` targets one head unit: Guangqi GS5, GAEI AVNTG2A10, Freescale i.MX6 SABRESD, Android 4.4.2 (API 19), kernel 3.0.35. The app version line is 0.4.x. The install id is `com.shihab.diplay`; the code package is `com.shilapi.xcertplay`. Ship `armeabi-v7a` only (`mobile/build.gradle.kts`).
 
-- Upstream's BYD outputs are removed from this fork: HUD and cluster navigation, dashboard song and call card, battery, BYD wheel speed and gear, vehicle-data probe, DiLink 3 output.
-  The system image has no `android.hardware.bydauto` classes and no BYD packages, so none of them could run.
-  What is left of them was renamed: `NavigationOutputs` (upstream `BydNavigationOutputs`) holds the turn overlay, the call state for the wheel's call keys and the one-second cluster stream tick. Do not remove the tick: the session relies on it until the iPhone has reported the cluster URL.
-  `WheelIntegrationSettings` (upstream `BydOutputSettings`) keeps two settings in upstream's preference file `diplay_byd_outputs`: wheel speed to the iPhone and the wheel's call keys.
-  `RouteGuidanceState`, `RouteGuidance`, `AppleManeuver`, `GaodeManeuverCodes` and `AmapTurnFrame` are upstream's `BydHudRouteState`, `BydHudGuidance`, `BydAppleManeuver`, `BydManeuverCodes` and `BydClusterFrame`.
-- Upstream's BYD adaptation layer is removed as well. Do not bring any of it back from upstream:
-  - `LocalAdb` (a shell on the head unit's own adbd at 127.0.0.1:5555) and everything that ran through it: the ADB cluster activity, permission grants, the car hotspot fallback, the hotspot auto-join repair helper, the Wi-Fi scan pause, the wheel-key service's self-enable and the system log collection in Bluetooth diagnostics.
-    This unit's adbd has no `service.adb.tcp.port`, so it never listens on TCP, and the app runs as `android.uid.system`, so it needs no grant from a shell.
-  - The DiLink 4 and DiLink 5.1 cluster layouts, the usage-access cluster theme monitor and the cluster safe-area editor. `ClusterMapPresentation` is now one full-screen `SurfaceView` on the first other presentation display.
-  - BYD's hang-up broadcast receiver, the `com.byd.carsettings` detours and the BYD home packages.
-  - The USB auto-confirm accessibility service and the "Set up USB and map permissions" dialog. SystemUI's manifest declares only `UsbDebuggingActivity`, so there is no USB permission dialog to confirm, and the system uid has USB access without one. Settings.apk has no accessibility screen, Usage Access does not exist on API 19, and drawing over other apps needs no grant before API 23.
-  - `WheelKeyService` and the vehicle "Wheel keys" card (dashboard-map zoom, the CarPlay joystick and the assignable Siri key). Those keys are a BYD Tang's, taken in an accessibility service before the window manager. This unit has no accessibility settings screen. Its call, hang-up and long-press voice keys are `GuangqiCarlifeKeys`.
-  - The Nissan Hangsheng Bluetooth stack (`com.hsae.bluetoothservice`, `HsaeBluetoothAdapter`, `HsaeRfcommStream`). This unit uses the Parrot module and an optional USB dongle. `HybridBluetoothAdapter` is the Android adapter plus that dongle.
-  - The in-app updater. It checked upstream's GitHub releases, and the install step requires the downloaded APK's signature to match the installed one, which a platform-signed build never does. Car builds come from CI.
-  Still in the tree, because the code is shared and not BYD-only: the BYD key codes in `CarPlayMediaButton` and `CarPlayCallKeyPolicy`, the ECARX car-hotspot path, and the upstream documents under `docs/`, which still describe BYD.
-- The ROM strips the USB and VPN permission activities, so an ordinary app never gets USB access.
-  Every build for this unit MUST be platform-signed AND declare `android:sharedUserId="android.uid.system"` in `mobile/src/main/AndroidManifest.xml`.
-  Platform certificate SHA-256: `7fbae817b7db24642d8959c347b561c003c6cfde2cb10f909c932f21a4d6d804` (`android@freescale.com`).
-  A branch cut from upstream `main` must carry commit `256c41d` ("广汽: 使用平台签名并以 system uid 运行") before it is built for the car.
-- The kernel TUN and the system VPN are unusable on 3.0.35, so wired CarPlay uses the userspace lwIP path (`lwip_ncm_relay.c`).
-- The instrument cluster is the PRESENTATION display (display 1, 1280×720). Show content there with a plain `Presentation` and never call `setType()`: `setType(2002)` puts the window on the main screen.
-  Until a navigation source reports ready, the cluster MCU shows its own "导航功能未启动" placeholder and does not composite our layer.
-  Report ready the AMap way: broadcast `AUTONAVI_STANDARD_BROADCAST_SEND` to package `gaei.cluster.service` with `KEY_TYPE=10019` and `EXTRA_STATE=1`, then `EXTRA_STATE=3`. Tested on the car: this does not launch AMap and the cluster then shows our layer.
-  Send `EXTRA_STATE=2` when the cluster content stops.
-  Do not use the Tencent path (`WECARNAVIAUTO_STANDARD_BROADCAST_SEND`, `KEY_TYPE=2000`, `TYPE`): `gaei.cluster.service` launches `com.tencent.wecarnavi`, which must be force-stopped before our window can take the cluster.
-- The VPU decodes about 37 fps of 720p High in total. Never run a second decoder for the same stream: show the CarPlay cluster stream (type 111) on the cluster, or draw one decoded frame to both screens with GL.
-- The cluster path shows only 4-5 fps continuously (a 30 fps feed bursts to 30 fps for 1-2 s about every 15 s, then falls back), and the stock AMap and Tencent clusters push 4-5 fps. The cluster stream defaults to 4 fps; frames beyond that are decoded and never shown.
-- Cluster declaration overrides for testing (`debug.diplay.cl.mm`, `debug.diplay.cl.url`, `debug.diplay.cl.safe`) are set with root `setprop` and apply at the next CarPlay connection; see `GuangqiCluster.Tuning`.
-- Build car APKs in CI, not locally: `.github/workflows/guangqi-build.yml` takes the platform keystore and the MFi certificate and identity from repository secrets, and uploads the signed release APK as an artifact.
-  Unit test failures do not block that build. Neither the platform key nor the MFi assets are checked into this repository.
-- Changing the app between a normal uid and `android.uid.system` cannot be installed as an update. The installed DiPlay must be uninstalled first, which clears its data.
-- The GNSS is the u-blox on `/dev/ttyACM17` behind the system GPS HAL (`hw/gps.SABRESD.so`). Read it through LocationManager's `gps` provider and `addNmeaListener`, as the stock AMap does. `/dev/athrnmea` (Atheros, `ingsvcd`) is not the receiver in use.
-- Vehicle speed and gear come from `ServiceManager.getService("vehicle")`, `getDefinedPacket` (transact 7). The reply is `[noException][hasPacket][typeId]` followed by the fields in DEX alphabetical order; see `/root/carlife/Trumpchi-GS5/docs/can_packet_definitions.txt`.
-- The wheel's call (137), hang-up (138) and long-press voice (57) keys never reach apps. `GuangqiCarlifeKeys` takes them the stock CarLife way: register with the `keyback` service under `com.thundersoft.connectivity.AudioRsManager` and broadcast the CarLife connected state. It force-stops the stock CarLife first, because the service keeps only one listener under that name.
-- Remote access to the unit goes through the car relay at `https://avnt.xyun.host` (`/status`, `/exec`, `/file`, `/app`).
-  Send `Authorization: Bearer $CAR_OPERATOR_TOKEN` and never commit the token. Do not connect to port 55666 with the device token: a new hello disconnects the car.
-  The unit's toolbox has no `head` or `tail`. DiPlay's log is `/data/data/com.shihab.diplay/files/logs/diplay.log`.
+### Platform identity
+
+The ROM has no USB or VPN permission activity, so an ordinary app never gets USB access. Every car build MUST be platform-signed and MUST keep `android:sharedUserId="android.uid.system"` in `mobile/src/main/AndroidManifest.xml`. Android 4.4 needs v1 signing; v2 is also enabled. Platform certificate SHA-256: `7fbae817b7db24642d8959c347b561c003c6cfde2cb10f909c932f21a4d6d804` (`android@freescale.com`). On this line that change is commit `14bea79`. Commit `256c41d` is the same message on the old `guangqi` branch and is not an ancestor of `main`.
+
+The platform keystore and the MFi certificate are not in this repository. `resolvePlatformKeystore()` in `mobile/build.gradle.kts` uses `ANDROID_KEYSTORE_PATH`, then `platform.jks` / `release-signing.jks` / `release-signing.keystore` in the repo root, then `../../signing/platform.p12` and `../../apps/EngineerMode/platform.jks` in the parent carlife tree. MFi assets come from `DIPLAY_AUTH_ASSETS_DIR`, `.private/runtime-assets`, or `auth-assets`. Debug and release both use that platform signing config. The debug build adds `applicationIdSuffix = ".hudtest"`, so it installs as `com.shihab.diplay.hudtest` and does not update the release system app.
+
+`.github/workflows/android.yml` runs the check command on a push to `main`, on every pull request, and on manual dispatch. It does not provision the keystore or the MFi assets. `.github/workflows/guangqi-build.yml` signs a release APK on a push to `guangqi`, `guangqi-vpn-fix`, or `guangqi-lwip-fix`, and when someone dispatches it by hand on the chosen ref. A push to `main` does not start it. `guangqi` and `guangqi-vpn-fix` have diverged from `main`; `guangqi-lwip-fix` is not a branch in this clone. Publishing a GitHub Release runs `verify-release-apk-version.yml` and `verify-release-signature.yml`. Those check the uploaded APK; they do not build it.
+
+Switching `sharedUserId`, or installing the release id over the `.hudtest` id, is not an update. Uninstall first. That clears the app's data.
+
+### Wired link
+
+Kernel TUN and the system VPN are unusable on 3.0.35. Wired CarPlay uses the userspace lwIP relay in `shared/src/main/jni/lwip_ncm_relay.c`.
+
+### Wireless link
+
+A fresh install uses Wi-Fi Direct (`WirelessHotspotMode.WIFI_P2P`). That is the path `AirPlayPersistence.loadWirelessHotspotMode` treats as verified on this unit. API 19 starts it with `LegacyWifiP2pGroupManager`. `WifiP2pGroupManager` requires API 28 and is not this unit's path. The radio is an AR6003, 2.4 GHz only; `WifiP2pChannels.supportedChannels` is channels 1–11, and a 5 GHz choice falls back to Auto.
+
+`HOSTAPD` is the root hotspot opt-in. With that opt-in off, a stored `HOSTAPD` value resolves back to `WIFI_P2P`. When legacy Wi-Fi Direct fails with `createGroup code=1`, leave it and use Existing Wi-Fi / Same LAN or a cable. The ECARX car-hotspot helpers are still in the tree for other units; they are not this unit's default.
+
+### Bluetooth
+
+The built-in module is Parrot. While a CarPlay session is up, `GuangqiAutoConnect` turns off the car's global auto-connect (`BT_CANSYNC` in the vendor backup, `BluetoothAdapter.setBTAutoConn`) and disconnects the phone the way the car's Bluetooth page does (`disconnectDevice`). The radio stays on. The previous switch value is restored when the session ends, including after this process dies, so a crash must not leave the driver's switch off.
+
+A plugged-in USB dongle replaces that module for the data channel. `usbbt/` is the userspace stack (Realtek firmware, HCI, SDP, RFCOMM). `HybridBluetoothAdapter` prefers the dongle whenever it is present: the iPhone pairs to the dongle's BD_ADDR, and the built-in adapter cannot resume that RFCOMM session. Do not bring back the Nissan Hangsheng stack (`com.hsae.bluetoothservice`, `HsaeBluetoothAdapter`, `HsaeRfcommStream`).
+
+### Instrument cluster
+
+The cluster is the only other PRESENTATION display (display 1, 1280×720). Show it with a plain `Presentation`. Do not call `setType()` with `TYPE_PHONE` (2002) or `TYPE_SYSTEM_ALERT` (2003): that window lands on the main screen. `ClusterMapPresentation` keeps the Guangqi presentation across Home so the cluster layer stays up.
+
+Until a navigation source reports ready, the cluster MCU draws its own "导航功能未启动" placeholder and does not composite our layer. Report ready the AMap way, from `GuangqiCluster`: broadcast `AUTONAVI_STANDARD_BROADCAST_SEND` to `gaei.cluster.service` with `KEY_TYPE=10019` and `EXTRA_STATE=1`, then `EXTRA_STATE=3`. Tested on the car: this does not launch AMap, and the cluster then shows our layer. Send `EXTRA_STATE=2` when the layer stops. Do not use the Tencent broadcast (`WECARNAVIAUTO_STANDARD_BROADCAST_SEND`, `KEY_TYPE=2000`): the service launches `com.tencent.wecarnavi`, which then owns the cluster.
+
+The VPU decodes about 37 fps of 720p in total, and SurfaceFlinger alternates the main and cluster layers. On this unit the cluster stream defaults to 4 fps at 100% of 1280×720 (`GuangqiCluster.CLUSTER_FPS`, `CLUSTER_SCALE_PERCENT`). The safe area measured on the car is 964×550 inside that layer: left 158, top 82, right 158, bottom 88. `CarPlayClusterDisplay`'s 30 fps and BYD-panel safe area are the generic defaults and are not used when `gaei.cluster.service` is installed.
+
+Test overrides `debug.diplay.cl.mm`, `debug.diplay.cl.url`, and `debug.diplay.cl.safe` are root `setprop`s and apply at the next CarPlay connection (`GuangqiCluster.Tuning`).
+
+### Location, speed, and wheel keys
+
+Read GNSS through `GuangqiNmeaLocationProvider`: LocationManager's `gps` provider and the HAL's NMEA. The receiver is the u-blox on `/dev/ttyACM17` behind `hw/gps.SABRESD.so`. `/dev/athrnmea` (Atheros, `ingsvcd`) is not the receiver in use.
+
+Speed and gear come from `GuangqiVehicleSpeedSource`: `ServiceManager.getService("vehicle")`, `getDefinedPacket` (transact 7). The reply is `[noException][hasPacket][typeId]` and then the fields in DEX alphabetical order. Type 5 is speed (`m_nSpeed`, km/h). Type 10 is gear (`m_byteGear`: 11 S, 12 D, 13 P, 14 R, 15 N). The packet layout lives in the parent carlife tree at `Trumpchi-GS5/docs/can_packet_definitions.txt`, not in this repository.
+
+The wheel's call (137), hang-up (138), and long-press voice (57) keys never reach an app. `GuangqiCarlifeKeys` takes them the way stock CarLife does: register with the `keyback` service under `com.thundersoft.connectivity.AudioRsManager`, and broadcast the CarLife connected state. It force-stops stock CarLife first, because that service keeps one listener under that name. Taking the keys is opt-in (`WheelIntegrationSettings`). `NavigationOutputs` still owns the turn overlay, the call state those keys read, and the one-second cluster stream tick. Keep the tick until the iPhone has reported the cluster URL.
+
+### Left in the tree on purpose
+
+These are shared leftovers, not this unit's path. Do not wire them back up for the GS5:
+
+- BYD HUD, DiLink cluster layouts, `LocalAdb`, the USB-permission accessibility service, and `WheelKeyService`. This image has no `android.hardware.bydauto`, no accessibility settings, and adbd does not listen on TCP.
+- The in-app updater. A platform-signed APK will not match an upstream release signature.
+- Upstream notes under `docs/` that still describe BYD. The GS5 behavior is `GuangqiCluster`, `GuangqiAutoConnect`, `GuangqiCarlifeKeys`, `GuangqiNmeaLocationProvider`, and `GuangqiVehicleSpeedSource`.
+
+### On the car
+
+Remote access goes through `https://avnt.xyun.host` (`/status`, `/exec`, `/file`, `/app`). Send `Authorization: Bearer $CAR_OPERATOR_TOKEN` and never commit the token. Do not open port 55666 with the device token: a new hello disconnects the car. The toolbox has no `head` or `tail`.
+
+A release install logs to `/data/data/com.shihab.diplay/files/logs/diplay.log`. A debug (`.hudtest`) install logs under `/data/data/com.shihab.diplay.hudtest/files/logs/diplay.log`.
