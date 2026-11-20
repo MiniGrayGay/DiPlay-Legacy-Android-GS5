@@ -3,7 +3,7 @@ package com.shilapi.xcertplay.compat
 import android.os.SystemClock
 
 /**
- * The first minute after the head unit boots. The Guangqi unit shows its radio page as boot
+ * The first half minute after the head unit boots. The Guangqi unit shows its radio page as boot
  * completes, and it was reset by its hardware watchdog a moment later on some boots: a black
  * screen, then the boot logo. At that moment the system starts DiPlay for the USB Bluetooth
  * dongle it enumerated during boot, and DiPlay opened the dongle through usbfs at once, while
@@ -12,7 +12,7 @@ import android.os.SystemClock
  */
 object BootSettle {
     /** Uptime before which DiPlay does not start the dongle by itself. */
-    const val SETTLE_MILLIS = 60_000L
+    const val SETTLE_MILLIS = 30_000L
 
     /** How long to wait at [uptimeMillis] since boot; 0 once the window has passed. */
     fun remainingMillis(uptimeMillis: Long = SystemClock.elapsedRealtime()): Long =
