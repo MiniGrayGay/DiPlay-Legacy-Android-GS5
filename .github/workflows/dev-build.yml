@@ -1,8 +1,11 @@
-name: Guangqi Release Build
+name: Dev car build
+
+# Platform-signed car APK for the dev branch. offline-mfi and the platform
+# keystore come from repository secrets; nothing here is checked in.
 
 on:
   push:
-    branches: [guangqi, guangqi-vpn-fix, guangqi-lwip-fix]
+    branches: [dev]
   workflow_dispatch:
 
 permissions:
@@ -47,10 +50,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/release-signing.jks"
-          test -s "$RUNNER_TEMP/release-signing.jks"
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/platform.p12"
+          test -s "$RUNNER_TEMP/platform.p12"
 
-      # Test failures are reported but never block the APK: the car test build is still produced.
+      # Test failures are reported but never block the APK.
       - name: Run unit tests
         id: tests
         continue-on-error: true
@@ -63,29 +66,31 @@ jobs:
         if: steps.tests.outcome == 'failure'
         uses: actions/upload-artifact@v4
         with:
-          name: unit-test-reports-${{ github.ref_name }}-${{ github.sha }}
+          name: unit-test-reports-${{ github.sha }}
           path: |
             */build/reports/tests/testDebugUnitTest
             */build/test-results/testDebugUnitTest
           retention-days: 14
 
-      - name: Build release APK
+      - name: Build standalone release APK
         shell: bash
         env:
           DIPLAY_AUTH_ASSETS_DIR: ${{ runner.temp }}/auth
-          ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/release-signing.jks
+          ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/platform.p12
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          ./gradlew :mobile:assembleRelease
+          ./gradlew :mobile:assembleStandaloneRelease
 
       - name: Compute SHA-256
         id: sha
         shell: bash
         run: |
+          set -euo pipefail
           APK=$(find mobile/build/outputs/apk/release -name '*.apk' -not -name '*unsigned*' | head -1)
+          test -n "$APK"
           echo "apk_path=$APK" >> "$GITHUB_OUTPUT"
           echo "apk_name=$(basename "$APK")" >> "$GITHUB_OUTPUT"
           sha256sum "$APK" | awk '{print $1}' > "${APK}.sha256"
@@ -95,7 +100,7 @@ jobs:
       - name: Upload release APK
         uses: actions/upload-artifact@v4
         with:
-          name: guangqi-release-${{ github.ref_name }}-${{ github.sha }}
+          name: dev-release-${{ github.sha }}
           path: |
             ${{ steps.sha.outputs.apk_path }}
             ${{ steps.sha.outputs.sha256_path }}
@@ -104,11 +109,11 @@ jobs:
       - name: Build summary
         shell: bash
         run: |
-          echo "### Guangqi Release Build" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Dev car build" >> "$GITHUB_STEP_SUMMARY"
           if [[ "${{ steps.tests.outcome }}" == "success" ]]; then
             echo "- **Unit tests:** passed" >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "- **Unit tests:** ⚠️ ${{ steps.tests.outcome }} (APK built anyway; see unit-test-reports artifact)" >> "$GITHUB_STEP_SUMMARY"
+            echo "- **Unit tests:** ${{ steps.tests.outcome }} (APK built anyway; see unit-test-reports artifact)" >> "$GITHUB_STEP_SUMMARY"
           fi
           echo "- **Branch:** \`${{ github.ref_name }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- **APK:** \`${{ steps.sha.outputs.apk_name }}\`" >> "$GITHUB_STEP_SUMMARY"
