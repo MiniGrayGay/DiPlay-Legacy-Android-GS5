@@ -7,7 +7,9 @@ import android.hardware.usb.UsbManager
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import com.shilapi.xcertplay.AirPlayPersistence
 import com.shilapi.xcertplay.bluetooth.CarPlayBluetoothManager
+import com.shilapi.xcertplay.compat.BootSettle
 
 /**
  * Trampoline Activity registered for USB_DEVICE_ATTACHED with usb_bt_device_filter.xml.
@@ -28,10 +30,15 @@ class UsbBtDeviceAttachedActivity : Activity() {
                 intent.getParcelableExtra(UsbManager.EXTRA_DEVICE) as? UsbDevice
             }
             Log.i(TAG, "USB Bluetooth dongle attached: device=$device")
-            if (device != null) {
+            // The system also sends this for a dongle it found while booting. Starting it
+            // is the "start USB Bluetooth automatically" setting, and it waits for the boot
+            // to settle (see BootSettle).
+            if (device != null && AirPlayPersistence.loadUsbBtAutoStart(this)) {
+                val app = applicationContext
                 Thread({
                     runCatching {
-                        CarPlayBluetoothManager.get(applicationContext).usbDongle?.enable()
+                        BootSettle.await { Log.i(TAG, it) }
+                        CarPlayBluetoothManager.get(app).usbDongle?.enable()
                     }
                 }, "diplay-usbbt-attached").apply {
                     isDaemon = true

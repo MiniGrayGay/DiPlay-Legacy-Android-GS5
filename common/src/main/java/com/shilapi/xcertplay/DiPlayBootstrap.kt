@@ -3,6 +3,7 @@ package com.shilapi.xcertplay
 import android.content.Context
 import android.os.Build
 import android.util.Log
+import com.shilapi.xcertplay.compat.BootSettle
 import com.shilapi.xcertplay.compat.realSdkInt
 import com.shilapi.xcertplay.airplay.AirPlayIdentity
 import com.shilapi.xcertplay.mfi.LocalMfiAuthenticationClient
@@ -15,6 +16,7 @@ internal object DiPlayBootstrap {
     @Volatile private var ready = false
     @Volatile private var usbBtRestoreTried = false
     @Volatile private var lastRestoreAttemptMillis = 0L
+    private val usbBtRestorePending = java.util.concurrent.atomic.AtomicBoolean(false)
 
     /**
      * Issue #281 & #321: restore the USB Bluetooth dongle on app launch or resume.
@@ -31,8 +33,13 @@ internal object DiPlayBootstrap {
         usbBtRestoreTried = true
         if (!AirPlayPersistence.loadUsbBtAutoStart(context)) return
         val appContext = context.applicationContext
+        // One waiting thread at a time: resumes during the boot window would otherwise pile up.
+        if (!usbBtRestorePending.compareAndSet(false, true)) return
         Thread({
             runCatching {
+                // Not while the head unit is still booting; see BootSettle.
+                BootSettle.await { Log.i(TAG, "USB Bluetooth auto-restore: $it") }
+                if (CarPlayBackgroundSession.hasSession()) return@runCatching
                 val dongle = com.shilapi.xcertplay.bluetooth.CarPlayBluetoothManager.get(appContext).usbDongle
                     ?: return@runCatching
                 val status = dongle.getStatus()
@@ -40,6 +47,7 @@ internal object DiPlayBootstrap {
                     dongle.enable()
                 }
             }
+            usbBtRestorePending.set(false)
         }, "diplay-usbbt-restore").apply { isDaemon = true; start() }
     }
 
