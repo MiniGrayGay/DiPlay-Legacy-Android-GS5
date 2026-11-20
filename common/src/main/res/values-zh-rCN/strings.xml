@@ -594,4 +594,6 @@
     <string name="quick_more_settings">更多设置</string>
     <string name="wireless_mode_recommended">推荐 · 已在本车验证</string>
     <string name="wireless_mode_not_recommended">其他方式 · 未在本车验证，不推荐</string>
+    <string name="boot_settle_title">设备正在初始化中，请稍后</string>
+    <string name="boot_settle_seconds">%1$d 秒</string>
 </resources>

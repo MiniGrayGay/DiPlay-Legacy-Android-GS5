@@ -563,4 +563,6 @@
     <string name="quick_more_settings">Другие настройки</string>
     <string name="wireless_mode_recommended">Рекомендуется · проверено на этом автомобиле</string>
     <string name="wireless_mode_not_recommended">Другие способы · не проверены на этом автомобиле, не рекомендуются</string>
+    <string name="boot_settle_title">Устройство инициализируется, подождите</string>
+    <string name="boot_settle_seconds">%1$d с</string>
 </resources>

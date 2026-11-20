@@ -11,6 +11,7 @@ import android.view.Window
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import com.shilapi.xcertplay.compat.BluetoothCompat
+import com.shilapi.xcertplay.compat.BootSettle
 import android.bluetooth.BluetoothProfile
 import android.content.Context
 import android.content.Intent
@@ -149,6 +150,11 @@ class DiPlayActivity : ComponentActivity() {
     private var setupError: String? = null
     private var status: TextView? = null
     private var connectButton: Button? = null
+    /** Countdown on the wireless panel while the head unit settles after boot; see [BootSettle]. */
+    private var bootSettleCountdown: TextView? = null
+    /** The compact layout shows the whole notice in one line instead of the cover. */
+    private var bootSettleInline = false
+    private val bootSettleAutoConnect = Runnable { connect(DiPlayPreferences.autoConnectWireless(this)) }
     private var disconnectButton: Button? = null
     private var lastRunning: Boolean? = null
     private var statusDot: View? = null
@@ -183,6 +189,7 @@ class DiPlayActivity : ComponentActivity() {
     }
     private val tick = object : Runnable {
         override fun run() {
+            updateBootSettle()
             // Automatic follows day and night, which can change while a page is open.
             if (renderedDark != null && AppTheme.isDark(this@DiPlayActivity) != renderedDark) render()
             refreshStatus()
@@ -388,7 +395,9 @@ class DiPlayActivity : ComponentActivity() {
             startCarHotspotOnLaunch()
             if (setupError == null && !CarPlayBackgroundSession.hasSession() &&
                 DiPlayPreferences.autoConnect(this) && intent.getStringExtra("page") == null) {
-                handler.post { connect(DiPlayPreferences.autoConnectWireless(this)) }
+                // Wireless waits until the head unit has settled after boot (see BootSettle).
+                val wait = if (DiPlayPreferences.autoConnectWireless(this)) BootSettle.remainingMillis() else 0L
+                handler.postDelayed(bootSettleAutoConnect, wait)
             }
         }
     }
@@ -436,6 +445,7 @@ class DiPlayActivity : ComponentActivity() {
         val restoreRailFocus = keepRailPosition &&
             (pendingRailFocus || settingsRailScroll?.hasFocus() == true)
         settingsRailScroll = null
+        bootSettleCountdown = null
         status = null; statusDot = null; connectButton = null; disconnectButton = null; lastRunning = null; carButtonCard = null
         usbButton = null; wiredDisconnectButton = null; lastTransport = null
         reconnectBar = null
@@ -621,6 +631,11 @@ class DiPlayActivity : ComponentActivity() {
                 else connect(true)
             }
             card.addView(connectButton, matchButton(0, 44))
+            if (BootSettle.remainingMillis() > 0L) {
+                bootSettleInline = true
+                bootSettleCountdown = label(bootSettleText(), 14, WARNING).apply { setPadding(0, dp(6), 0, 0) }
+                card.addView(bootSettleCountdown)
+            }
 
             val buttonRow = row().apply {
                 setPadding(0, dp(8), 0, 0)
@@ -680,6 +695,7 @@ class DiPlayActivity : ComponentActivity() {
         }
         disconnectButton = disconnectButton()
         wireless.addView(actionRow(disconnectButton!!, connectButton!!), LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(12) })
+        val wirelessArea = bootSettleMask(wireless)
 
         val wired = homePanel(R.drawable.ic_dp_usb, getString(R.string.home_wired_carplay))
         wired.addView(label(getString(R.string.plug_your_iphone_into_a_usb_data_port_allow_carplay_when_y), 15, MUTED))
@@ -697,12 +713,12 @@ class DiPlayActivity : ComponentActivity() {
             // scroll view fills its viewport, so the weights share out the height that is left.
             body.addView(row().apply {
                 isBaselineAligned = false
-                addView(wireless, LinearLayout.LayoutParams(0, -1, 1f))
+                addView(wirelessArea, LinearLayout.LayoutParams(0, -1, 1f))
                 addView(space(24), LinearLayout.LayoutParams(dp(24), 1))
                 addView(wired, LinearLayout.LayoutParams(0, -1, 1f))
             }, LinearLayout.LayoutParams(-1, 0, 1f))
         } else {
-            body.addView(wireless)
+            body.addView(wirelessArea)
             body.addView(space(24))
             body.addView(wired)
         }
@@ -2803,6 +2819,10 @@ class DiPlayActivity : ComponentActivity() {
     }
 
     private fun connect(wireless: Boolean) {
+        if (wireless && BootSettle.remainingMillis() > 0L) {
+            toast(bootSettleText())
+            return
+        }
         startupHotspotCancelled = true
         requestedTransport = if (wireless) CarPlayTransport.WIRELESS else CarPlayTransport.WIRED
         if (wireless && pendingCarHotspotSetup) { toast(getString(R.string.save_your_hotspot_details_in_connection_setup_first)); page = "connection"; render(); return }
@@ -3676,6 +3696,42 @@ class DiPlayActivity : ComponentActivity() {
             ?: if (AirPlayPersistence.loadWirelessEnabled(this)) CarPlayTransport.WIRELESS else CarPlayTransport.WIRED
 
     /** One way to connect on the start screen: an icon, its name in the accent color, then its content. */
+    /**
+     * Covers the wireless panel while the head unit settles after boot. Wireless CarPlay starts
+     * the USB Bluetooth dongle and Wi-Fi Direct, which must wait out [BootSettle]. The cover takes
+     * every touch and counts down; [updateBootSettle] removes it when the time is up.
+     */
+    private fun bootSettleMask(panel: View): View {
+        if (BootSettle.remainingMillis() <= 0L) return panel
+        return FrameLayout(this).apply {
+            addView(panel, FrameLayout.LayoutParams(-1, -1))
+            addView(column().apply {
+                gravity = Gravity.CENTER
+                background = rounded((BG and 0x00FFFFFF) or 0xE6000000.toInt(), BORDER)
+                isClickable = true
+                isFocusable = true
+                addView(label(getString(R.string.boot_settle_title), 22, TEXT, true).apply { gravity = Gravity.CENTER })
+                bootSettleInline = false
+                bootSettleCountdown = label(bootSettleSeconds(), 40, ACCENT, true).apply {
+                    gravity = Gravity.CENTER
+                    setPadding(0, dp(12), 0, 0)
+                }
+                addView(bootSettleCountdown)
+            }, FrameLayout.LayoutParams(-1, -1))
+        }
+    }
+
+    private fun bootSettleSecondsLeft(): Long = (BootSettle.remainingMillis() + 999L) / 1000L
+    private fun bootSettleSeconds(): String = getString(R.string.boot_settle_seconds, bootSettleSecondsLeft())
+    private fun bootSettleText(): String =
+        "${getString(R.string.boot_settle_title)} (${bootSettleSeconds()})"
+
+    private fun updateBootSettle() {
+        val countdown = bootSettleCountdown ?: return
+        if (BootSettle.remainingMillis() <= 0L) { render(); return }
+        countdown.text = if (bootSettleInline) bootSettleText() else bootSettleSeconds()
+    }
+
     private fun homePanel(icon: Int, title: String): LinearLayout = card().apply {
         addView(row().apply {
             gravity = Gravity.CENTER_VERTICAL

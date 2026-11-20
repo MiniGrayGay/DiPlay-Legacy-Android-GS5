@@ -629,4 +629,6 @@
     <string name="quick_more_settings">More settings</string>
     <string name="wireless_mode_recommended">Recommended · verified on this car</string>
     <string name="wireless_mode_not_recommended">Other ways · not verified on this car, not recommended</string>
+    <string name="boot_settle_title">Initializing the head unit, please wait</string>
+    <string name="boot_settle_seconds">%1$d s</string>
 </resources>
