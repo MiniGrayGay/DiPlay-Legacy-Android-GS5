@@ -563,4 +563,9 @@
     <string name="quick_more_settings">مزيد من الإعدادات</string>
     <string name="wireless_mode_recommended">موصى به · تم التحقق منه في هذه السيارة</string>
     <string name="wireless_mode_not_recommended">طرق أخرى · لم يتم التحقق منها في هذه السيارة، غير موصى بها</string>
+    <string name="station_wifi_pause_title">إيقاف Wi-Fi السيارة مؤقتًا</string>
+    <string name="station_wifi_pause_message">Wi-Fi السيارة متصل بـ %1$s. يستخدم CarPlay اللاسلكي Wi-Fi Direct على جهاز الراديو نفسه بتردد 2.4 جيجاهرتز، ويتناوب الاتصالان عليه. سيُقطع Wi-Fi السيارة بعد %2$d ث لاتصال أكثر ثباتًا، ويعود الاتصال عند انتهاء CarPlay.</string>
+    <string name="station_wifi_pause_keep">إبقاء Wi-Fi</string>
+    <string name="station_wifi_pause_now">قطع الآن</string>
+    <string name="station_wifi_pause_unknown_network">شبكة</string>
 </resources>

@@ -594,4 +594,9 @@
     <string name="quick_more_settings">更多设置</string>
     <string name="wireless_mode_recommended">推荐 · 已在本车验证</string>
     <string name="wireless_mode_not_recommended">其他方式 · 未在本车验证，不推荐</string>
+    <string name="station_wifi_pause_title">暂停车机 Wi-Fi</string>
+    <string name="station_wifi_pause_message">车机 Wi-Fi 正连着「%1$s」。无线 CarPlay 用的 Wi-Fi 直连和它共用同一个 2.4 GHz 无线模块，两边会轮流占用，影响稳定。%2$d 秒后断开车机 Wi-Fi，CarPlay 结束后自动重新连接。</string>
+    <string name="station_wifi_pause_keep">保持 Wi-Fi</string>
+    <string name="station_wifi_pause_now">立即断开</string>
+    <string name="station_wifi_pause_unknown_network">一个网络</string>
 </resources>

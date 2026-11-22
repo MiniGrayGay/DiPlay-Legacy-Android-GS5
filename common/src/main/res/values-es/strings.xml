@@ -563,4 +563,9 @@
     <string name="quick_more_settings">Más ajustes</string>
     <string name="wireless_mode_recommended">Recomendado · verificado en este coche</string>
     <string name="wireless_mode_not_recommended">Otras formas · sin verificar en este coche, no recomendadas</string>
+    <string name="station_wifi_pause_title">Pausando el Wi-Fi del coche</string>
+    <string name="station_wifi_pause_message">El Wi-Fi del coche está conectado a %1$s. CarPlay inalámbrico usa Wi-Fi Direct en la misma radio de 2,4 GHz y ambas conexiones se turnan. El Wi-Fi del coche se desconectará en %2$d s para una conexión más estable; se reconecta al terminar CarPlay.</string>
+    <string name="station_wifi_pause_keep">Mantener Wi-Fi</string>
+    <string name="station_wifi_pause_now">Desconectar ahora</string>
+    <string name="station_wifi_pause_unknown_network">una red</string>
 </resources>

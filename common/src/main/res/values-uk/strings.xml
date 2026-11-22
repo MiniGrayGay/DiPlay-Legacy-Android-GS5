@@ -572,4 +572,9 @@
     <string name="quick_more_settings">Інші налаштування</string>
     <string name="wireless_mode_recommended">Рекомендовано · перевірено на цьому автомобілі</string>
     <string name="wireless_mode_not_recommended">Інші способи · не перевірені на цьому автомобілі, не рекомендовані</string>
+    <string name="station_wifi_pause_title">Пауза Wi-Fi магнітоли</string>
+    <string name="station_wifi_pause_message">Wi-Fi магнітоли підключено до %1$s. Бездротовий CarPlay використовує Wi-Fi Direct на тому самому єдиному радіомодулі 2,4 ГГц, і підключення працюють по черзі. Wi-Fi магнітоли вимкнеться через %2$d с для стабільнішого зв\'язку й знову підключиться після завершення CarPlay.</string>
+    <string name="station_wifi_pause_keep">Залишити Wi-Fi</string>
+    <string name="station_wifi_pause_now">Вимкнути зараз</string>
+    <string name="station_wifi_pause_unknown_network">мережі</string>
 </resources>

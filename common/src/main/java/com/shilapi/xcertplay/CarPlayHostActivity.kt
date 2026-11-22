@@ -154,6 +154,8 @@ class CarPlayHostActivity : ComponentActivity() {
     private val startupRetryBudget = WirelessStartupRetryBudget()
     // Issue #290: persistent consecutive wireless link-failure streak, restored
     // from prefs so it survives process restarts (the budget above does not).
+    /** Wi-Fi Direct: counts down before the unit's own Wi-Fi client is disconnected. */
+    private val stationWifiPrompt by lazy { StationWifiPromptDialog(this) }
     private val wirelessLinkFailurePrompt: WirelessLinkFailurePrompt by lazy {
         WirelessLinkFailurePrompt(
             AirPlayPersistence.loadWirelessLinkFailures(this),
@@ -1242,6 +1244,7 @@ class CarPlayHostActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
         isActivityStarted = true
+        stationWifiPrompt.attach()
         logThemeState(ThemeModeDiagnostics.Source.START, resources.configuration)
         mainHandler.removeCallbacks(pollConfiguration)
         mainHandler.post(pollConfiguration)
@@ -1669,6 +1672,7 @@ class CarPlayHostActivity : ComponentActivity() {
     }
 
     override fun onStop() {
+        stationWifiPrompt.detach()
         closePicturePanel()
         // The controller, USB/iAP2 link, and VPN attachment intentionally outlive the UI.
         isActivityStarted = false
