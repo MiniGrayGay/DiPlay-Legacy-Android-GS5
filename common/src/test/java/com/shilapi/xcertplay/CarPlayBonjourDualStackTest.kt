@@ -172,6 +172,11 @@ class CarPlayBonjourDualStackTest {
     }
 
     @Test fun serviceDetachesBothSamePortListenersOnAndroid10() {
+        // Binds `::1`; a host without IPv6 loopback skips this instead of failing.
+        val ipv6Loopback = try {
+            ServerSocket(0, 1, InetAddress.getByName("::1")).use { true }
+        } catch (_: IOException) { false }
+        org.junit.Assume.assumeTrue("Host environment supports IPv6 loopback", ipv6Loopback)
         val controller = Robolectric.buildService(CarPlayVpnService::class.java).create()
         try {
             val service = controller.get()

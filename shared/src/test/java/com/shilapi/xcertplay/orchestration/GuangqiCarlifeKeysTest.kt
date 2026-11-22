@@ -28,8 +28,12 @@ class GuangqiCarlifeKeysTest {
         assertEquals(Action.SIRI, GuangqiCarlifeKeys.action(57, active))
     }
 
+    @Test fun voiceKeyShortPressOpensSiri() {
+        assertEquals(Action.SIRI, GuangqiCarlifeKeys.action(133, null))
+        assertEquals(Action.SIRI, GuangqiCarlifeKeys.action(133, ringing))
+    }
+
     @Test fun otherKeysDoNothing() {
-        assertEquals(Action.NONE, GuangqiCarlifeKeys.action(133, ringing))
         assertEquals(Action.NONE, GuangqiCarlifeKeys.action(87, ringing))
     }
 }

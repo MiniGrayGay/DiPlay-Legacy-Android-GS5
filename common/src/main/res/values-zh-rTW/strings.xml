@@ -452,7 +452,7 @@
     <string name="car_button_name">名稱</string>
     <string name="car_button_saved_next_connection">已儲存。下次連線時，CarPlay 會顯示新的圖示和名稱。</string>
     <string name="carplay_call_controls_experimental">CarPlay 通話按鍵（實驗性）</string>
-    <string name="carplay_call_controls_experimental_description">用方向盤按鍵接聽和掛斷 CarPlay 電話。廣汽車機上：接聽鍵接聽，掛斷鍵掛斷或拒接，長按語音鍵喚起 Siri；CarPlay 連線期間不彈出車機內建的通話畫面。短按語音鍵仍會開啟車機內建的語音助理。DiLink 3 上的按鍵尚未驗證。仍需實車測試。預設關閉；儀表通話卡片為獨立設定。</string>
+    <string name="carplay_call_controls_experimental_description">用方向盤按鍵接聽和掛斷 CarPlay 電話。廣汽車機上：接聽鍵接聽，掛斷鍵掛斷或拒接，短按或長按語音鍵喚起 Siri，CarPlay 連線期間車機內建的語音助理和喚醒詞暫停；CarPlay 連線期間不彈出車機內建的通話畫面。DiLink 3 上的按鍵尚未驗證。仍需實車測試。預設關閉；儀表通話卡片為獨立設定。</string>
     <string name="carplay_dock">CarPlay 程式列</string>
     <string name="carplay_dock_automatic">自動</string>
     <string name="carplay_dock_bottom">底部</string>

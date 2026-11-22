@@ -1,15 +1,21 @@
 package com.shilapi.xcertplay.orchestration
 
 import android.app.ActivityManager
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.ServiceConnection
+import android.os.IBinder
 import android.os.Looper
+import android.os.Process
 import android.util.Log
 import com.shilapi.xcertplay.hud.NavigationOutputs
 import com.shilapi.xcertplay.hud.WheelIntegrationSettings
 import com.shilapi.xcertplay.hud.CarPlayCallCard
 import java.lang.reflect.Proxy
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 /**
  * The Guangqi head unit's steering-wheel call keys during CarPlay, taken the way the stock CarLife
@@ -27,8 +33,19 @@ import java.util.concurrent.Executors
  *   137 and 138 go to that listener even when CarLife is not in front. The stock phone app also
  *   hides its own call screen while the flag is set.
  *
- * The same broadcasts reach the USB music app, SystemUI and the cluster service. A short press on
- * the voice key still starts the stock voice assistant; the system does not pass it on.
+ * The same broadcasts reach the USB music app, SystemUI and the cluster service.
+ *
+ * A short press on the voice key (133) normally starts the stock voice assistant. The system sends
+ * it to the CarLife listener, as an `onKeyUp(133)`, only while it believes CarLife's own voice
+ * session is running: `sys.carlife.vr_state` is `1` and `ps | grep com.thundersoft.connectivity`
+ * finds a process (`PhoneWindowManager.isCarlifeVrRunning`). While holding the keys DiPlay sets
+ * that property and keeps [GuangqiVoiceKeyAnchor], whose process name contains that string, bound.
+ * If the property were set with no such process, the system would clear its CarLife connected
+ * state on the next short press and every key above would go back to the car. The stock assistant
+ * and its wake word are turned off for the hold (`vr_control` 102 to `SpeechAdapterService`, as
+ * the stock CarLife does while the phone's assistant listens) and turned back on after (101).
+ * When the stock assistant starts anyway, the system sends the same `onKeyUp(133)` to stop
+ * CarLife's session; that one is recognised by the assistant being on top and is not Siri.
  *
  * Once a CarPlay session is up the stock CarLife is force-stopped: it holds the same listener slot
  * while its process lives, and the service rejects a second registration under that name. Its
@@ -45,18 +62,21 @@ object GuangqiCarlifeKeys {
     fun action(keyCode: Int, call: CarPlayCallCard?): Action = when (keyCode) {
         KEY_CALL -> if (call?.phase == CarPlayCallCard.Phase.RINGING) Action.ANSWER else Action.NONE
         KEY_HANG_UP -> if (call != null) Action.END else Action.NONE
-        KEY_VOICE_LONG -> Action.SIRI
+        KEY_VOICE_SHORT, KEY_VOICE_LONG -> Action.SIRI
         else -> Action.NONE
     }
 
     @Volatile private var controller: CarPlayController? = null
     @Volatile private var holding = false
     private var listener: Any? = null
+    private var anchor: ServiceConnection? = null
+    @Volatile private var appContext: Context? = null
     private val worker = Executors.newSingleThreadExecutor { Thread(it, "diplay-gq-keys").apply { isDaemon = true } }
 
     /** A CarPlay session is up: stops the stock CarLife, then takes the keys when the setting is on. */
     fun sessionStarted(context: Context, owner: CarPlayController) {
         val app = context.applicationContext
+        appContext = app
         controller = owner
         worker.execute {
             if (app.getSystemService(KEYBACK_SERVICE) == null) return@execute
@@ -99,6 +119,7 @@ object GuangqiCarlifeKeys {
             prefs(app).edit().putBoolean(KEY_HOLDING, false).commit()
             return
         }
+        returnVoiceKey(app)
         broadcast(app, connected = false)
         prefs(app).edit().putBoolean(KEY_HOLDING, false).commit()
     }
@@ -123,12 +144,14 @@ object GuangqiCarlifeKeys {
         prefs(app).edit().putBoolean(KEY_HOLDING, true).commit()
         holding = true
         broadcast(app, connected = true)
+        takeVoiceKey(app)
         Log.i(TAG, "wheel call keys taken")
     }
 
     private fun release(app: Context, reason: String) {
         if (!holding) return
         holding = false
+        returnVoiceKey(app)
         broadcast(app, connected = false)
         runCatching {
             val manager = app.getSystemService(KEYBACK_SERVICE) ?: return@runCatching
@@ -137,6 +160,80 @@ object GuangqiCarlifeKeys {
         prefs(app).edit().putBoolean(KEY_HOLDING, false).commit()
         Log.i(TAG, "wheel call keys released ($reason)")
     }
+
+    /**
+     * Routes the voice key's short press to this app: the anchor process first, then the property
+     * that names a CarLife voice session, then the stock assistant off. Without the anchor the
+     * property is left alone, and a short press keeps opening the stock assistant.
+     */
+    private fun takeVoiceKey(app: Context) {
+        if (!bindAnchor(app)) {
+            Log.w(TAG, "voice key anchor did not start; short press stays with the stock assistant")
+            return
+        }
+        setVoiceState("1")
+        stockAssistant(app, VR_DISABLE)
+        Log.i(TAG, "voice key short press taken")
+    }
+
+    /** Undoes [takeVoiceKey] in reverse, so the property is never 1 without the anchor running. */
+    private fun returnVoiceKey(app: Context) {
+        setVoiceState("0")
+        stockAssistant(app, VR_ENABLE)
+        anchor?.let { connection -> runCatching { app.unbindService(connection) } }
+        anchor = null
+        // An unbound service's process lingers; end it so nothing looks like CarLife any more.
+        runCatching {
+            (app.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager).runningAppProcesses.orEmpty()
+                .filter { it.processName == app.packageName + ANCHOR_PROCESS_SUFFIX }
+                .forEach { Process.killProcess(it.pid) }
+        }.onFailure { Log.w(TAG, "could not end the voice key anchor", it) }
+    }
+
+    /** Binds [GuangqiVoiceKeyAnchor] and waits until its process is up. */
+    private fun bindAnchor(app: Context): Boolean {
+        if (anchor != null) return true
+        val up = CountDownLatch(1)
+        val connection = object : ServiceConnection {
+            override fun onServiceConnected(name: ComponentName?, service: IBinder?) = up.countDown()
+            // BIND_AUTO_CREATE starts the process again if it is killed.
+            override fun onServiceDisconnected(name: ComponentName?) {
+                Log.w(TAG, "voice key anchor died; the system restarts it")
+            }
+        }
+        val bound = runCatching {
+            app.bindService(Intent(app, GuangqiVoiceKeyAnchor::class.java), connection,
+                Context.BIND_AUTO_CREATE or Context.BIND_IMPORTANT)
+        }.onFailure { Log.w(TAG, "voice key anchor bind failed", it) }.getOrDefault(false)
+        if (!bound || !up.await(ANCHOR_WAIT_MILLIS, TimeUnit.MILLISECONDS)) {
+            runCatching { app.unbindService(connection) }
+            return false
+        }
+        anchor = connection
+        return true
+    }
+
+    private fun setVoiceState(value: String) {
+        runCatching {
+            Class.forName("android.os.SystemProperties")
+                .getMethod("set", String::class.java, String::class.java)
+                .invoke(null, CARLIFE_VR_STATE, value)
+        }.onFailure { Log.w(TAG, "could not set $CARLIFE_VR_STATE=$value", it) }
+    }
+
+    /** Sends `vr_control` [command] to the stock voice assistant, as PhoneWindowManager does. */
+    private fun stockAssistant(app: Context, command: Int) {
+        runCatching {
+            app.startService(Intent(VR_ACTION).setClassName(VR_ADAPTER_PACKAGE, VR_ADAPTER_SERVICE)
+                .putExtra(VR_CONTROL, command))
+        }.onFailure { Log.w(TAG, "stock voice assistant command $command failed", it) }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun stockAssistantOnTop(app: Context): Boolean = runCatching {
+        (app.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager).getRunningTasks(1)
+            .firstOrNull()?.topActivity?.packageName == STOCK_ASSISTANT_PACKAGE
+    }.getOrDefault(false)
 
     /** Force-stops the stock CarLife and waits for its process, and so its key listener, to go. */
     private fun stopStockCarlife(app: Context) {
@@ -165,6 +262,12 @@ object GuangqiCarlifeKeys {
 
     private fun onKeyUp(keyCode: Int) {
         val owner = controller ?: return
+        val app = appContext
+        if (keyCode == KEY_VOICE_SHORT && app != null && stockAssistantOnTop(app)) {
+            Log.i(TAG, "voice key 133 came from the stock assistant starting; not Siri")
+            worker.execute { stockAssistant(app, VR_DISABLE) }
+            return
+        }
         val action = action(keyCode, NavigationOutputs.carPlayCall())
         val sent = when (action) {
             Action.NONE -> return
@@ -198,6 +301,7 @@ object GuangqiCarlifeKeys {
 
     const val KEY_CALL = 137
     const val KEY_HANG_UP = 138
+    const val KEY_VOICE_SHORT = 133
     const val KEY_VOICE_LONG = 57
 
     private const val TAG = "DiPlay-GQ-Keys"
@@ -212,6 +316,16 @@ object GuangqiCarlifeKeys {
     private const val EXTRA_STATE = "state"
     private const val ACTION_CARLIFE_CALL = "com.baidu.carlifevehicle.bluetoothHfpClient"
     private const val EXTRA_BLOCK_TEL = "blockTelFlag"
+    private const val CARLIFE_VR_STATE = "sys.carlife.vr_state"
+    private const val ANCHOR_PROCESS_SUFFIX = ":com.thundersoft.connectivity"
+    private const val ANCHOR_WAIT_MILLIS = 3_000L
+    private const val VR_ACTION = "android.intent.action.gaei.speechadapter.service"
+    private const val VR_ADAPTER_PACKAGE = "com.gaei.speechadapter"
+    private const val VR_ADAPTER_SERVICE = "com.gaei.speechadapter.SpeechAdapterService"
+    private const val VR_CONTROL = "vr_control"
+    private const val VR_ENABLE = 101
+    private const val VR_DISABLE = 102
+    private const val STOCK_ASSISTANT_PACKAGE = "com.tencent.wecarspeech"
     private const val PREFS = "guangqi_carlife_keys"
     private const val KEY_HOLDING = "holding"
 }

@@ -54,5 +54,14 @@
             android:name="com.shilapi.xcertplay.network.CarPlayVpnService"
             android:permission="android.permission.BIND_VPN_SERVICE"
             android:exported="false" />
+        <!--
+            Guangqi voice key: the system hands a short press to the CarLife key listener only
+            while `ps | grep com.thundersoft.connectivity` finds a process. This empty service's
+            process name contains that string; see GuangqiCarlifeKeys.
+        -->
+        <service
+            android:name="com.shilapi.xcertplay.orchestration.GuangqiVoiceKeyAnchor"
+            android:process=":com.thundersoft.connectivity"
+            android:exported="false" />
     </application>
 </manifest>
