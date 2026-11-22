@@ -334,6 +334,7 @@ class CarPlayController(
     init {
         guangqiAutoConnect.recoverAbandoned()
         GuangqiCarlifeKeys.recoverAbandoned(appContext)
+        GuangqiStockAssistant.recover(appContext)
     }
     private val wirelessAirPlayRequestsInFlight = AtomicInteger()
     private val wirelessLastAirPlayActivityMs = AtomicLong(0L)

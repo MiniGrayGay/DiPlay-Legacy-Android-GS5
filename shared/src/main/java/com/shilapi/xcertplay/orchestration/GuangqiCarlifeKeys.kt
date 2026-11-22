@@ -42,8 +42,7 @@ import java.util.concurrent.TimeUnit
  * that property and keeps [GuangqiVoiceKeyAnchor], whose process name contains that string, bound.
  * If the property were set with no such process, the system would clear its CarLife connected
  * state on the next short press and every key above would go back to the car. The stock assistant
- * and its wake word are turned off for the hold (`vr_control` 102 to `SpeechAdapterService`, as
- * the stock CarLife does while the phone's assistant listens) and turned back on after (101).
+ * and its wake word are paused for the hold ([GuangqiStockAssistant]).
  * When the stock assistant starts anyway, the system sends the same `onKeyUp(133)` to stop
  * CarLife's session; that one is recognised by the assistant being on top and is not Siri.
  *
@@ -172,14 +171,14 @@ object GuangqiCarlifeKeys {
             return
         }
         setVoiceState("1")
-        stockAssistant(app, VR_DISABLE)
+        GuangqiStockAssistant.acquire(app, ASSISTANT_REASON)
         Log.i(TAG, "voice key short press taken")
     }
 
     /** Undoes [takeVoiceKey] in reverse, so the property is never 1 without the anchor running. */
     private fun returnVoiceKey(app: Context) {
         setVoiceState("0")
-        stockAssistant(app, VR_ENABLE)
+        GuangqiStockAssistant.release(app, ASSISTANT_REASON)
         anchor?.let { connection -> runCatching { app.unbindService(connection) } }
         anchor = null
         // An unbound service's process lingers; end it so nothing looks like CarLife any more.
@@ -221,14 +220,6 @@ object GuangqiCarlifeKeys {
         }.onFailure { Log.w(TAG, "could not set $CARLIFE_VR_STATE=$value", it) }
     }
 
-    /** Sends `vr_control` [command] to the stock voice assistant, as PhoneWindowManager does. */
-    private fun stockAssistant(app: Context, command: Int) {
-        runCatching {
-            app.startService(Intent(VR_ACTION).setClassName(VR_ADAPTER_PACKAGE, VR_ADAPTER_SERVICE)
-                .putExtra(VR_CONTROL, command))
-        }.onFailure { Log.w(TAG, "stock voice assistant command $command failed", it) }
-    }
-
     @Suppress("DEPRECATION")
     private fun stockAssistantOnTop(app: Context): Boolean = runCatching {
         (app.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager).getRunningTasks(1)
@@ -265,7 +256,7 @@ object GuangqiCarlifeKeys {
         val app = appContext
         if (keyCode == KEY_VOICE_SHORT && app != null && stockAssistantOnTop(app)) {
             Log.i(TAG, "voice key 133 came from the stock assistant starting; not Siri")
-            worker.execute { stockAssistant(app, VR_DISABLE) }
+            worker.execute { GuangqiStockAssistant.reassert(app) }
             return
         }
         val action = action(keyCode, NavigationOutputs.carPlayCall())
@@ -319,12 +310,7 @@ object GuangqiCarlifeKeys {
     private const val CARLIFE_VR_STATE = "sys.carlife.vr_state"
     private const val ANCHOR_PROCESS_SUFFIX = ":com.thundersoft.connectivity"
     private const val ANCHOR_WAIT_MILLIS = 3_000L
-    private const val VR_ACTION = "android.intent.action.gaei.speechadapter.service"
-    private const val VR_ADAPTER_PACKAGE = "com.gaei.speechadapter"
-    private const val VR_ADAPTER_SERVICE = "com.gaei.speechadapter.SpeechAdapterService"
-    private const val VR_CONTROL = "vr_control"
-    private const val VR_ENABLE = 101
-    private const val VR_DISABLE = 102
+    private const val ASSISTANT_REASON = "voice-key"
     private const val STOCK_ASSISTANT_PACKAGE = "com.tencent.wecarspeech"
     private const val PREFS = "guangqi_carlife_keys"
     private const val KEY_HOLDING = "holding"

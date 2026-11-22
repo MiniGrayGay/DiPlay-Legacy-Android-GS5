@@ -95,6 +95,12 @@ internal class AudioFocusCoordinator(
     /** Warns when the head unit's media volume would mute CarPlay audio. See issue #88. */
     internal fun musicVolumeWarning(): String? = musicVolumeWarning(manager)
 
+    /** "volume/max" of a legacy stream, for the track report; head units keep these apart. */
+    internal fun streamVolume(stream: Int): String = runCatching {
+        val audio = manager ?: return@runCatching "unknown"
+        "${audio.getStreamVolume(stream)}/${audio.getStreamMaxVolume(stream)}"
+    }.getOrDefault("unknown")
+
     private fun listenerFor(generation: Long) = AudioManager.OnAudioFocusChangeListener { change ->
         synchronized(this) {
             if (change == AudioManager.AUDIOFOCUS_GAIN) {
@@ -840,6 +846,8 @@ class AndroidMediaSink(
                     )
                 }
             }
+            // Guangqi: the stock assistant's wake word holds the only microphone input.
+            appContext?.let { com.shilapi.xcertplay.orchestration.GuangqiStockAssistant.acquire(it, micReason(id)) }
             val uplink = microphoneUplinks.computeIfAbsent(id) {
                 MicrophoneUplink(
                     config = config,
@@ -852,6 +860,7 @@ class AndroidMediaSink(
             if (!uplink.start()) {
                 microphoneUplinks.remove(id, uplink)
                 restoreAudioMode(id)
+                releaseStockAssistant(id)
             }
         } catch (error: Exception) {
             Log.e("xcertplay-usb", "microphone start failed stream=$id", error)
@@ -865,7 +874,14 @@ class AndroidMediaSink(
             microphoneUplinks.remove(id)?.close()
         } finally {
             restoreAudioMode(id)
+            releaseStockAssistant(id)
         }
+    }
+
+    private fun micReason(id: AudioStreamId) = "microphone $id"
+
+    private fun releaseStockAssistant(id: AudioStreamId) {
+        appContext?.let { com.shilapi.xcertplay.orchestration.GuangqiStockAssistant.release(it, micReason(id)) }
     }
 
     /**
@@ -2449,7 +2465,8 @@ private class AudioRenderer(
         startThresholdBytes = MediaAudioBuffer.startBytesFor(plan.startBytes, capacityBytes, PREBUFFER_WRITE_CHUNK_BYTES)
         val trackMetadata = runCatching {
             "api=${Build.VERSION.SDK_INT} trackState=${built.state} trackRate=${built.sampleRate} " +
-                (if (realSdkInt() >= 21) attributeDiagnostic(trackAttributes as? AudioAttributes) else "legacyStream=${streamType()} ") +
+                (if (realSdkInt() >= 21) attributeDiagnostic(trackAttributes as? AudioAttributes)
+                else "legacyStream=${streamType()} streamVolume=${audioFocusCoordinator.streamVolume(built.streamType)} ") +
                 "attributesSource=${if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) "track" else "configured"}"
         }.getOrDefault("api=${Build.VERSION.SDK_INT} trackMetadata=unavailable")
         report("Audio: ready audioType=${format.audioType} codec=${format.codec} " +
