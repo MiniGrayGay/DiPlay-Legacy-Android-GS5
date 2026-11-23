@@ -503,8 +503,6 @@
     <string name="settings_log_output_title">إخراج السجل</string>
     <string name="settings_log_output_subtitle">أوقفه لتقليل الحمل على الوحدات الرئيسية القديمة. يسري مفعوله بعد إعادة تشغيل التطبيق؛ أعد تفعيله عند الحاجة إلى تشخيص مشكلة.</string>
     <string name="settings_car_bluetooth_mac_invalid">يرجى إدخال عنوان MAC سداسي عشري صالح من 12 خانة.</string>
-    <string name="settings_harman_fullscreen_experimental">ملء شاشة Harman (تجريبي)</string>
-    <string name="settings_harman_fullscreen_experimental_description">يتيح لـ CarPlay شغل منطقة اللوحة الجانبية الأصلية في وحدات Harman المدعومة. يُطبّق عند فتح نافذة CarPlay التالية؛ وقد تظهر أخطاء على برامج ثابتة أخرى.</string>
     <string name="settings_legacy_reverse_cold_start">إعادة تشغيل باردة متأخرة عند الخروج من الرجوع (تجريبي)</string>
     <string name="settings_legacy_reverse_cold_start_description">للرقائق القديمة (مثل MTK 8227L): أثناء الرجوع يُحرَّر مفكك الفيديو بالكامل، وبعد 2.5 ثانية من الخروج يعاد تشغيله باردًا ويُطلب إطار رئيسي جديد. فعّله فقط إذا تحولت الشاشة إلى السوداء عند الخروج من الرجوع.</string>
     <string name="settings_usb_bluetooth_title">محول بلوتوث USB خارجي</string>
@@ -557,8 +555,10 @@
     <string name="settings_app_theme_dark">داكن</string>
     <string name="settings_app_theme_hint">مظهر فاتح أو داكن لشاشات DiPlay. يتبع الوضع التلقائي إعداد النهار والليل في CarPlay. لا يتأثر CarPlay نفسه.</string>
     <string name="home_wired_carplay">CarPlay السلكي</string>
-    <string name="quick_call_keys_note">زر الاتصال يجيب، وزر الإنهاء ينهي، والضغط المطوّل على زر الصوت يفتح Siri. يُطبق فورًا.</string>
-    <string name="quick_auto_connect_note">يمنع السيارة من إعادة توصيل الهاتف عبر البلوتوث. يُطبق بعد إعادة الاتصال.</string>
+    <string name="quick_auto_connect_note">يمنع السيارة من إعادة توصيل الهاتف عبر البلوتوث. يوقف صوت البلوتوث في السيارة. يُطبق بعد إعادة الاتصال.</string>
+    <string name="quick_car_bluetooth_audio_note">يُشغَّل صوت CarPlay عبر بلوتوث السيارة. يوقف مفتاح الاتصال التلقائي أدناه. يُطبق بعد إعادة الاتصال.</string>
+    <string name="quick_music_buffer_note">كلما طال كان أثبت مع الإشارة الضعيفة لكن الصوت يستجيب متأخرًا. يُطبق بعد إعادة الاتصال.</string>
+    <string name="quick_smooth_video_note">تمرير أكثر سلاسة واستجابة لمس أبطأ. يُطبق بعد إعادة الاتصال.</string>
     <string name="quick_cluster_map_note">يُطبق بعد إعادة الاتصال.</string>
     <string name="quick_back_to_home">الصفحة الرئيسية لـ DiPlay</string>
     <string name="wireless_mode_recommended">موصى به · تم التحقق منه في هذه السيارة</string>

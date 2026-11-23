@@ -512,8 +512,6 @@
     <string name="settings_log_output_title">Виведення журналу</string>
     <string name="settings_log_output_subtitle">Вимкнення зменшує навантаження на старі головні пристрої. Набирає чинності після перезапуску застосунку; увімкніть знову, коли потрібно діагностувати проблему.</string>
     <string name="settings_car_bluetooth_mac_invalid">Будь ласка, введіть дійсний 12-значний шістнадцятковий MAC-адрес.</string>
-    <string name="settings_harman_fullscreen_experimental">Повний екран Harman (експериментально)</string>
-    <string name="settings_harman_fullscreen_experimental_description">Дозволяє CarPlay зайняти область штатної бічної панелі на сумісних пристроях Harman. Застосовується під час наступного відкриття вікна CarPlay; на інших прошивках можливі помилки відображення.</string>
     <string name="settings_legacy_reverse_cold_start">Відкладений холодний перезапуск при виході із заднього ходу (експериментально)</string>
     <string name="settings_legacy_reverse_cold_start_description">Для старих чипів (наприклад, MTK 8227L): при ввімкненні заднього ходу відеодекодер повністю звільняється, а через 2,5 с після виходу перезапускається та запитує новий ключовий кадр. Вмикайте лише якщо екран чорніє при виході із заднього ходу.</string>
     <string name="settings_usb_bluetooth_title">Зовнішній USB Bluetooth</string>
@@ -566,8 +564,10 @@
     <string name="settings_app_theme_dark">Темне</string>
     <string name="settings_app_theme_hint">Світле чи темне оформлення екранів DiPlay. «Автоматично» стежить за налаштуванням дня й ночі CarPlay. На CarPlay не впливає.</string>
     <string name="home_wired_carplay">CARPLAY ЧЕРЕЗ КАБЕЛЬ</string>
-    <string name="quick_call_keys_note">Кнопка виклику приймає, кнопка відбою завершує, довге натискання голосової кнопки відкриває Siri. Діє одразу.</string>
-    <string name="quick_auto_connect_note">Не дає магнітолі знову підключити телефон через Bluetooth. Діє після перепідключення.</string>
+    <string name="quick_auto_connect_note">Не дає магнітолі знову підключити телефон через Bluetooth. Вимикає звук через Bluetooth магнітоли. Діє після перепідключення.</string>
+    <string name="quick_car_bluetooth_audio_note">Звук CarPlay іде через Bluetooth магнітоли. Вимикає перемикач автопідключення нижче. Діє після перепідключення.</string>
+    <string name="quick_music_buffer_note">Що більше, то стійкіше при слабкому сигналі, але звук реагує пізніше. Діє після перепідключення.</string>
+    <string name="quick_smooth_video_note">Прокручування плавніше, відгук на дотики повільніший. Діє після перепідключення.</string>
     <string name="quick_cluster_map_note">Діє після перепідключення.</string>
     <string name="quick_back_to_home">Головна DiPlay</string>
     <string name="wireless_mode_recommended">Рекомендовано · перевірено на цьому автомобілі</string>

@@ -503,8 +503,6 @@
     <string name="settings_log_output_title">Salida de registro</string>
     <string name="settings_log_output_subtitle">Desactívela para reducir la carga en las unidades principales antiguas. Tiene efecto tras reiniciar la aplicación; vuelva a activarla cuando necesite diagnosticar un problema.</string>
     <string name="settings_car_bluetooth_mac_invalid">Introduce una dirección MAC hexadecimal válida de 12 dígitos.</string>
-    <string name="settings_harman_fullscreen_experimental">Pantalla completa Harman (experimental)</string>
-    <string name="settings_harman_fullscreen_experimental_description">Permite que CarPlay ocupe el panel lateral original en unidades Harman compatibles. Se aplica al abrir de nuevo la ventana de CarPlay; otros firmwares podrían mostrarse incorrectamente.</string>
     <string name="settings_legacy_reverse_cold_start">Arranque en frío retardado al salir de la marcha atrás (experimental)</string>
     <string name="settings_legacy_reverse_cold_start_description">Para chips antiguos (p. ej. MTK 8227L): al engranar la marcha atrás se libera por completo el decodificador de vídeo; 2,5 s después de salir, arranca en frío y pide un fotograma clave nuevo. Actívalo solo si la pantalla se queda en negro al salir de la marcha atrás.</string>
     <string name="settings_usb_bluetooth_title">Bluetooth USB externo</string>
@@ -557,8 +555,10 @@
     <string name="settings_app_theme_dark">Oscura</string>
     <string name="settings_app_theme_hint">Claro u oscuro para las pantallas de DiPlay. Automática sigue el ajuste de día y noche de CarPlay. CarPlay no se ve afectado.</string>
     <string name="home_wired_carplay">CARPLAY CON CABLE</string>
-    <string name="quick_call_keys_note">El botón de llamada contesta, el de colgar termina y una pulsación larga del botón de voz abre Siri. Se aplica al instante.</string>
-    <string name="quick_auto_connect_note">Evita que el coche vuelva a conectar el teléfono por Bluetooth. Se aplica al reconectar.</string>
+    <string name="quick_auto_connect_note">Evita que el coche vuelva a conectar el teléfono por Bluetooth. Desactiva el audio por Bluetooth del coche. Se aplica al reconectar.</string>
+    <string name="quick_car_bluetooth_audio_note">El sonido de CarPlay sale por el Bluetooth del coche. Desactiva el interruptor de conexión automática de abajo. Se aplica al reconectar.</string>
+    <string name="quick_music_buffer_note">Más largo aguanta mejor una señal débil, pero responde más tarde. Se aplica al reconectar.</string>
+    <string name="quick_smooth_video_note">Desplazamiento más uniforme, respuesta táctil más lenta. Se aplica al reconectar.</string>
     <string name="quick_cluster_map_note">Se aplica al reconectar.</string>
     <string name="quick_back_to_home">Inicio de DiPlay</string>
     <string name="wireless_mode_recommended">Recomendado · verificado en este coche</string>

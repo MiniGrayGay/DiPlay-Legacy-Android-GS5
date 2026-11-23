@@ -536,8 +536,6 @@
     <string name="report_usb_location">U盘：%1$s</string>
     <string name="report_usb_copy_unavailable">U盘副本：未找到可写U盘</string>
     <string name="report_usb_copy_paths">另外保存到：\n%1$s</string>
-    <string name="settings_harman_fullscreen_experimental">哈曼车机全屏（实验性）</string>
-    <string name="settings_harman_fullscreen_experimental_description">让 CarPlay 占用受支持哈曼车机的原厂侧栏区域。下次打开 CarPlay 窗口时生效；其他固件可能显示异常。</string>
     <string name="settings_legacy_reverse_cold_start">倒车退出延迟冷启动（实验性）</string>
     <string name="settings_legacy_reverse_cold_start_description">针对老旧芯片（如 MTK 8227L）：挂倒挡时彻底释放视频解码器，退出倒挡 2.5 秒后再冷启动并索取全新关键帧。仅在倒车退出黑屏的车机上开启。</string>
     <string name="settings_usb_bluetooth_title">外置 USB 蓝牙</string>
@@ -588,8 +586,10 @@
     <string name="settings_app_theme_dark">深色</string>
     <string name="settings_app_theme_hint">DiPlay 自身界面使用浅色还是深色。自动时跟随 CarPlay 的日夜模式设置。不影响 CarPlay 画面。</string>
     <string name="home_wired_carplay">有线 CarPlay</string>
-    <string name="quick_call_keys_note">接听键接听，挂断键挂断，长按语音键唤起 Siri。立即生效。</string>
-    <string name="quick_auto_connect_note">避免车机把手机重新连回蓝牙。重新连接后生效。</string>
+    <string name="quick_auto_connect_note">避免车机把手机重新连回蓝牙。打开后会关闭「车载蓝牙播放」。重新连接后生效。</string>
+    <string name="quick_car_bluetooth_audio_note">CarPlay 声音走车机蓝牙。打开后会关闭下面的「关闭蓝牙自动连接」。重新连接后生效。</string>
+    <string name="quick_music_buffer_note">越长越不怕信号波动，但声音反应更慢。重新连接后生效。</string>
+    <string name="quick_smooth_video_note">滚动更平稳，触控响应稍慢。重新连接后生效。</string>
     <string name="quick_cluster_map_note">重新连接后生效。</string>
     <string name="quick_back_to_home">返回首页</string>
     <string name="wireless_mode_recommended">推荐 · 已在本车验证</string>

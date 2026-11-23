@@ -1419,11 +1419,6 @@ class DiPlayActivity : ComponentActivity() {
         }
         filteredSection(content, SettingsSection.EXPERIMENTAL_DISPLAY,
             getString(R.string.settings_experimental_display), R.drawable.ic_dp_display) { card ->
-            toggle(card, getString(R.string.settings_harman_fullscreen_experimental),
-                getString(R.string.settings_harman_fullscreen_experimental_description),
-                AirPlayPersistence.loadHarmanFullscreen(this)) { enabled ->
-                AirPlayPersistence.saveHarmanFullscreen(this, enabled)
-            }
             // Issue #363: on launchers that keep a dock bar over the
             // picture, the reporter proved that bringing the app task to
             // the front drops the bar without any desktop round-trip. When
@@ -1518,8 +1513,6 @@ class DiPlayActivity : ComponentActivity() {
                 AirPlayPersistence.saveMainBufferedAudio(this, it)
                 reconnectIfRunning()
             }
-            var carBluetoothAudioSwitch: android.widget.Switch? = null
-            var carBluetoothAudioGuard = false
             carBluetoothAudioSwitch = toggle(card, getString(R.string.settings_car_bluetooth_audio), getString(R.string.settings_car_bluetooth_audio_description),
                 AirPlayPersistence.loadCarBluetoothAudio(this)) { enabled ->
                 if (carBluetoothAudioGuard) return@toggle
@@ -1538,12 +1531,14 @@ class DiPlayActivity : ComponentActivity() {
                             carBluetoothAudioGuard = true
                             carBluetoothAudioSwitch?.isChecked = true
                             carBluetoothAudioGuard = false
+                            turnOffAutoDisconnectBtForCarAudio()
                             reconnectIfRunning()
                         }
                         .setNegativeButton(getString(R.string.cancel), null)
                         .show()
                 } else {
                     AirPlayPersistence.saveCarBluetoothAudio(this, enabled)
+                    if (enabled) turnOffAutoDisconnectBtForCarAudio()
                     reconnectIfRunning()
                 }
             }
@@ -1566,10 +1561,18 @@ class DiPlayActivity : ComponentActivity() {
             // the car's Bluetooth page does. The previous value is restored when
             // the session ends. The Bluetooth radio stays on. Has no effect while
             // "car Bluetooth audio" is on. Applies at the next connection.
-            toggle(card, getString(R.string.settings_carplay_auto_disconnect_bt),
+            // Excludes car Bluetooth audio (the phone must stay on the car's Bluetooth for that):
+            // turning either on turns the other off, here and in the three-finger menu.
+            autoDisconnectBtSwitch = toggle(card, getString(R.string.settings_carplay_auto_disconnect_bt),
                 getString(R.string.settings_carplay_auto_disconnect_bt_description),
                 AirPlayPersistence.loadCarplayAutoDisconnectBt(this)) {
                 AirPlayPersistence.saveCarplayAutoDisconnectBt(this, it)
+                if (it && AirPlayPersistence.loadCarBluetoothAudio(this)) {
+                    AirPlayPersistence.saveCarBluetoothAudio(this, false)
+                    carBluetoothAudioGuard = true
+                    carBluetoothAudioSwitch?.isChecked = false
+                    carBluetoothAudioGuard = false
+                }
                 markReconnectNeeded()
             }
             // Issue #343-Q1: when the call downlink is silent on the telephony stream
@@ -3189,6 +3192,17 @@ class DiPlayActivity : ComponentActivity() {
     }
 
     /** True when a USB Bluetooth dongle is plugged in; used to warn before audio is routed away. */
+    // Car Bluetooth audio and "no Bluetooth auto-connect during CarPlay" exclude each other.
+    private var carBluetoothAudioSwitch: android.widget.Switch? = null
+    private var carBluetoothAudioGuard = false
+    private var autoDisconnectBtSwitch: android.widget.Switch? = null
+
+    private fun turnOffAutoDisconnectBtForCarAudio() {
+        if (!AirPlayPersistence.loadCarplayAutoDisconnectBt(this)) return
+        AirPlayPersistence.saveCarplayAutoDisconnectBt(this, false)
+        autoDisconnectBtSwitch?.isChecked = false
+    }
+
     private fun usbBluetoothDonglePresent(): Boolean = runCatching {
         val usbManager = getSystemService(Context.USB_SERVICE) as? UsbManager ?: return false
         UsbBtDongleDetector(applicationContext).findDongles(usbManager).isNotEmpty()

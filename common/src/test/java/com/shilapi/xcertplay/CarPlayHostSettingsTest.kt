@@ -155,9 +155,12 @@ class CarPlayHostSettingsTest {
         invoke("openSettingsMenu")
         val texts = views(menu()).filterIsInstance<TextView>().map { it.text.toString() }.toList()
         assertTrue(activity.getString(R.string.settings_quick_settings) in texts)
-        assertTrue(activity.getString(R.string.carplay_call_controls_experimental) in texts)
-        assertTrue(activity.getString(R.string.settings_carplay_auto_disconnect_bt) in texts)
         assertTrue(activity.getString(R.string.carplay_map_on_instrument_cluster_experimental) in texts)
+        assertTrue(activity.getString(R.string.settings_car_bluetooth_audio) in texts)
+        assertTrue(activity.getString(R.string.settings_carplay_auto_disconnect_bt) in texts)
+        assertTrue(activity.getString(R.string.music_buffer) in texts)
+        assertTrue(activity.getString(R.string.smooth_video) in texts)
+        assertFalse(activity.getString(R.string.carplay_call_controls_experimental) in texts)
         assertTrue(activity.getString(R.string.app_name) + " " + activity.getString(R.string.settings) in texts)
         assertTrue(activity.getString(R.string.quick_back_to_home) in texts)
         assertTrue(activity.getString(R.string.done) in texts)
@@ -195,15 +198,49 @@ class CarPlayHostSettingsTest {
         assertEquals(1, field("restartGeneration"))
     }
 
-    @Test fun quickMenuChangeThatAppliesAtOnceClosesWithoutReconnecting() {
+    @Test fun quickMenuClosedWithoutChangesDoesNotReconnect() {
         val controller = attachController()
         invoke("openSettingsMenu")
-        val before = com.shilapi.xcertplay.hud.WheelIntegrationSettings.carPlayCallControls(activity)
-        quickRow(R.string.carplay_call_controls_experimental).performClick()
-        assertEquals(!before, com.shilapi.xcertplay.hud.WheelIntegrationSettings.carPlayCallControls(activity))
         invoke("closeQuickMenu")
         assertSame(controller, field("controller"))
         assertEquals(0, field("restartGeneration"))
+    }
+
+    @Test fun carBluetoothAudioAndNoAutoConnectExcludeEachOther() {
+        AirPlayPersistence.saveCarBluetoothAudio(activity, false)
+        AirPlayPersistence.saveCarplayAutoDisconnectBt(activity, true)
+        attachController()
+        invoke("openSettingsMenu")
+        quickRow(R.string.settings_car_bluetooth_audio).performClick()
+        assertTrue(AirPlayPersistence.loadCarBluetoothAudio(activity))
+        assertFalse(AirPlayPersistence.loadCarplayAutoDisconnectBt(activity))
+        assertFalse(quickSwitch(R.string.settings_carplay_auto_disconnect_bt).isChecked)
+
+        quickRow(R.string.settings_carplay_auto_disconnect_bt).performClick()
+        assertTrue(AirPlayPersistence.loadCarplayAutoDisconnectBt(activity))
+        assertFalse(AirPlayPersistence.loadCarBluetoothAudio(activity))
+        assertFalse(quickSwitch(R.string.settings_car_bluetooth_audio).isChecked)
+    }
+
+    @Test fun aSavedPairWithBothOnKeepsCarBluetoothAudio() {
+        AirPlayPersistence.saveCarBluetoothAudio(activity, true)
+        AirPlayPersistence.saveCarplayAutoDisconnectBt(activity, true)
+        attachController()
+        invoke("openSettingsMenu")
+        assertTrue(quickSwitch(R.string.settings_car_bluetooth_audio).isChecked)
+        assertFalse(quickSwitch(R.string.settings_carplay_auto_disconnect_bt).isChecked)
+        assertFalse(AirPlayPersistence.loadCarplayAutoDisconnectBt(activity))
+    }
+
+    @Test fun musicBufferChoiceIsSavedAndReconnectsOnDone() {
+        attachController()
+        invoke("openSettingsMenu")
+        views(menu()).filterIsInstance<TextView>()
+            .first { it.isClickable && it.text == activity.getString(R.string.s_1000_ms_most_stable) }
+            .performClick()
+        assertEquals(1000, AirPlayPersistence.loadMediaBufferMillis(activity))
+        invoke("closeQuickMenu")
+        assertEquals(1, field("restartGeneration"))
     }
 
 
@@ -398,6 +435,8 @@ class CarPlayHostSettingsTest {
         while (!view.isClickable) view = view.parent as View
         return view
     }
+    private fun quickSwitch(title: Int): android.widget.Switch =
+        views(quickRow(title)).filterIsInstance<android.widget.Switch>().single()
     private fun quickButton(text: String) = views(menu()).filterIsInstance<Button>().first { it.text == text }
     private fun views(view: View): Sequence<View> = sequence {
         yield(view)
