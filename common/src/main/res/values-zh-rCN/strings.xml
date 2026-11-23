@@ -599,6 +599,8 @@
     <string name="station_wifi_pause_unknown_network">一个网络</string>
     <string name="settings_guidance_music_level">导航播报时音乐压低（实验性）</string>
     <string name="settings_guidance_music_level_description">仅广汽车机。播报时音乐比播报前低多少，按播报前的音量算，媒体音量开多大压低的感觉都一样。车机自己是把音乐压到一个固定音量，加上 iPhone 自己的压低，平常音量下几乎听不见。从下一次播报起生效。</string>
+    <string name="settings_volume_takeover">音量键由 DiPlay 接管（实验性）</string>
+    <string name="settings_volume_takeover_description">仅广汽车机。DiPlay 运行时，方向盘、面板和旋钮的音量键由 DiPlay 调节车机媒体音量，并显示 DiPlay 自己的音量条，不再弹出原车音量条。倒车、通话、原车语音和原车导航时仍由车机处理。打开后立即生效。更新 DiPlay 后需重启车机才会用上新版本。</string>
     <string name="settings_guidance_music_value_default">-%1$d dB · 默认</string>
     <string name="settings_guidance_music_value">-%1$d dB</string>
     <string name="settings_guidance_music_value_none">不压低</string>

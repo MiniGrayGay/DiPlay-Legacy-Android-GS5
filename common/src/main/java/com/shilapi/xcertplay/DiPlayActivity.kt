@@ -1509,6 +1509,13 @@ class DiPlayActivity : ComponentActivity() {
                     setPadding(0, dp(4), 0, dp(8))
                 })
             }
+            if (com.shilapi.xcertplay.orchestration.GuangqiVolumeTakeover.supported()) {
+                val takeover = com.shilapi.xcertplay.orchestration.GuangqiVolumeTakeover
+                toggle(card, getString(R.string.settings_volume_takeover),
+                    getString(R.string.settings_volume_takeover_description), takeover.enabled(this)) {
+                    takeover.setEnabled(this, it)
+                }
+            }
             if (resources.getBoolean(R.bool.config_advanced_audio_channel_mapping)) {
                 toggle(card, getString(R.string.advanced_audio_channel_mapping),
                     getString(R.string.use_usage_content_type_routing_instead_of_stream_type),

@@ -1,7 +1,7 @@
 # DiPlay 混音与音量接管计划（feat/self-mix）
 
 - 分支：`feat/self-mix`，基于 dev `adb7ae0`（0.4.6.10）
-- 状态：计划中，还没写代码
+- 状态：阶段 1（钩子 + 音量条）已写完，待上车测试（0.4.6.11，`DiPlay-0.4.6.11-selfmix1.apk`）
 - 用法：直接改这份文件。标了 **【可改】** 的是设计决定；改完告诉我，我按改后的版本做。
 
 ## 1. 目标
@@ -46,13 +46,13 @@
 
 | 条件 | 处理 |
 |---|---|
-| 钩子总开关 `persist.diplay.vol_hook` 为 0 | 交回原车 |
+| 钩子总开关 `persist.sys.diplay.vol_hook` 不为 1 | 交回原车 |
 | DiPlay 进程不在（`sys.diplay.vol_pid` 对应的进程不存在，或进程名不是 `com.shihab.diplay`） | 交回原车 |
 | 倒车中（`mRvcAvmState.state != 0`） | 交回原车 |
 | 车机处在导航模式（`mNaviState == 1`） | 交回原车 |
+| 当前不是媒体策略（通话、语音等，即不是 0、2、4、−1） | 交回原车 |
 | 当前处于导航播报窗口（`uptimeMillis < sys.diplay.navi_until`） | 导航音量 ± 步数，`setVolumeByFlag(v, 2)` |
-| 当前是媒体策略（0、2、4，或 −1） | 媒体音量 ± 步数，`setVolumeByFlag(v, 0)` |
-| 其他（通话、语音等） | 交回原车 |
+| 其他（媒体） | 媒体音量 ± 步数，`setVolumeByFlag(v, 0)` |
 
 - 接管后，钩子给 DiPlay 发一个广播：`com.shihab.diplay.action.CAR_VOLUME`，附带 `kind=media|navi`、`value`、`step`。DiPlay 收到后画音量条。
 - 交回原车就是照原样调用 `original.handleMessage(msg)`，行为和没装钩子时完全一样。
@@ -98,14 +98,23 @@
 2. `DiPlayApplication.attachBaseContext` / `onCreate` 先判断当前进程是不是 `system_server`（读 `/proc/self/cmdline`）。如果是，**什么都不做**：不装崩溃处理器、不初始化日志、不恢复悬浮点、不装 MultiDex。
 3. 钩子的每个入口都包在 `try/catch (Throwable)` 里，任何一步出错就交回 `original.handleMessage(msg)`。
 4. 安装时机：
-   - `GuangqiVolumeHookReceiver`（`android:process="system"`，不导出）在 BOOT_COMPLETED 时安装一次。
+   - `GuangqiVolumeHookReceiver`（`android:process="system"`，不导出）在 BOOT_COMPLETED 时，只有 `persist.sys.diplay.vol_hook=1` 才安装。开关关闭时，system_server 里不会有钩子。
    - DiPlay 启动时，如果接管开关是开的，再发一次显式广播触发安装。
    - 安装操作 post 到 `PhoneWindowManager` 的 Handler 线程上执行。重复安装时，判断类名和版本号，已经装过就跳过；旧版本就套在旧钩子的 original 外面重新装。
 5. 更新 DiPlay 后，system_server 里还是旧钩子，**重启车机才会换成新的**。钩子带版本号，DiPlay 发现版本不一致会写日志，并在设置页提示「重启车机后生效」。
 6. **随时可以关闭**：
    - 关掉接管开关，DiPlay 会清掉 `sys.diplay.vol_pid`，钩子立即交回原车；
-   - 设 `persist.diplay.vol_hook=0` 也一样（远控救急用）；
+   - 设 `persist.sys.diplay.vol_hook=0` 也一样（远控救急用）。属性名必须以 `persist.sys.` 开头，系统 uid 才有权限写；
    - 重启车机后钩子完全消失。
+
+### D9. 为什么不用工程模式的按键例外
+原车有个例外：前台是工程模式按键测试页面时，所有按键直接交给页面（只比较类名）。我们考虑过让 DiPlay 冒用这个类名，最后没用：
+- 例外只看顶层 Activity，后台服务做不到；DiPlay 的设置页、对话框也不匹配。
+- 它会把**所有**按键交给 DiPlay。HOME、关屏、屏保、地图、设置、AM/FM、语音、通话都要 DiPlay 自己实现，漏掉的在 DiPlay 前台时就失灵。
+- 无法再注入回系统：注入的按键同样只按类名判断，会再交回 DiPlay，形成循环。方向盘键本身就是注入的，也没法区分。
+- 按键要经过窗口焦点。焦点被别的窗口拿走时，按键会丢。
+
+钩子只处理音量消息 19，其他按键完全不碰，前台后台一样，所以选钩子。
 
 ## 4. 实现步骤
 

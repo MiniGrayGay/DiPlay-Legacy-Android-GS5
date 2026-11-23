@@ -1,3 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="car_volume_media">媒体音量</string>
+    <string name="car_volume_navigation">导航音量</string>
 </resources>
