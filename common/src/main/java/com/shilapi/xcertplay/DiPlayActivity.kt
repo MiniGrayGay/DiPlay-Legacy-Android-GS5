@@ -1498,6 +1498,13 @@ class DiPlayActivity : ComponentActivity() {
                 markReconnectNeeded()
             }
             audioFocusControls(card)
+            if (com.shilapi.xcertplay.media.GuangqiGuidanceMusic.supported()) {
+                toggle(card, getString(R.string.settings_guidance_keep_music),
+                    getString(R.string.settings_guidance_keep_music_description),
+                    com.shilapi.xcertplay.media.GuangqiGuidanceMusic.keepMusicLevel(this)) {
+                    com.shilapi.xcertplay.media.GuangqiGuidanceMusic.setKeepMusicLevel(this, it)
+                }
+            }
             if (resources.getBoolean(R.bool.config_advanced_audio_channel_mapping)) {
                 toggle(card, getString(R.string.advanced_audio_channel_mapping),
                     getString(R.string.use_usage_content_type_routing_instead_of_stream_type),

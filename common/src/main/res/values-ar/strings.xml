@@ -568,4 +568,6 @@
     <string name="station_wifi_pause_keep">إبقاء Wi-Fi</string>
     <string name="station_wifi_pause_now">قطع الآن</string>
     <string name="station_wifi_pause_unknown_network">شبكة</string>
+    <string name="settings_guidance_keep_music">إبقاء صوت الموسيقى أثناء الإرشاد (تجريبي)</string>
+    <string name="settings_guidance_keep_music_description">لوحدات Guangqi فقط. أثناء تشغيل تعليمات الملاحة تخفض الوحدة الموسيقى بنحو 15 ديسيبل. عند التفعيل يعيد DiPlay الموسيقى إلى مستوى الصوت المنخفض الذي تستخدمه الوحدة نفسها، فتنخفض قليلًا فقط. يسري ذلك من التعليمات التالية.</string>
 </resources>

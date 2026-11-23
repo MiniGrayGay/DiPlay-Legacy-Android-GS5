@@ -634,4 +634,6 @@
     <string name="station_wifi_pause_keep">Keep Wi-Fi</string>
     <string name="station_wifi_pause_now">Disconnect now</string>
     <string name="station_wifi_pause_unknown_network">a network</string>
+    <string name="settings_guidance_keep_music">Keep music up during guidance (experimental)</string>
+    <string name="settings_guidance_keep_music_description">Guangqi units only. While a navigation prompt plays, the car lowers music by about 15 dB. On: DiPlay sets music back to the car\'s own low-volume level, so it is lowered only slightly. Applies from the next prompt.</string>
 </resources>

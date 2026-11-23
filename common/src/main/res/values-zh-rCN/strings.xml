@@ -599,4 +599,6 @@
     <string name="station_wifi_pause_keep">保持 Wi-Fi</string>
     <string name="station_wifi_pause_now">立即断开</string>
     <string name="station_wifi_pause_unknown_network">一个网络</string>
+    <string name="settings_guidance_keep_music">导航播报时保持音乐音量（实验性）</string>
+    <string name="settings_guidance_keep_music_description">仅广汽车机。导航播报时车机会把音乐压低约 15 dB；打开后 DiPlay 会把音乐调回车机自己的低音量规则，只轻微压低。从下一次播报起生效。</string>
 </resources>

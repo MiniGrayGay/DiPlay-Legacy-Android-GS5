@@ -577,4 +577,6 @@
     <string name="station_wifi_pause_keep">Залишити Wi-Fi</string>
     <string name="station_wifi_pause_now">Вимкнути зараз</string>
     <string name="station_wifi_pause_unknown_network">мережі</string>
+    <string name="settings_guidance_keep_music">Зберігати гучність музики під час підказок (експериментально)</string>
+    <string name="settings_guidance_keep_music_description">Лише для магнітол Guangqi. Під час голосової підказки навігації магнітола приглушує музику приблизно на 15 дБ. Якщо ввімкнено, DiPlay повертає музику до рівня, який магнітола сама використовує на малій гучності, і вона приглушується лише трохи. Діє з наступної підказки.</string>
 </resources>

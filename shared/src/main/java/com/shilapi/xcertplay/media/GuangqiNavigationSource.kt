@@ -31,8 +31,8 @@ import java.lang.reflect.Proxy
  * While navigation plays, `DspService` holds the music stream's software volume at a fixed 9 of 30
  * and the DSP at 20. Its comments and its low-volume branch treat 9/30 as 30 % (`max × level / 20`
  * keeps music at its level), but Android's volume curve makes 9/30 about −34 dB: at media level 9
- * music drops about 15 dB, on top of any duck the iPhone applies itself, and is gone. Once the car
- * has switched, [CarAudioSourceApi.keepMusicLevel] sets the music stream to the car's own
+ * music drops about 15 dB. With the [GuangqiGuidanceMusic] switch on (off by default), once the
+ * car has switched, [CarAudioSourceApi.keepMusicLevel] sets the music stream to the car's own
  * low-volume value, `max × level / 20`. The car's six-step fade back sets it to the maximum again.
  *
  * The source is held from the first guidance PCM write until [RELEASE_MILLIS] after the last one.
@@ -145,6 +145,7 @@ internal class GuangqiNavigationSource(
     /** After the car's switch: music at the level the car means to keep, not its −15 dB. */
     private fun keepMusicLevel() {
         if (!held) return
+        if (prefs?.getBoolean(GuangqiGuidanceMusic.KEY_KEEP_MUSIC_LEVEL, false) != true) return
         val result = runCatching { api?.keepMusicLevel() }
         val done = result.getOrNull() ?: result.exceptionOrNull()?.let { "failed ${it.javaClass.simpleName}" } ?: return
         log("guidance source $SOURCE_CARPLAY_NAVI: music stream $done")
@@ -206,7 +207,7 @@ internal class GuangqiNavigationSource(
         const val SWITCH_SLACK_MILLIS = 30L
         /** After the request: the car's fade, its 50 ms wait and its own duck reaching the speakers. */
         const val DSP_SWITCH_MILLIS = 300L
-        private const val PREFS = "guangqi_navigation_source"
+        private const val PREFS = GuangqiGuidanceMusic.PREFS
         private const val KEY_HELD = "held"
         private const val MANAGER_CLASS = "android.media.AudioSourceManager"
         private const val LISTENER_CLASS = "android.media.AudioSourceManager\$OnAudioSourceChangeListener"

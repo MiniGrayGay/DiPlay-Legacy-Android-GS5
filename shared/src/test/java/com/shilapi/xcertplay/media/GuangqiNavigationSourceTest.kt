@@ -58,18 +58,18 @@ class GuangqiNavigationSourceTest {
             advance(20)
             source.onNavigationPcm({ log += it })
         }
-        // Once the car has switched, the music stream is set to the car's low-volume rule.
-        assertEquals(listOf("request 27", "keep music"), calls)
+        // The keep-music switch is off by default: the car's own duck stays.
+        assertEquals(listOf("request 27"), calls)
         assertTrue(prefs.getBoolean("held", false))
 
         advance(GuangqiNavigationSource.RELEASE_MILLIS + 100)
-        assertEquals(listOf("request 27", "keep music", "abandon 27"), calls)
+        assertEquals(listOf("request 27", "abandon 27"), calls)
         assertFalse(prefs.getBoolean("held", false))
 
         // The next prompt asks again.
         source.onNavigationPcm({ log += it })
         ShadowLooper.idleMainLooper()
-        assertEquals(listOf("request 27", "keep music", "abandon 27", "request 27"), calls)
+        assertEquals(listOf("request 27", "abandon 27", "request 27"), calls)
     }
 
     @Test fun aRefusedRequestIsNotAbandoned() {
@@ -98,6 +98,7 @@ class GuangqiNavigationSourceTest {
     }
 
     @Test fun musicIsLoweredBeforeTheSwitchAndRestoredAfterTheCarDucksIt() {
+        GuangqiGuidanceMusic.setKeepMusicLevel(app, true)
         val source = source()
         val guard = Guard(playing = true, calls = calls)
         source.onNavigationPcm({ log += it }, guard)
@@ -117,12 +118,23 @@ class GuangqiNavigationSourceTest {
     }
 
     @Test fun withoutMusicTheSourceIsRequestedAtOnce() {
+        GuangqiGuidanceMusic.setKeepMusicLevel(app, true)
         val source = source()
         source.onNavigationPcm({ log += it }, Guard(playing = false, calls = calls))
         ShadowLooper.idleMainLooper()
         assertEquals(listOf("request 27"), calls)
         advance(GuangqiNavigationSource.DSP_SWITCH_MILLIS)
         assertEquals(listOf("request 27", "keep music"), calls)
+    }
+
+    @Test fun withTheSwitchOffTheMusicIsOnlyLoweredForTheSwitch() {
+        val source = source()
+        source.onNavigationPcm({ log += it }, Guard(playing = true, calls = calls))
+        ShadowLooper.idleMainLooper()
+        advance(1_000)
+        // Lowered for the switch and put back, with no change to the music stream in between.
+        assertEquals(listOf("duck", "request 27", "unduck"), calls)
+        assertFalse(GuangqiGuidanceMusic.keepMusicLevel(app))
     }
 
     @Test fun musicDuringGuidanceFollowsTheCarsLowVolumeRule() {

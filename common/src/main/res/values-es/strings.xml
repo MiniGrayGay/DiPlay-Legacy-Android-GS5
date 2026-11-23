@@ -568,4 +568,6 @@
     <string name="station_wifi_pause_keep">Mantener Wi-Fi</string>
     <string name="station_wifi_pause_now">Desconectar ahora</string>
     <string name="station_wifi_pause_unknown_network">una red</string>
+    <string name="settings_guidance_keep_music">Mantener la música durante la guía (experimental)</string>
+    <string name="settings_guidance_keep_music_description">Solo unidades Guangqi. Mientras suena una indicación de navegación, la unidad baja la música unos 15 dB. Activado: DiPlay devuelve la música al nivel bajo que usa la propia unidad, así solo se atenúa un poco. Se aplica desde la siguiente indicación.</string>
 </resources>
