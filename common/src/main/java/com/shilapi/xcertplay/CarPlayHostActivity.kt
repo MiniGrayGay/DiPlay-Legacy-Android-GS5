@@ -184,7 +184,7 @@ class CarPlayHostActivity : ComponentActivity() {
     private var startupRetryButton: View? = null
     private var startupFailureGeneration = -1
     private lateinit var airPlayIdentity: AirPlayIdentity
-    private var languagePreferenceAtCreate = AppLocale.SYSTEM
+    private var languagePreferenceAtCreate = AppLocale.DEFAULT
 
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(AppLocale.wrap(newBase))

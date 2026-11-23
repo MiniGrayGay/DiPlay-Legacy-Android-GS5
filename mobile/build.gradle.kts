@@ -48,6 +48,11 @@ android {
         version = release(37)
     }
 
+    // DiPlay ships Simplified Chinese and English only; drop the libraries' other languages too.
+    androidResources {
+        localeFilters += listOf("en", "zh-rCN")
+    }
+
     defaultConfig {
         applicationId = "com.shihab.diplay"
         minSdk = 17
@@ -55,8 +60,8 @@ android {
         multiDexEnabled = true
         multiDexKeepProguard = file("multidex-config.pro")
         testInstrumentationRunner = "com.shilapi.xcertplay.T3LegacyInstrumentation"
-        versionCode = 162
-        versionName = "0.4.6.5"
+        versionCode = 163
+        versionName = "0.4.6.6"
 
         ndk {
             abiFilters += "armeabi-v7a"

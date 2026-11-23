@@ -33,6 +33,8 @@ class NightModeSettingsTest {
     private lateinit var page: LinearLayout
 
     @Before fun setUp() {
+        // These checks read the English interface; DiPlay itself defaults to Simplified Chinese.
+        AppLocale.save(org.robolectric.RuntimeEnvironment.getApplication(), AppLocale.ENGLISH)
         controller = Robolectric.buildActivity(DiPlayActivity::class.java)
         activity = controller.get()
         activity.setTheme(android.R.style.Theme_Material_NoActionBar)

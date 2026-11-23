@@ -57,7 +57,7 @@ Exception: a gated control that only its own audience sees, and that completes a
 Example: auto car hotspot appears only for car-hotspot users, so it is in Connection.
 
 Mark an experimental setting or card with the title suffix ` (experimental)`, never `· experimental`, a dash, or an `Experimental …` prefix.
-Each locale MUST use its existing form: `(تجريبي)`, `(experimental)`, `(экспериментально)`, `(експериментально)`, `（实验性）`, `（實驗性）`.
+Each locale MUST use its existing form: `(experimental)`, `（实验性）`.
 
 ### Add the code
 
@@ -71,7 +71,7 @@ Each locale MUST use its existing form: `(تجريبي)`, `(experimental)`, `(э
    A setting that only takes effect at the next connection MUST call `markReconnectNeeded()` after it saves.
    This shows the "Reconnect now" bar. It MUST NOT drop a running session without the driver's consent.
    Reconnect at once (`reconnectIfRunning()`) only after a dialog button that says "Apply and reconnect", or when the description says that the change reconnects CarPlay.
-6. Add each new string to `common/src/main/res/values/` and to every `values-xx` locale folder.
+6. Add each new string to `common/src/main/res/values/` (English) and `values-zh-rCN/` (Simplified Chinese). These are the only two languages: the app defaults to Simplified Chinese (`AppLocale.DEFAULT`) until the driver picks English, and `mobile` keeps only `en` and `zh-rCN` library resources (`localeFilters`). Do not add other `values-xx` folders.
    New Settings copy SHOULD use the `settings_` prefix. `SettingsTranslationsTest` fails when a `settings_*` string has no translation.
 7. A control that opens a choice uses `button()` with the text `"Title · Value"`.
    That form renders as a setting row with the value and a chevron, and Search indexes the title.

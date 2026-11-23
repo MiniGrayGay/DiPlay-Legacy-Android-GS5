@@ -9,22 +9,21 @@ import com.shilapi.xcertplay.compat.realSdkInt
 import android.os.LocaleList
 import android.content.Context
 import android.content.res.Configuration
-import android.content.res.Resources
 import com.shilapi.xcertplay.host.R
 import java.util.Locale
 
-/** Platform app locales on Android 13+, with a persisted context override on older Android. */
+/**
+ * The app language: Simplified Chinese or English, Simplified Chinese until the driver picks one.
+ * Android 13+ keeps the choice as the platform app locale; older Android keeps it in preferences
+ * and applies it as a context override. A saved "system" or a language DiPlay no longer ships
+ * (Traditional Chinese, Arabic, Russian, Spanish, Ukrainian) reads as Simplified Chinese.
+ */
 object AppLocale {
-    const val SYSTEM = "system"
-    const val ENGLISH = "en"
     const val SIMPLIFIED_CHINESE = "zh"
-    const val TRADITIONAL_CHINESE = "zh-TW"
-    const val ARABIC = "ar"
-    const val RUSSIAN = "ru"
-    const val SPANISH = "es"
-    const val UKRAINIAN = "uk"
+    const val ENGLISH = "en"
+    const val DEFAULT = SIMPLIFIED_CHINESE
 
-    val ALL = listOf(SYSTEM, ENGLISH, SIMPLIFIED_CHINESE, TRADITIONAL_CHINESE, ARABIC, RUSSIAN, SPANISH, UKRAINIAN)
+    val ALL = listOf(SIMPLIFIED_CHINESE, ENGLISH)
 
     private const val PREFS = "diplay"
     private const val KEY_LANGUAGE = "app_language"
@@ -34,29 +33,17 @@ object AppLocale {
     fun preference(context: Context): String {
         if (Build.VERSION.SDK_INT >= 33) {
             val locales = context.getSystemService(LocaleManager::class.java).applicationLocales
-            if (locales.isEmpty) return SYSTEM
-            val selected = locales[0]
-            if (selected.language != "zh") return selected.language
-            // An explicit BCP 47 script is more specific than the region's usual script.
-            return when (selected.script) {
-                "Hant" -> TRADITIONAL_CHINESE
-                "Hans" -> SIMPLIFIED_CHINESE
-                else -> if (selected.country in setOf("TW", "HK", "MO")) {
-                    TRADITIONAL_CHINESE
-                } else {
-                    SIMPLIFIED_CHINESE
-                }
-            }
+            if (locales.isEmpty) return DEFAULT
+            return if (locales[0].language == "en") ENGLISH else DEFAULT
         }
         return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .getString(KEY_LANGUAGE, SYSTEM)?.takeIf { it in ALL } ?: SYSTEM
+            .getString(KEY_LANGUAGE, null)?.takeIf { it in ALL } ?: DEFAULT
     }
 
     fun save(context: Context, language: String) {
         require(language in ALL)
         if (Build.VERSION.SDK_INT >= 33) {
-            context.getSystemService(LocaleManager::class.java).applicationLocales =
-                locale(language)?.let { LocaleList(it) } ?: LocaleList.getEmptyLocaleList()
+            context.getSystemService(LocaleManager::class.java).applicationLocales = LocaleList(locale(language))
             context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
                 .putBoolean(KEY_MIGRATED, true).remove(KEY_LANGUAGE).apply()
         } else {
@@ -65,22 +52,25 @@ object AppLocale {
         }
     }
 
-    /** On Android 13+, the OS is the single source of truth for the app language. */
+    /**
+     * On Android 13+ the OS applies a chosen language itself; with none chosen, the default is
+     * applied here. Older Android always gets the override.
+     */
     fun wrap(context: Context): Context {
         if (Build.VERSION.SDK_INT >= 33) {
             val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            val manager = context.getSystemService(LocaleManager::class.java)
             if (!prefs.getBoolean(KEY_MIGRATED, false)) {
-                val manager = context.getSystemService(LocaleManager::class.java)
-                val previous = locale(prefs.getString(KEY_LANGUAGE, SYSTEM) ?: SYSTEM)
+                val previous = prefs.getString(KEY_LANGUAGE, null)?.takeIf { it in ALL }
                 // Never overwrite a language already chosen through Android Settings.
                 if (manager.applicationLocales.isEmpty && previous != null) {
-                    manager.applicationLocales = LocaleList(previous)
+                    manager.applicationLocales = LocaleList(locale(previous))
                 }
                 prefs.edit().putBoolean(KEY_MIGRATED, true).remove(KEY_LANGUAGE).apply()
             }
-            return context
+            if (!manager.applicationLocales.isEmpty) return context
         }
-        val locale = locale(preference(context)) ?: return context
+        val locale = locale(preference(context))
         val configuration = Configuration(context.resources.configuration).apply {
             setLocale(locale)
             setLayoutDirection(locale)
@@ -91,18 +81,12 @@ object AppLocale {
     /**
      * Before Android 13, some head units run apps in a compatibility mode that puts the system language
      * back into the activity's resources after [wrap]. Writes the chosen language again; returns true
-     * if it had to. System default writes the system language back, because the process keeps the
-     * resources that an earlier choice changed.
+     * if it had to.
      */
     @Suppress("DEPRECATION")
     fun enforce(context: Context): Boolean {
         if (Build.VERSION.SDK_INT >= 33) return false
-        val systemLocale = if (realSdkInt() >= 24) {
-            Resources.getSystem().configuration.locales[0]
-        } else {
-            Resources.getSystem().configuration.locale
-        }
-        val locale = locale(preference(context)) ?: systemLocale
+        val locale = locale(preference(context))
         val resources = context.resources
         val currentLocale = if (realSdkInt() >= 24) {
             resources.configuration.locales[0]
@@ -137,27 +121,15 @@ object AppLocale {
             .show()
     }
 
-    /** Names stay in their native form for every language; only "system default" is localized. */
+    /** Names stay in their native form. */
+    @Suppress("UNUSED_PARAMETER")
     fun displayName(context: Context, language: String): String = when (language) {
-        SYSTEM -> context.getString(R.string.language_system_default)
         ENGLISH -> "English"
-        SIMPLIFIED_CHINESE -> "简体中文"
-        TRADITIONAL_CHINESE -> "繁體中文"
-        ARABIC -> "العربية"
-        RUSSIAN -> "Русский"
-        SPANISH -> "Español"
-        UKRAINIAN -> "Українська"
-        else -> language
+        else -> "简体中文"
     }
 
-    private fun locale(language: String): Locale? = when (language) {
+    private fun locale(language: String): Locale = when (language) {
         ENGLISH -> Locale.ENGLISH
-        SIMPLIFIED_CHINESE -> Locale.SIMPLIFIED_CHINESE
-        TRADITIONAL_CHINESE -> Locale.TRADITIONAL_CHINESE
-        ARABIC -> Locale("ar")
-        RUSSIAN -> Locale("ru")
-        SPANISH -> Locale("es")
-        UKRAINIAN -> Locale("uk")
-        else -> null
+        else -> Locale.SIMPLIFIED_CHINESE
     }
 }

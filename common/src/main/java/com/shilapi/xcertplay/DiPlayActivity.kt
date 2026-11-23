@@ -214,7 +214,7 @@ class DiPlayActivity : ComponentActivity() {
         if (uri != null) exportDiagnostics(uri)
     }
 
-    private var languagePreferenceAtCreate = AppLocale.SYSTEM
+    private var languagePreferenceAtCreate = AppLocale.DEFAULT
     private var userNavigatedFromCarPlay = false
 
     private var interfaceOverride: Configuration? = null
