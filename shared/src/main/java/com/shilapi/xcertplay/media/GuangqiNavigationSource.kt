@@ -19,6 +19,15 @@ import java.lang.reflect.Proxy
  * arbitration answers with `0x202` (granted, ASR_FOREGROUND_DUCK), never a pause or a stop, so
  * CarPlay music keeps playing.
  *
+ * Switching from media to navigation, the car's `DspService` (fade style NORMAL_MEDIA_NAVI) sets
+ * the music stream's software volume to 9, switches the DSP, waits 50 ms and raises the DSP volume
+ * from the media level to a fixed 20 (about +19 dB at media level 9). Music already mixed at full
+ * software volume is still in the output buffer then, which is longer than 50 ms, so it plays at
+ * the raised level for a moment: a loud burst at the start of each prompt. When music is playing,
+ * the [SwitchGuard] therefore lowers DiPlay's own music by 20 dB for the switch: down first, the
+ * request after one output latency, back up once the car's own duck is in place. The way back is a
+ * six-step fade in `DspService` and needs no help.
+ *
  * The source is held from the first guidance PCM write until [RELEASE_MILLIS] after the last one.
  * CarPlay may keep the guidance track open between prompts, so the track's lifetime is not the
  * signal. A process that dies holding it gives it back at the next [recover]. On other head units
@@ -37,6 +46,18 @@ internal class GuangqiNavigationSource(
         fun abandon(sourceId: Int): Int
     }
 
+    /** The audio sink's side of the switch: its music, and how long its output buffer is. */
+    interface SwitchGuard {
+        /** True when music has played in the last moment, so a switch would be heard. */
+        fun mediaPlaying(): Boolean
+        /** Lowers DiPlay's own music for the switch, or puts it back. */
+        fun duckForSwitch(on: Boolean)
+        /** How long a volume change takes to reach the speakers. */
+        fun outputLatencyMillis(): Long
+    }
+
+    val available: Boolean get() = api != null
+
     @Volatile private var lastPcmNanos = 0L
     /** Set by the audio threads; a request or a release check is pending or running. */
     @Volatile private var wanted = false
@@ -44,13 +65,17 @@ internal class GuangqiNavigationSource(
     private var held = false
     private var report: (String) -> Unit = {}
     private val check = Runnable { checkIdle() }
+    /** The guard whose music is lowered for a switch in progress. */
+    private var ducked: SwitchGuard? = null
+    private var pendingRequest: Runnable? = null
+    private var pendingRestore: Runnable? = null
 
     /** Called on every guidance PCM write. */
-    fun onNavigationPcm(report: (String) -> Unit) {
+    fun onNavigationPcm(report: (String) -> Unit, guard: SwitchGuard? = null) {
         lastPcmNanos = nowNanos()
         if (api == null || wanted) return
         wanted = true
-        handler.post { acquire(report) }
+        handler.post { acquire(report, guard) }
     }
 
     /** The audio sink closed: give the source back now. */
@@ -59,20 +84,51 @@ internal class GuangqiNavigationSource(
         handler.post { release("audio closed") }
     }
 
-    private fun acquire(report: (String) -> Unit) {
+    private fun acquire(report: (String) -> Unit, guard: SwitchGuard?) {
         this.report = report
-        val car = api ?: return
-        if (!held) {
-            val result = runCatching { car.request(SOURCE_CARPLAY_NAVI) { action -> onChange(action) } }
-            val granted = result.getOrNull()?.let { it and ASR_REQUEST_GRANTED != 0 } == true
-            held = granted
-            if (granted) prefs?.edit()?.putBoolean(KEY_HELD, true)?.apply()
-            log("guidance source $SOURCE_CARPLAY_NAVI requested: " +
-                (result.exceptionOrNull()?.let { "failed ${it.javaClass.simpleName}" }
-                    ?: "result=0x${Integer.toHexString(result.getOrDefault(0))} held=$granted"))
+        if (!held && pendingRequest == null) {
+            val music = guard?.let { runCatching { it.mediaPlaying() }.getOrDefault(false) } == true
+            if (guard != null && music) {
+                val latency = runCatching { guard.outputLatencyMillis() }.getOrDefault(DEFAULT_LATENCY_MILLIS)
+                    .coerceIn(MIN_LATENCY_MILLIS, MAX_LATENCY_MILLIS)
+                guard.duckForSwitch(true)
+                ducked = guard
+                log("guidance source $SOURCE_CARPLAY_NAVI: music lowered for the switch, output latency ${latency}ms")
+                val request = Runnable {
+                    pendingRequest = null
+                    request()
+                    val restore = Runnable { restoreMusic("switch done") }
+                    pendingRestore = restore
+                    handler.postDelayed(restore, latency + DSP_SWITCH_MILLIS)
+                }
+                pendingRequest = request
+                handler.postDelayed(request, latency + SWITCH_SLACK_MILLIS)
+            } else {
+                request()
+            }
         }
         handler.removeCallbacks(check)
         handler.postDelayed(check, RELEASE_MILLIS)
+    }
+
+    private fun request() {
+        val car = api ?: return
+        val result = runCatching { car.request(SOURCE_CARPLAY_NAVI) { action -> onChange(action) } }
+        val granted = result.getOrNull()?.let { it and ASR_REQUEST_GRANTED != 0 } == true
+        held = granted
+        if (granted) prefs?.edit()?.putBoolean(KEY_HELD, true)?.apply()
+        log("guidance source $SOURCE_CARPLAY_NAVI requested: " +
+            (result.exceptionOrNull()?.let { "failed ${it.javaClass.simpleName}" }
+                ?: "result=0x${Integer.toHexString(result.getOrDefault(0))} held=$granted"))
+    }
+
+    private fun restoreMusic(reason: String) {
+        pendingRestore?.let(handler::removeCallbacks)
+        pendingRestore = null
+        val guard = ducked ?: return
+        ducked = null
+        runCatching { guard.duckForSwitch(false) }
+        log("guidance source $SOURCE_CARPLAY_NAVI: music restored ($reason)")
     }
 
     private fun checkIdle() {
@@ -86,6 +142,9 @@ internal class GuangqiNavigationSource(
 
     private fun release(reason: String) {
         handler.removeCallbacks(check)
+        pendingRequest?.let(handler::removeCallbacks)
+        pendingRequest = null
+        restoreMusic(reason)
         if (held) {
             held = false
             val result = runCatching { api?.abandon(SOURCE_CARPLAY_NAVI) }
@@ -111,6 +170,14 @@ internal class GuangqiNavigationSource(
         const val ASR_REQUEST_GRANTED = 2
         const val RELEASE_MILLIS = 1_500L
         private const val RECHECK_SLACK_MILLIS = 50L
+        /** Used when the output latency cannot be read. */
+        const val DEFAULT_LATENCY_MILLIS = 200L
+        private const val MIN_LATENCY_MILLIS = 40L
+        private const val MAX_LATENCY_MILLIS = 500L
+        /** After the lowered music has reached the speakers, before the request. */
+        const val SWITCH_SLACK_MILLIS = 30L
+        /** After the request: the car's fade, its 50 ms wait and its own duck reaching the speakers. */
+        const val DSP_SWITCH_MILLIS = 300L
         private const val PREFS = "guangqi_navigation_source"
         private const val KEY_HELD = "held"
         private const val MANAGER_CLASS = "android.media.AudioSourceManager"

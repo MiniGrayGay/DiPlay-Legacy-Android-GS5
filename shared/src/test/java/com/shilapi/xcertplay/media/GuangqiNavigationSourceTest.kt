@@ -46,12 +46,12 @@ class GuangqiNavigationSourceTest {
 
     @Test fun holdsTheCarPlayNavigationSourceWhileGuidancePlays() {
         val source = source()
-        source.onNavigationPcm { log += it }
+        source.onNavigationPcm({ log += it })
         ShadowLooper.idleMainLooper()
         // A prompt: PCM every 20 ms for two seconds, longer than the release delay.
         repeat(100) {
             advance(20)
-            source.onNavigationPcm { log += it }
+            source.onNavigationPcm({ log += it })
         }
         assertEquals(listOf("request 27"), calls)
         assertTrue(prefs.getBoolean("held", false))
@@ -61,7 +61,7 @@ class GuangqiNavigationSourceTest {
         assertFalse(prefs.getBoolean("held", false))
 
         // The next prompt asks again.
-        source.onNavigationPcm { log += it }
+        source.onNavigationPcm({ log += it })
         ShadowLooper.idleMainLooper()
         assertEquals(listOf("request 27", "abandon 27", "request 27"), calls)
     }
@@ -69,7 +69,7 @@ class GuangqiNavigationSourceTest {
     @Test fun aRefusedRequestIsNotAbandoned() {
         car.result = 0x200000 // ASR_LOW_PRORITY_DENY
         val source = source()
-        source.onNavigationPcm { log += it }
+        source.onNavigationPcm({ log += it })
         ShadowLooper.idleMainLooper()
         advance(GuangqiNavigationSource.RELEASE_MILLIS + 100)
         assertEquals(listOf("request 27"), calls)
@@ -78,16 +78,58 @@ class GuangqiNavigationSourceTest {
 
     @Test fun closingTheAudioReleasesAtOnce() {
         val source = source()
-        source.onNavigationPcm { log += it }
+        source.onNavigationPcm({ log += it })
         ShadowLooper.idleMainLooper()
         source.releaseNow()
         ShadowLooper.idleMainLooper()
         assertEquals(listOf("request 27", "abandon 27"), calls)
     }
 
+    private class Guard(var playing: Boolean, val calls: MutableList<String>) : GuangqiNavigationSource.SwitchGuard {
+        override fun mediaPlaying() = playing
+        override fun duckForSwitch(on: Boolean) { calls += if (on) "duck" else "unduck" }
+        override fun outputLatencyMillis() = 120L
+    }
+
+    @Test fun musicIsLoweredBeforeTheSwitchAndRestoredAfterTheCarDucksIt() {
+        val source = source()
+        val guard = Guard(playing = true, calls = calls)
+        source.onNavigationPcm({ log += it }, guard)
+        ShadowLooper.idleMainLooper()
+        // Lowered at once; the request waits until the lowered music has reached the speakers.
+        assertEquals(listOf("duck"), calls)
+        advance(120 + GuangqiNavigationSource.SWITCH_SLACK_MILLIS - 1)
+        assertEquals(listOf("duck"), calls)
+        advance(1)
+        assertEquals(listOf("duck", "request 27"), calls)
+        // Back up only once the car's own duck has reached the speakers too.
+        source.onNavigationPcm({ log += it }, guard)
+        advance(120 + GuangqiNavigationSource.DSP_SWITCH_MILLIS - 1)
+        assertEquals(listOf("duck", "request 27"), calls)
+        advance(1)
+        assertEquals(listOf("duck", "request 27", "unduck"), calls)
+    }
+
+    @Test fun withoutMusicTheSourceIsRequestedAtOnce() {
+        val source = source()
+        source.onNavigationPcm({ log += it }, Guard(playing = false, calls = calls))
+        ShadowLooper.idleMainLooper()
+        assertEquals(listOf("request 27"), calls)
+    }
+
+    @Test fun aPromptThatEndsDuringTheSwitchPutsTheMusicBack() {
+        val source = source()
+        source.onNavigationPcm({ log += it }, Guard(playing = true, calls = calls))
+        ShadowLooper.idleMainLooper()
+        source.releaseNow()
+        ShadowLooper.idleMainLooper()
+        advance(1_000)
+        assertEquals(listOf("duck", "unduck"), calls)
+    }
+
     @Test fun withoutTheCarSourceManagerNothingHappens() {
         val source = source(api = null)
-        source.onNavigationPcm { log += it }
+        source.onNavigationPcm({ log += it })
         source.releaseNow()
         ShadowLooper.idleMainLooper()
         assertTrue(calls.isEmpty())

@@ -61,6 +61,19 @@ internal class AudioFocusCoordinator(
     private val manager = context?.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
     /** Guangqi: holds the car's navigation source while guidance plays; inert elsewhere. */
     private val guidanceSource = context?.let { runCatching { GuangqiNavigationSource.get(it) }.getOrNull() }
+        ?.takeIf { it.available }
+    /** Music lowered by [GuangqiNavigationSource] while the car switches to navigation. */
+    private var switchDucking = false
+    /** Wall clock of the last music PCM write; tells the switch whether music would be heard. */
+    @Volatile private var lastMediaPcmNanos = 0L
+    private val switchGuard = object : GuangqiNavigationSource.SwitchGuard {
+        override fun mediaPlaying(): Boolean =
+            lastMediaPcmNanos != 0L && nowNs() - lastMediaPcmNanos < MEDIA_PLAYING_NANOS
+
+        override fun duckForSwitch(on: Boolean) = setSwitchDuck(on)
+
+        override fun outputLatencyMillis(): Long = mediaOutputLatencyMillis()
+    }
     private val active = LinkedHashMap<AudioTrack, Entry>()
     private var request: Any? = null
     private var requestedChannel: AudioChannel? = null
@@ -144,7 +157,8 @@ internal class AudioFocusCoordinator(
         // registration also runs for the duck alone; refreshRequest() itself
         // stays gated on the focus setting and issues no request then.
         if (closed || manager == null) return
-        if (!enabled && !announcementDuckEnabled) return
+        // The Guangqi navigation switch lowers music through the same per-track bookkeeping.
+        if (!enabled && !announcementDuckEnabled && guidanceSource == null) return
         active[track] = Entry(channel, attributes)
         // Issue #214: navigation alone gets no sound on some head units because the audio
         // output stays muted without focus. Let a lone navigation track take focus to open
@@ -171,7 +185,37 @@ internal class AudioFocusCoordinator(
 
     /** Called on every guidance PCM write, whatever the focus settings. */
     fun onNavigationPcm() {
-        if (!closed) guidanceSource?.onNavigationPcm(report)
+        if (!closed) guidanceSource?.onNavigationPcm(report, switchGuard)
+    }
+
+    /** Called on every music PCM write. */
+    fun onMediaPcm() {
+        lastMediaPcmNanos = nowNs()
+    }
+
+    @Synchronized
+    private fun setSwitchDuck(on: Boolean) {
+        if (closed || switchDucking == on) return
+        switchDucking = on
+        setMediaVolume(effectiveMediaVolume())
+    }
+
+    /** The focus side's volume with the announcement duck and the switch duck composed in. */
+    private fun effectiveMediaVolume(): Float {
+        var volume = focusVolume
+        if (announcementDucking) volume = minOf(volume, DUCKED_VOLUME)
+        if (switchDucking) volume = minOf(volume, SWITCH_DUCKED_VOLUME)
+        return volume
+    }
+
+    /** `AudioTrack.getLatency()` (hidden since API 17) of a music track: mixer plus track buffer. */
+    @Synchronized
+    private fun mediaOutputLatencyMillis(): Long {
+        val track = active.entries.firstOrNull { it.value.channel == AudioChannel.MEDIA }?.key
+            ?: return GuangqiNavigationSource.DEFAULT_LATENCY_MILLIS
+        return runCatching {
+            (AudioTrack::class.java.getMethod("getLatency").invoke(track) as Int).toLong()
+        }.getOrDefault(GuangqiNavigationSource.DEFAULT_LATENCY_MILLIS)
     }
 
     @Synchronized
@@ -300,7 +344,7 @@ internal class AudioFocusCoordinator(
      */
     private fun setFocusVolume(volume: Float) {
         focusVolume = volume
-        setMediaVolume(if (announcementDucking) minOf(volume, DUCKED_VOLUME) else volume)
+        setMediaVolume(effectiveMediaVolume())
     }
 
     /**
@@ -325,7 +369,7 @@ internal class AudioFocusCoordinator(
                 val line = "Audio: announcement duck engaged channel=$channel"
                 Log.i(TAG, line)
                 runCatching { report(line) }
-                setMediaVolume(minOf(focusVolume, DUCKED_VOLUME))
+                setMediaVolume(effectiveMediaVolume())
             }
             if (announcementTimerArmed) return
             announcementTimerArmed = true
@@ -349,7 +393,7 @@ internal class AudioFocusCoordinator(
                 announcementChannel = null
                 Log.i(TAG, line)
                 runCatching { report(line) }
-                setMediaVolume(focusVolume)
+                setMediaVolume(effectiveMediaVolume())
                 return@Runnable
             }
         }
@@ -380,6 +424,9 @@ internal class AudioFocusCoordinator(
         const val TAG = "DiPlay-AudioFocus"
         const val FULL_VOLUME = 1f
         const val DUCKED_VOLUME = 0.2f
+        /** -20 dB: more than the +19 dB the car's DSP adds when it switches to navigation. */
+        const val SWITCH_DUCKED_VOLUME = 0.1f
+        const val MEDIA_PLAYING_NANOS = 500_000_000L
         /** Issue #364: hold the duck briefly past the last announcement frame
          * so a prompt split into bursts does not pump the media volume. */
         const val ANNOUNCEMENT_RELEASE_MILLIS = 1_500L
@@ -2904,6 +2951,7 @@ private class AudioRenderer(
             // inert while the setting is off.
             mappedChannel?.let(audioFocusCoordinator::onAnnouncementFrame)
             if (mappedChannel == AudioChannel.NAVIGATION) audioFocusCoordinator.onNavigationPcm()
+            if (mappedChannel == AudioChannel.MEDIA) audioFocusCoordinator.onMediaPcm()
             val framesWritten = count / frameBytes
             totalWrittenFrames += framesWritten
             writtenFramesThisWindow += framesWritten
