@@ -98,7 +98,11 @@ Switching `sharedUserId`, or installing the release id over the `.hudtest` id, i
 
 ### Wired link
 
-Kernel TUN and the system VPN are unusable on 3.0.35. Wired CarPlay uses the userspace lwIP relay in `shared/src/main/jni/lwip_ncm_relay.c`.
+The kernel TUN driver works on 3.0.35: OpenVPN runs in tun mode, and a Go 1.27 probe opened the device (`docs/go-netprobe车机测试报告.md` in the parent carlife tree). The node is `/dev/tun` (char 10,200, owner 1000:1016). There is no `/dev/net/tun` until something links it, and `/dev` is tmpfs, so the link must be made again after every boot (`mkdir -p /dev/net && ln -sf /dev/tun /dev/net/tun`, as the OpenVPN start script does). Creating an interface (`TUNSETIFF`) needs `CAP_NET_ADMIN`: root has it, DiPlay's uid 1000 does not.
+
+The system VPN can be brought up, but not the standard way. This ROM never sends `android.intent.action.USER_STARTING`, so `ConnectivityService.mVpns` stays empty until the app sends that broadcast itself. The ROM also has no `com.android.vpndialogs`, so `VpnService.prepare()` cannot show its consent screen, and preparing goes through Binder instead.
+
+Wired CarPlay still does not use TUN. The kernel `cdc_ncm` driver competes for the iPhone's NCM interface, and unbinding it needs root. The NCM bulk-out endpoint only becomes writable after the iPhone has stopped resending its SYN. Wired CarPlay therefore uses the userspace lwIP relay in `shared/src/main/jni/lwip_ncm_relay.c`. Details are in `docs/DiPlay-VPN-TUN修复记录.md` in the parent carlife tree.
 
 ### Wireless link
 
