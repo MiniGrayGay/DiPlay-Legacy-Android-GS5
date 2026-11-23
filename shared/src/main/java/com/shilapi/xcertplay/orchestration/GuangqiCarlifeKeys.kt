@@ -70,17 +70,25 @@ object GuangqiCarlifeKeys {
     private var listener: Any? = null
     private var anchor: ServiceConnection? = null
     @Volatile private var appContext: Context? = null
+    /** The running session's log, so the steps below land in diplay.log, not only in logcat. */
+    @Volatile private var sessionLog: ((String) -> Unit)? = null
     private val worker = Executors.newSingleThreadExecutor { Thread(it, "diplay-gq-keys").apply { isDaemon = true } }
 
     /** A CarPlay session is up: stops the stock CarLife, then takes the keys when the setting is on. */
-    fun sessionStarted(context: Context, owner: CarPlayController) {
+    fun sessionStarted(context: Context, owner: CarPlayController, log: ((String) -> Unit)? = null) {
         val app = context.applicationContext
         appContext = app
         controller = owner
+        sessionLog = log
         worker.execute {
             if (app.getSystemService(KEYBACK_SERVICE) == null) return@execute
             stopStockCarlife(app)
-            if (controller === owner && WheelIntegrationSettings.carPlayCallControls(app)) hold(app)
+            if (controller !== owner) return@execute
+            if (WheelIntegrationSettings.carPlayCallControls(app)) {
+                hold(app)
+            } else {
+                report("call keys setting is off; the call, hang-up and voice keys stay with the car")
+            }
         }
     }
 
@@ -130,7 +138,7 @@ object GuangqiCarlifeKeys {
             return
         }
         if (stockCarlifeRunning(app)) {
-            Log.w(TAG, "stock CarLife is running and owns the keys; not taking them")
+            report("stock CarLife is still running and owns the keys; not taking them")
             return
         }
         val registered = runCatching {
@@ -138,13 +146,16 @@ object GuangqiCarlifeKeys {
             manager.javaClass.getMethod("registerKeyInfo", type, Looper::class.java, String::class.java)
                 .invoke(manager, listener(type), Looper.getMainLooper(), CARLIFE_KEY_NAME) as? Boolean ?: true
         }.onFailure { Log.w(TAG, "registerKeyInfo failed", it) }.getOrDefault(false)
-        if (!registered) return
+        if (!registered) {
+            report("registerKeyInfo failed; the keys stay with the car")
+            return
+        }
         // Remembered before the system state changes, so a crash right after is still undone.
         prefs(app).edit().putBoolean(KEY_HOLDING, true).commit()
         holding = true
         broadcast(app, connected = true)
         takeVoiceKey(app)
-        Log.i(TAG, "wheel call keys taken")
+        report("call keys taken")
     }
 
     private fun release(app: Context, reason: String) {
@@ -157,7 +168,7 @@ object GuangqiCarlifeKeys {
             manager.javaClass.getMethod("removeKeyInfo").invoke(manager)
         }.onFailure { Log.w(TAG, "removeKeyInfo failed", it) }
         prefs(app).edit().putBoolean(KEY_HOLDING, false).commit()
-        Log.i(TAG, "wheel call keys released ($reason)")
+        report("call keys released ($reason)")
     }
 
     /**
@@ -167,12 +178,13 @@ object GuangqiCarlifeKeys {
      */
     private fun takeVoiceKey(app: Context) {
         if (!bindAnchor(app)) {
-            Log.w(TAG, "voice key anchor did not start; short press stays with the stock assistant")
+            report("voice key anchor did not start; short press stays with the stock assistant")
             return
         }
         setVoiceState("1")
         GuangqiStockAssistant.acquire(app, ASSISTANT_REASON)
-        Log.i(TAG, "voice key short press taken")
+        // The system checks both on every short press; a mismatch hands every key back to the car.
+        report("voice key short press taken: $CARLIFE_VR_STATE=${voiceState()} anchor=${anchorPids(app)}")
     }
 
     /** Undoes [takeVoiceKey] in reverse, so the property is never 1 without the anchor running. */
@@ -212,6 +224,21 @@ object GuangqiCarlifeKeys {
         return true
     }
 
+    private fun voiceState(): String? = runCatching {
+        Class.forName("android.os.SystemProperties").getMethod("get", String::class.java)
+            .invoke(null, CARLIFE_VR_STATE) as? String
+    }.getOrNull()
+
+    private fun anchorPids(app: Context): List<Int> = runCatching {
+        (app.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager).runningAppProcesses.orEmpty()
+            .filter { it.processName == app.packageName + ANCHOR_PROCESS_SUFFIX }.map { it.pid }
+    }.getOrDefault(emptyList())
+
+    private fun report(message: String) {
+        Log.i(TAG, message)
+        runCatching { sessionLog?.invoke("Wheel keys: $message") }
+    }
+
     private fun setVoiceState(value: String) {
         runCatching {
             Class.forName("android.os.SystemProperties")
@@ -233,7 +260,10 @@ object GuangqiCarlifeKeys {
             val manager = app.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
             manager.javaClass.getMethod("forceStopPackage", String::class.java).invoke(manager, STOCK_CARLIFE_PACKAGE)
         }.onFailure { Log.w(TAG, "force-stop of the stock CarLife failed", it) }.isSuccess
-        if (!stopped) return
+        if (!stopped) {
+            report("could not force-stop the stock CarLife")
+            return
+        }
         var waited = 0L
         while (stockCarlifeRunning(app) && waited < STOP_WAIT_MILLIS) {
             Thread.sleep(STOP_POLL_MILLIS)
@@ -241,7 +271,7 @@ object GuangqiCarlifeKeys {
         }
         // The key service drops the listener from a death notification that follows the process.
         Thread.sleep(STOP_POLL_MILLIS)
-        Log.i(TAG, "stock CarLife stopped after ${waited}ms running=${stockCarlifeRunning(app)}")
+        report("stock CarLife stopped after ${waited}ms running=${stockCarlifeRunning(app)}")
     }
 
     private fun broadcast(app: Context, connected: Boolean) {
@@ -252,21 +282,27 @@ object GuangqiCarlifeKeys {
     }
 
     private fun onKeyUp(keyCode: Int) {
-        val owner = controller ?: return
+        // The same listener also gets the media keys the system hands every key listener.
+        if (keyCode !in WHEEL_KEYS) return
+        val owner = controller ?: run {
+            report("key $keyCode with no CarPlay session")
+            return
+        }
         val app = appContext
         if (keyCode == KEY_VOICE_SHORT && app != null && stockAssistantOnTop(app)) {
-            Log.i(TAG, "voice key 133 came from the stock assistant starting; not Siri")
+            report("voice key 133 came from the stock assistant starting; not Siri")
             worker.execute { GuangqiStockAssistant.reassert(app) }
             return
         }
-        val action = action(keyCode, NavigationOutputs.carPlayCall())
+        val call = NavigationOutputs.carPlayCall()
+        val action = action(keyCode, call)
         val sent = when (action) {
-            Action.NONE -> return
+            Action.NONE -> false
             Action.ANSWER -> owner.answerCall()
             Action.END -> owner.endCall()
             Action.SIRI -> owner.requestSiri()
         }
-        Log.i(TAG, "wheel key $keyCode: $action sent=$sent")
+        report("key $keyCode call=${call?.phase} -> $action sent=$sent")
     }
 
     /** One listener for the life of the process: KeyBackManager keeps the first one it was given. */
@@ -294,6 +330,7 @@ object GuangqiCarlifeKeys {
     const val KEY_HANG_UP = 138
     const val KEY_VOICE_SHORT = 133
     const val KEY_VOICE_LONG = 57
+    private val WHEEL_KEYS = setOf(KEY_CALL, KEY_HANG_UP, KEY_VOICE_SHORT, KEY_VOICE_LONG)
 
     private const val TAG = "DiPlay-GQ-Keys"
     private const val KEYBACK_SERVICE = "keyback"

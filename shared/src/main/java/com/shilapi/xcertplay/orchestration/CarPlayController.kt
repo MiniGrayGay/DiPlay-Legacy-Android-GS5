@@ -378,7 +378,7 @@ class CarPlayController(
             }
             if (replacement) {
                 NavigationOutputs.start()
-                GuangqiCarlifeKeys.sessionStarted(appContext, this@CarPlayController)
+                GuangqiCarlifeKeys.sessionStarted(appContext, this@CarPlayController, ::debugLog)
                 com.shilapi.xcertplay.glance.CarPlayGlance.setConnected(true)
                 // The gear may have changed since /info.
                 if (videoListener != null) {
