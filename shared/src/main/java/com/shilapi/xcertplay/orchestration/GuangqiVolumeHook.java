@@ -4,8 +4,10 @@ package com.shilapi.xcertplay.orchestration;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.IBinder;
 import android.os.Message;
+import android.os.Process;
 import android.os.SystemClock;
 import android.util.Log;
 
@@ -23,7 +25,12 @@ import java.lang.reflect.Method;
  * class replaces that handler with one that, when {@link #decide} says so, sets the media or the
  * navigation volume itself with {@code DspService.setVolumeByFlag} (the call the car's own Settings
  * slider uses, which shows no bar) and tells DiPlay, which draws its own bar. Every other message,
- * and every volume message it does not take, goes to the original handler unchanged.
+ * and every volume message it does not take, goes to the original handler unchanged. Holding a key
+ * repeats {@code setVolume(±1)} through the same message, so a held key is taken too.
+ *
+ * <p>The decision only reads fields. The DSP calls take {@code DspService.mLock}, which the car holds
+ * for its whole navigation-to-media fade, so they run on this hook's own thread, as the car's own
+ * {@code adjustVolume} hands them to the DSP's handler, and the window policy thread never waits.
  *
  * <p>It runs in system_server: {@link GuangqiVolumeHookReceiver} is declared with
  * {@code android:process="system"}, as the ROM's SettingsProvider is. It is written in Java so it
@@ -81,9 +88,12 @@ public final class GuangqiVolumeHook {
         return now < naviUntil ? KIND_NAVI : KIND_MEDIA;
     }
 
-    /** {@code DspService.isMediaPolicy}; -1 is its "none yet", which it treats as policy 0. */
+    /**
+     * {@code DspService.isMediaPolicy}. Its "none yet" (-1) is left to the car: {@code adjustVolume}
+     * treats it as policy 0, but {@code setVolumeByFlag} would only store the value.
+     */
     static boolean isMediaPolicy(int policy) {
-        return policy == -1 || policy == 0 || policy == 2 || policy == 4;
+        return policy == 0 || policy == 2 || policy == 4;
     }
 
     public static int nextVolume(int current, int step) {
@@ -155,7 +165,7 @@ public final class GuangqiVolumeHook {
 
     private static void notifyState(Context app, boolean installed, String detail) {
         try {
-            app.sendBroadcast(new Intent(ACTION_HOOK_STATE).setPackage(app.getPackageName())
+            send(app, new Intent(ACTION_HOOK_STATE).setPackage(app.getPackageName())
                 .putExtra(EXTRA_INSTALLED, installed)
                 .putExtra(EXTRA_VERSION, VERSION)
                 .putExtra(EXTRA_DETAIL, detail));
@@ -175,9 +185,12 @@ public final class GuangqiVolumeHook {
         final Field dspNaviState;
         final Method getVolumeByFlag;
         final Method setVolumeByFlag;
+        final Method setUnmute;
+        private Handler worker;
 
         private Targets(Context app, Object policy, Field handlerField, Field rvcField, Object dsp,
-                        Field dspPolicy, Field dspNaviState, Method getVolumeByFlag, Method setVolumeByFlag) {
+                        Field dspPolicy, Field dspNaviState, Method getVolumeByFlag, Method setVolumeByFlag,
+                        Method setUnmute) {
             this.app = app;
             this.policy = policy;
             this.handlerField = handlerField;
@@ -187,6 +200,7 @@ public final class GuangqiVolumeHook {
             this.dspNaviState = dspNaviState;
             this.getVolumeByFlag = getVolumeByFlag;
             this.setVolumeByFlag = setVolumeByFlag;
+            this.setUnmute = setUnmute;
         }
 
         static Targets find(Context app) throws Exception {
@@ -201,7 +215,8 @@ public final class GuangqiVolumeHook {
             Field dspNaviState = field(dsp.getClass(), "mNaviState");
             Method get = dsp.getClass().getMethod("getVolumeByFlag", int.class);
             Method set = dsp.getClass().getMethod("setVolumeByFlag", int.class, int.class);
-            return new Targets(app, policy, handlerField, rvcField, dsp, dspPolicy, dspNaviState, get, set);
+            Method unmute = dsp.getClass().getMethod("setUnmute");
+            return new Targets(app, policy, handlerField, rvcField, dsp, dspPolicy, dspNaviState, get, set, unmute);
         }
 
         /** Returns true when the key was handled here, false to give it to the car. */
@@ -221,13 +236,41 @@ public final class GuangqiVolumeHook {
                 }
                 return false;
             }
-            int flag = kind == KIND_NAVI ? DSP_FLAG_NAVI : DSP_FLAG_MEDIA;
-            int current = (Integer) getVolumeByFlag.invoke(dsp, flag);
-            int next = nextVolume(current, step);
-            // Also at the end of the range: setting the media volume unmutes, as the car's key does.
-            setVolumeByFlag.invoke(dsp, next, flag);
-            tell(kind, next, step, kind == KIND_NAVI ? "guidance" : "media policy " + carPolicy);
+            final int flag = kind == KIND_NAVI ? DSP_FLAG_NAVI : DSP_FLAG_MEDIA;
+            final int taken = kind;
+            final int signed = step;
+            final String reason = kind == KIND_NAVI ? "guidance" : "media policy " + carPolicy;
+            worker().post(new Runnable() {
+                @Override
+                public void run() {
+                    apply(taken, flag, signed, reason);
+                }
+            });
             return true;
+        }
+
+        /** On the hook's thread: what the car's message 19 does, without its bar. */
+        void apply(int kind, int flag, int step, String reason) {
+            try {
+                // The car unmutes before every step, also at the end of the range.
+                setUnmute.invoke(dsp);
+                int current = (Integer) getVolumeByFlag.invoke(dsp, flag);
+                int next = nextVolume(current, step);
+                setVolumeByFlag.invoke(dsp, next, flag);
+                tell(kind, next, step, reason);
+            } catch (Throwable error) {
+                Log.w(TAG, "volume step failed", error);
+                tell(KIND_PASS, -1, step, "DSP call failed: " + error);
+            }
+        }
+
+        private synchronized Handler worker() {
+            if (worker == null) {
+                HandlerThread thread = new HandlerThread("diplay-volume-hook");
+                thread.start();
+                worker = new Handler(thread.getLooper());
+            }
+            return worker;
         }
 
         private int rvcState() throws Exception {
@@ -238,7 +281,7 @@ public final class GuangqiVolumeHook {
 
         private void tell(int kind, int value, int step, String reason) {
             try {
-                app.sendBroadcast(new Intent(ACTION_CAR_VOLUME).setPackage(app.getPackageName())
+                send(app, new Intent(ACTION_CAR_VOLUME).setPackage(app.getPackageName())
                     .putExtra(EXTRA_KIND, kind)
                     .putExtra(EXTRA_VALUE, value)
                     .putExtra(EXTRA_STEP, step)
@@ -273,6 +316,14 @@ public final class GuangqiVolumeHook {
             }
             original.dispatchMessage(msg);
         }
+    }
+
+    /**
+     * To this user only: a plain {@code sendBroadcast} from system_server logs a warning with a
+     * stack trace at every call.
+     */
+    private static void send(Context app, Intent intent) {
+        app.sendBroadcastAsUser(intent, Process.myUserHandle());
     }
 
     static boolean diplayAlive(String packageName, String pid) {

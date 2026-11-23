@@ -1,7 +1,7 @@
 # DiPlay 混音与音量接管计划（feat/self-mix）
 
 - 分支：`feat/self-mix`，基于 dev `adb7ae0`（0.4.6.10）
-- 状态：阶段 1（钩子 + 音量条）已写完，待上车测试（0.4.6.11，`DiPlay-0.4.6.11-selfmix1.apk`）
+- 状态：阶段 1（钩子 + 音量条）已写完并审查，待上车测试（0.4.6.12，`DiPlay-0.4.6.12-selfmix.apk`）
 - 用法：直接改这份文件。标了 **【可改】** 的是设计决定；改完告诉我，我按改后的版本做。
 
 ## 1. 目标
@@ -50,12 +50,15 @@
 | DiPlay 进程不在（`sys.diplay.vol_pid` 对应的进程不存在，或进程名不是 `com.shihab.diplay`） | 交回原车 |
 | 倒车中（`mRvcAvmState.state != 0`） | 交回原车 |
 | 车机处在导航模式（`mNaviState == 1`） | 交回原车 |
-| 当前不是媒体策略（通话、语音等，即不是 0、2、4、−1） | 交回原车 |
+| 当前不是媒体策略 0、2、4（通话、语音等；−1「还没有策略」也算，因为 `setVolumeByFlag` 在 −1 时只记数值、不改 DSP） | 交回原车 |
 | 当前处于导航播报窗口（`uptimeMillis < sys.diplay.navi_until`） | 导航音量 ± 步数，`setVolumeByFlag(v, 2)` |
 | 其他（媒体） | 媒体音量 ± 步数，`setVolumeByFlag(v, 0)` |
 
 - 接管后，钩子给 DiPlay 发一个广播：`com.shihab.diplay.action.CAR_VOLUME`，附带 `kind=media|navi`、`value`、`step`。DiPlay 收到后画音量条。
 - 交回原车就是照原样调用 `original.handleMessage(msg)`，行为和没装钩子时完全一样。
+- 接管时和原车一样，先 `setUnmute()` 再调音量。DSP 调用放在钩子自己的线程上执行：`setVolumeByFlag` 要拿 `DspService.mLock`，车机做导航→媒体渐变时会持锁约 0.4 s，不能让窗口策略线程等。原车的 `adjustVolume` 也是交给 DSP 的 Handler 异步执行的。
+- 按住音量键时的连续调节（消息 5/6）调用的也是 `setVolume(±1)`，同样走消息 19，钩子能接管。
+- 三指下滑菜单里也有这个开关，关掉后音量键立即交还车机。
 
 ### D3. 播报窗口 【可改】
 - 混音模式下，每收到一段有声音的导航数据，DiPlay 就把 `sys.diplay.navi_until` 设成「现在 + 1500 ms」。

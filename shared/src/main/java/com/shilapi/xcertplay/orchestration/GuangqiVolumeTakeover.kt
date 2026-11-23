@@ -25,6 +25,7 @@ object GuangqiVolumeTakeover {
     /** The running CarPlay session's log, so the hook's work lands in diplay.log. */
     @Volatile private var sessionLog: ((String) -> Unit)? = null
     @Volatile private var lastState: String? = null
+    @Volatile private var appContext: Context? = null
 
     /** True on head units with the car's DSP manager, the only ones the hook works on. */
     fun supported(): Boolean = runCatching { Class.forName("android.os.DspManager") }.isSuccess
@@ -39,12 +40,17 @@ object GuangqiVolumeTakeover {
     /** DiPlay's main process started. */
     fun start(context: Context) {
         if (!supported()) return
+        appContext = context.applicationContext
         apply(context.applicationContext)
     }
 
     fun sessionStarted(log: (String) -> Unit) {
         sessionLog = log
-        report(lastState ?: "volume hook: no answer from the system process yet")
+        val app = appContext ?: return
+        report(when {
+            !enabled(app) -> "volume hook: setting off, volume keys stay with the car"
+            else -> lastState ?: "volume hook: no answer from the system process yet"
+        })
     }
 
     fun sessionEnded() {

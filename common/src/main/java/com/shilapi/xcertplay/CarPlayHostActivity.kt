@@ -2196,6 +2196,14 @@ class CarPlayHostActivity : ComponentActivity() {
             quickMenuChangedSession()
         })
 
+        // Guangqi: the volume keys go back to the car the moment this is off; no reconnect.
+        if (com.shilapi.xcertplay.orchestration.GuangqiVolumeTakeover.supported()) {
+            addRow(switchRow(getString(R.string.settings_volume_takeover), getString(R.string.quick_volume_takeover_note),
+                com.shilapi.xcertplay.orchestration.GuangqiVolumeTakeover.enabled(this)) { enabled ->
+                com.shilapi.xcertplay.orchestration.GuangqiVolumeTakeover.setEnabled(this, enabled)
+            })
+        }
+
         val footer = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL

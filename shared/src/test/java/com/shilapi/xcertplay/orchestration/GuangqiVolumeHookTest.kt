@@ -29,7 +29,7 @@ class GuangqiVolumeHookTest {
     ) = GuangqiVolumeHook.decide(on, alive, rvc, naviState, policy, now, until)
 
     @Test fun mediaKeysAreTakenInEveryMediaPolicy() {
-        for (policy in listOf(-1, 0, 2, 4)) assertEquals("policy $policy", media, decide(policy = policy))
+        for (policy in listOf(0, 2, 4)) assertEquals("policy $policy", media, decide(policy = policy))
     }
 
     @Test fun duringGuidanceTheKeysSetTheNavigationVolume() {
@@ -42,7 +42,8 @@ class GuangqiVolumeHookTest {
         assertEquals("DiPlay gone", pass, decide(alive = false))
         assertEquals("reversing", pass, decide(rvc = 2))
         assertEquals("car in its navigation mode", pass, decide(naviState = 1, until = 5_000))
-        for (policy in listOf(1, 3, 5, 6, 7, 8)) {
+        // -1 is the DSP's "none yet": setVolumeByFlag would only store the value there.
+        for (policy in listOf(-1, 1, 3, 5, 6, 7, 8)) {
             assertEquals("policy $policy", pass, decide(policy = policy))
             assertEquals("a call outranks guidance, policy $policy", pass, decide(policy = policy, until = 5_000))
         }
@@ -101,6 +102,24 @@ class GuangqiVolumeHookTest {
         assertSame(original, (hooked as GuangqiVolumeHook.VolumeHandler).original)
     }
 
+    @Test fun aTakenStepUnmutesSetsTheVolumeAndTellsDiPlay() {
+        val (_, targets) = fakeTargets()
+        targets.apply(GuangqiVolumeHook.KIND_NAVI, GuangqiVolumeHook.DSP_FLAG_NAVI, 2, "guidance")
+        assertEquals(listOf("unmute", "get 2", "set 12 2"), (targets.dsp as FakeDsp).calls)
+        val shadow = shadowOf(app as android.app.Application)
+        val sent = (shadow.broadcastIntents + shadow.getBroadcastIntentsForUser(android.os.Process.myUserHandle()))
+            .last { it.action == GuangqiVolumeHook.ACTION_CAR_VOLUME }
+        assertEquals(app.packageName, sent.`package`)
+        assertEquals(GuangqiVolumeHook.KIND_NAVI, sent.getIntExtra(GuangqiVolumeHook.EXTRA_KIND, -1))
+        assertEquals(12, sent.getIntExtra(GuangqiVolumeHook.EXTRA_VALUE, -1))
+    }
+
+    @Test fun theEndOfTheRangeStillUnmutesAndShowsTheBar() {
+        val (_, targets) = fakeTargets()
+        targets.apply(GuangqiVolumeHook.KIND_MEDIA, GuangqiVolumeHook.DSP_FLAG_MEDIA, 25, "media policy 0")
+        assertEquals(listOf("unmute", "get 0", "set 30 0"), (targets.dsp as FakeDsp).calls)
+    }
+
     private val app: Context get() = RuntimeEnvironment.getApplication()
 
     class RecordingHandler : Handler(Looper.getMainLooper()) {
@@ -123,6 +142,7 @@ class GuangqiVolumeHookTest {
         val calls = mutableListOf<String>()
         fun getVolumeByFlag(flag: Int): Int = 10.also { calls += "get $flag" }
         fun setVolumeByFlag(vol: Int, flag: Int): Int = 0.also { calls += "set $vol $flag" }
+        fun setUnmute(): Int = 0.also { calls += "unmute" }
     }
 
     private fun fakeTargets(): Pair<FakePolicy, GuangqiVolumeHook.Targets> {
@@ -135,6 +155,7 @@ class GuangqiVolumeHookTest {
             dsp, field(FakeDsp::class.java, "mPolicy"), field(FakeDsp::class.java, "mNaviState"),
             FakeDsp::class.java.getMethod("getVolumeByFlag", Int::class.javaPrimitiveType),
             FakeDsp::class.java.getMethod("setVolumeByFlag", Int::class.javaPrimitiveType, Int::class.javaPrimitiveType),
+            FakeDsp::class.java.getMethod("setUnmute"),
         ) as GuangqiVolumeHook.Targets
         return policy to targets
     }
