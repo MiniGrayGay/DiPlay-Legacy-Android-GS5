@@ -623,7 +623,6 @@
     <string name="quick_auto_connect_note">Keeps the car from paging the phone back onto its Bluetooth. Turns off car Bluetooth audio. Applies after reconnecting.</string>
     <string name="quick_car_bluetooth_audio_note">CarPlay sound plays over the car\'s Bluetooth. Turns off the auto-connect switch below. Applies after reconnecting.</string>
     <string name="quick_music_buffer_note">Longer is steadier over a weak link but answers later. Applies after reconnecting.</string>
-    <string name="quick_smooth_video_note">Steadier scrolling, slower touch response. Applies after reconnecting.</string>
     <string name="quick_cluster_map_note">Applies after reconnecting.</string>
     <string name="quick_back_to_home">DiPlay home</string>
     <string name="wireless_mode_recommended">Recommended · verified on this car</string>

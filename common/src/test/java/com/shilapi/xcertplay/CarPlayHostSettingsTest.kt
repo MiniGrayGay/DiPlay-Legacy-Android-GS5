@@ -159,7 +159,7 @@ class CarPlayHostSettingsTest {
         assertTrue(activity.getString(R.string.settings_car_bluetooth_audio) in texts)
         assertTrue(activity.getString(R.string.settings_carplay_auto_disconnect_bt) in texts)
         assertTrue(activity.getString(R.string.music_buffer) in texts)
-        assertTrue(activity.getString(R.string.smooth_video) in texts)
+        assertFalse(activity.getString(R.string.smooth_video) in texts)
         assertFalse(activity.getString(R.string.carplay_call_controls_experimental) in texts)
         assertTrue(activity.getString(R.string.app_name) + " " + activity.getString(R.string.settings) in texts)
         assertTrue(activity.getString(R.string.quick_back_to_home) in texts)

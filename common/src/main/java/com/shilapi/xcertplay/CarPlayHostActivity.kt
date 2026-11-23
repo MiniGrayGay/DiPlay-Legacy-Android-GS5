@@ -2066,7 +2066,7 @@ class CarPlayHostActivity : ComponentActivity() {
 
     /**
      * The three-finger menu: cluster map, car Bluetooth audio or no Bluetooth auto-connect (one
-     * excludes the other), music buffer and smooth video, each saved at once. Bottom left opens DiPlay settings or DiPlay's home page; everything else lives in DiPlay
+     * excludes the other) and music buffer, each saved at once. Bottom left opens DiPlay settings or DiPlay's home page; everything else lives in DiPlay
      * settings. Done closes, and reconnects when a change only applies to a new session.
      */
     private fun buildQuickMenu(): View {
@@ -2193,11 +2193,6 @@ class CarPlayHostActivity : ComponentActivity() {
             listOf(getString(R.string.s_300_ms_default), getString(R.string.s_500_ms), getString(R.string.s_1000_ms_most_stable)),
             bufferPresets.indexOf(AirPlayPersistence.loadMediaBufferMillis(this)).coerceAtLeast(0)) { index ->
             AirPlayPersistence.saveMediaBufferMillis(this, bufferPresets[index])
-            quickMenuChangedSession()
-        })
-        addRow(switchRow(getString(R.string.smooth_video), getString(R.string.quick_smooth_video_note),
-            AirPlayPersistence.loadSmoothVideo(this)) { enabled ->
-            AirPlayPersistence.saveSmoothVideo(this, enabled)
             quickMenuChangedSession()
         })
 

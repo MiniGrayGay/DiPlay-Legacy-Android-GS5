@@ -720,8 +720,15 @@ object AirPlayPersistence {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_CAR_BLUETOOTH_AUDIO, enabled).apply()
     }
 
-    fun loadSmoothVideo(context: Context): Boolean =
+    /**
+     * Smooth video schedules each decoded frame with `MediaCodec.releaseOutputBuffer(index, time)`,
+     * which Android 5.0 (API 21) added. Below that it cannot work, so it reads as off whatever was
+     * saved, and Settings does not offer it.
+     */
+    fun loadSmoothVideo(context: Context): Boolean = smoothVideoSupported() &&
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_SMOOTH_VIDEO, false)
+
+    fun smoothVideoSupported(): Boolean = realSdkInt() >= Build.VERSION_CODES.LOLLIPOP
 
     fun saveSmoothVideo(context: Context, enabled: Boolean) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_SMOOTH_VIDEO, enabled).apply()

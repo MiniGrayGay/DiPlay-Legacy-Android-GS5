@@ -1465,10 +1465,12 @@ class DiPlayActivity : ComponentActivity() {
         filteredSection(content, SettingsSection.ADVANCED_MEDIA,
             getString(R.string.settings_advanced_media), R.drawable.ic_dp_advanced) { card ->
             toggle(card, getString(R.string.efficient_video), getString(R.string.use_hevc_leave_off_for_the_widest_head_unit_compatibility), AirPlayPersistence.loadHevcEnabled(this)) { AirPlayPersistence.saveHevcEnabled(this, it); markReconnectNeeded() }
-            toggle(card, getString(R.string.smooth_video), getString(R.string.smooth_video_description),
-                AirPlayPersistence.loadSmoothVideo(this)) {
-                AirPlayPersistence.saveSmoothVideo(this, it)
-                reconnectIfRunning()
+            if (AirPlayPersistence.smoothVideoSupported()) {
+                toggle(card, getString(R.string.smooth_video), getString(R.string.smooth_video_description),
+                    AirPlayPersistence.loadSmoothVideo(this)) {
+                    AirPlayPersistence.saveSmoothVideo(this, it)
+                    reconnectIfRunning()
+                }
             }
             toggle(card, getString(R.string.settings_direct_surface_view),
                 getString(R.string.settings_direct_surface_view_description),

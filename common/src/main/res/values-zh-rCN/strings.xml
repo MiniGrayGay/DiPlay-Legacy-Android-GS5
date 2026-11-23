@@ -588,7 +588,6 @@
     <string name="quick_auto_connect_note">避免车机把手机重新连回蓝牙。打开后会关闭「车载蓝牙播放」。重新连接后生效。</string>
     <string name="quick_car_bluetooth_audio_note">CarPlay 声音走车机蓝牙。打开后会关闭下面的「关闭蓝牙自动连接」。重新连接后生效。</string>
     <string name="quick_music_buffer_note">越长越不怕信号波动，但声音反应更慢。重新连接后生效。</string>
-    <string name="quick_smooth_video_note">滚动更平稳，触控响应稍慢。重新连接后生效。</string>
     <string name="quick_cluster_map_note">重新连接后生效。</string>
     <string name="quick_back_to_home">返回首页</string>
     <string name="wireless_mode_recommended">推荐 · 已在本车验证</string>
