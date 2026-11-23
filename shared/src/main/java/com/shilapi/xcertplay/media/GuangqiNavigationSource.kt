@@ -31,9 +31,10 @@ import java.lang.reflect.Proxy
  * While navigation plays, `DspService` holds the music stream's software volume at a fixed 9 of 30
  * and the DSP at 20. Its comments and its low-volume branch treat 9/30 as 30 % (`max × level / 20`
  * keeps music at its level), but Android's volume curve makes 9/30 about −34 dB: at media level 9
- * music drops about 15 dB. With the [GuangqiGuidanceMusic] switch on (off by default), once the
- * car has switched, [CarAudioSourceApi.keepMusicLevel] sets the music stream to the car's own
- * low-volume value, `max × level / 20`. The car's six-step fade back sets it to the maximum again.
+ * music drops about 15 dB, and with the iPhone's own duck it is nearly inaudible. Once the car has
+ * switched, [CarAudioSourceApi.keepMusicLevel] sets the music stream to the index chosen in
+ * [GuangqiGuidanceMusic] (8-14, default 11). At media level 6 or below the car already keeps music
+ * at its level and is left alone. The car's six-step fade back sets the stream to the maximum again.
  *
  * The source is held from the first guidance PCM write until [RELEASE_MILLIS] after the last one.
  * CarPlay may keep the guidance track open between prompts, so the track's lifetime is not the
@@ -51,8 +52,8 @@ internal class GuangqiNavigationSource(
         /** Returns the source manager's result bits; [ASR_REQUEST_GRANTED] means held. */
         fun request(sourceId: Int, onChange: (Int) -> Unit): Int
         fun abandon(sourceId: Int): Int
-        /** Sets the music stream as the car does at low media volume; returns what it did, for the log. */
-        fun keepMusicLevel(): String? = null
+        /** Sets the music stream to [index] during guidance; returns what it did, for the log. */
+        fun keepMusicLevel(index: Int): String? = null
     }
 
     /** The audio sink's side of the switch: its music, and how long its output buffer is. */
@@ -142,11 +143,11 @@ internal class GuangqiNavigationSource(
                 ?: "result=0x${Integer.toHexString(result.getOrDefault(0))} held=$granted"))
     }
 
-    /** After the car's switch: music at the level the car means to keep, not its −15 dB. */
+    /** After the car's switch: music at the chosen index instead of the car's 9. */
     private fun keepMusicLevel() {
         if (!held) return
-        if (prefs?.getBoolean(GuangqiGuidanceMusic.KEY_KEEP_MUSIC_LEVEL, false) != true) return
-        val result = runCatching { api?.keepMusicLevel() }
+        val index = prefs?.let(GuangqiGuidanceMusic::musicIndex) ?: GuangqiGuidanceMusic.DEFAULT_INDEX
+        val result = runCatching { api?.keepMusicLevel(index) }
         val done = result.getOrNull() ?: result.exceptionOrNull()?.let { "failed ${it.javaClass.simpleName}" } ?: return
         log("guidance source $SOURCE_CARPLAY_NAVI: music stream $done")
     }
@@ -214,15 +215,16 @@ internal class GuangqiNavigationSource(
 
         @Volatile private var shared: GuangqiNavigationSource? = null
 
-        /** What `DspService` sets the music stream to during navigation above media level 6. */
-        const val CAR_MUSIC_INDEX_DURING_GUIDANCE = 9
+        /**
+         * The music stream index to set during guidance, or null to leave the car's own value: at
+         * media level 6 or below `DspService` already keeps music at its level (`max × level / 20`),
+         * and a fixed index could make music louder during a prompt than before it.
+         */
+        fun musicIndexDuringGuidance(mediaLevel: Int, chosenIndex: Int, maxIndex: Int): Int? =
+            if (mediaLevel <= CAR_LOW_VOLUME_LEVEL) null else chosenIndex.coerceIn(1, maxIndex)
 
-        /** `DspService`'s low-volume rule, `max × level / 20`, for every level. */
-        fun musicIndexDuringGuidance(mediaLevel: Int, maxIndex: Int): Int =
-            (maxIndex * mediaLevel / DSP_GUIDANCE_LEVEL).coerceIn(1, maxIndex)
-
-        /** The DSP volume `DspService` uses while navigation plays. */
-        private const val DSP_GUIDANCE_LEVEL = 20
+        /** At or below this media level `DspService` scales music instead of using 9. */
+        private const val CAR_LOW_VOLUME_LEVEL = 6
 
         /** The process-wide instance; inert where the car's source manager is missing. */
         fun get(context: Context): GuangqiNavigationSource = shared ?: synchronized(this) {
@@ -272,20 +274,18 @@ internal class GuangqiNavigationSource(
 
                 override fun abandon(sourceId: Int): Int = abandon.invoke(manager, sourceId) as? Int ?: 0
 
-                override fun keepMusicLevel(): String? {
+                override fun keepMusicLevel(index: Int): String? {
                     val dspManager = dsp ?: return null
                     // DspService's own media level (policy 0) and its music index scale.
                     val level = dspManager.javaClass.getMethod("getVolumeByPolicy", Int::class.javaPrimitiveType)
                         .invoke(dspManager, 0) as Int
                     val max = audio.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC)
-                    val index = musicIndexDuringGuidance(level, max)
-                    if (index <= CAR_MUSIC_INDEX_DURING_GUIDANCE) {
-                        return "left at the car's $CAR_MUSIC_INDEX_DURING_GUIDANCE/$max (media level $level)"
-                    }
+                    val target = musicIndexDuringGuidance(level, index, max)
+                        ?: return "left to the car at media level $level (its low-volume rule keeps music level)"
                     // The call DspService itself uses: the mixer index only, not the volume setting.
                     audio.javaClass.getMethod("setVolumeByStreamType", Int::class.javaPrimitiveType, Int::class.javaPrimitiveType)
-                        .invoke(audio, android.media.AudioManager.STREAM_MUSIC, index)
-                    return "set to $index/$max for media level $level (car: $CAR_MUSIC_INDEX_DURING_GUIDANCE)"
+                        .invoke(audio, android.media.AudioManager.STREAM_MUSIC, target)
+                    return "set to $target/$max for media level $level (car: ${GuangqiGuidanceMusic.CAR_INDEX})"
                 }
             }
         }.getOrNull()

@@ -35,8 +35,8 @@ class GuangqiNavigationSourceTest {
             return 0
         }
 
-        override fun keepMusicLevel(): String {
-            calls += "keep music"
+        override fun keepMusicLevel(index: Int): String {
+            calls += "keep music $index"
             return "set"
         }
     }
@@ -58,18 +58,18 @@ class GuangqiNavigationSourceTest {
             advance(20)
             source.onNavigationPcm({ log += it })
         }
-        // The keep-music switch is off by default: the car's own duck stays.
-        assertEquals(listOf("request 27"), calls)
+        // Once the car has switched, music is set to the default index instead of the car's 9.
+        assertEquals(listOf("request 27", "keep music 11"), calls)
         assertTrue(prefs.getBoolean("held", false))
 
         advance(GuangqiNavigationSource.RELEASE_MILLIS + 100)
-        assertEquals(listOf("request 27", "abandon 27"), calls)
+        assertEquals(listOf("request 27", "keep music 11", "abandon 27"), calls)
         assertFalse(prefs.getBoolean("held", false))
 
         // The next prompt asks again.
         source.onNavigationPcm({ log += it })
         ShadowLooper.idleMainLooper()
-        assertEquals(listOf("request 27", "abandon 27", "request 27"), calls)
+        assertEquals(listOf("request 27", "keep music 11", "abandon 27", "request 27"), calls)
     }
 
     @Test fun aRefusedRequestIsNotAbandoned() {
@@ -98,7 +98,6 @@ class GuangqiNavigationSourceTest {
     }
 
     @Test fun musicIsLoweredBeforeTheSwitchAndRestoredAfterTheCarDucksIt() {
-        GuangqiGuidanceMusic.setKeepMusicLevel(app, true)
         val source = source()
         val guard = Guard(playing = true, calls = calls)
         source.onNavigationPcm({ log += it }, guard)
@@ -114,35 +113,40 @@ class GuangqiNavigationSourceTest {
         advance(120 + GuangqiNavigationSource.DSP_SWITCH_MILLIS - 1)
         assertEquals(listOf("duck", "request 27"), calls)
         advance(1)
-        assertEquals(listOf("duck", "request 27", "keep music", "unduck"), calls)
+        assertEquals(listOf("duck", "request 27", "keep music 11", "unduck"), calls)
     }
 
     @Test fun withoutMusicTheSourceIsRequestedAtOnce() {
-        GuangqiGuidanceMusic.setKeepMusicLevel(app, true)
         val source = source()
         source.onNavigationPcm({ log += it }, Guard(playing = false, calls = calls))
         ShadowLooper.idleMainLooper()
         assertEquals(listOf("request 27"), calls)
         advance(GuangqiNavigationSource.DSP_SWITCH_MILLIS)
-        assertEquals(listOf("request 27", "keep music"), calls)
+        assertEquals(listOf("request 27", "keep music 11"), calls)
     }
 
-    @Test fun withTheSwitchOffTheMusicIsOnlyLoweredForTheSwitch() {
+    @Test fun theChosenMusicIndexIsUsed() {
+        GuangqiGuidanceMusic.setMusicIndex(app, 13)
         val source = source()
         source.onNavigationPcm({ log += it }, Guard(playing = true, calls = calls))
         ShadowLooper.idleMainLooper()
         advance(1_000)
-        // Lowered for the switch and put back, with no change to the music stream in between.
-        assertEquals(listOf("duck", "request 27", "unduck"), calls)
-        assertFalse(GuangqiGuidanceMusic.keepMusicLevel(app))
+        assertEquals(listOf("duck", "request 27", "keep music 13", "unduck"), calls)
     }
 
-    @Test fun musicDuringGuidanceFollowsTheCarsLowVolumeRule() {
-        // Media level 9 of a 30-step music stream: 13 instead of the car's fixed 9.
-        assertEquals(13, GuangqiNavigationSource.musicIndexDuringGuidance(9, 30))
-        assertEquals(9, GuangqiNavigationSource.musicIndexDuringGuidance(6, 30))
-        assertEquals(30, GuangqiNavigationSource.musicIndexDuringGuidance(25, 30))
-        assertEquals(1, GuangqiNavigationSource.musicIndexDuringGuidance(0, 30))
+    @Test fun theMusicIndexStaysInItsRange() {
+        GuangqiGuidanceMusic.setMusicIndex(app, 30)
+        assertEquals(GuangqiGuidanceMusic.MAX_INDEX, GuangqiGuidanceMusic.musicIndex(app))
+        GuangqiGuidanceMusic.setMusicIndex(app, 1)
+        assertEquals(GuangqiGuidanceMusic.MIN_INDEX, GuangqiGuidanceMusic.musicIndex(app))
+        assertEquals((8..14).toList(), GuangqiGuidanceMusic.choices)
+    }
+
+    @Test fun lowMediaLevelsAreLeftToTheCar() {
+        // At media level 6 or below the car keeps music at its level itself.
+        assertEquals(null, GuangqiNavigationSource.musicIndexDuringGuidance(6, 11, 30))
+        assertEquals(11, GuangqiNavigationSource.musicIndexDuringGuidance(7, 11, 30))
+        assertEquals(14, GuangqiNavigationSource.musicIndexDuringGuidance(25, 14, 30))
     }
 
     @Test fun aPromptThatEndsDuringTheSwitchPutsTheMusicBack() {

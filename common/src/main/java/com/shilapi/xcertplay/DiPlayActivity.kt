@@ -1494,11 +1494,18 @@ class DiPlayActivity : ComponentActivity() {
             }
             audioFocusControls(card)
             if (com.shilapi.xcertplay.media.GuangqiGuidanceMusic.supported()) {
-                toggle(card, getString(R.string.settings_guidance_keep_music),
-                    getString(R.string.settings_guidance_keep_music_description),
-                    com.shilapi.xcertplay.media.GuangqiGuidanceMusic.keepMusicLevel(this)) {
-                    com.shilapi.xcertplay.media.GuangqiGuidanceMusic.setKeepMusicLevel(this, it)
-                }
+                val music = com.shilapi.xcertplay.media.GuangqiGuidanceMusic
+                card.addView(overlaySliderRow(getString(R.string.settings_guidance_music_level), music.choices,
+                    music.musicIndex(this)) { index ->
+                    when (index) {
+                        music.DEFAULT_INDEX -> getString(R.string.settings_guidance_music_value_default, index)
+                        music.CAR_INDEX -> getString(R.string.settings_guidance_music_value_car, index)
+                        else -> index.toString()
+                    }
+                }.apply { onSave = { music.setMusicIndex(this@DiPlayActivity, it) } })
+                card.addView(label(getString(R.string.settings_guidance_music_level_description), 14, MUTED).apply {
+                    setPadding(0, dp(4), 0, dp(8))
+                })
             }
             if (resources.getBoolean(R.bool.config_advanced_audio_channel_mapping)) {
                 toggle(card, getString(R.string.advanced_audio_channel_mapping),
