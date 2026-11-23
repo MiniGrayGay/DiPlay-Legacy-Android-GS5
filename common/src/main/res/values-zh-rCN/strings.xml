@@ -597,8 +597,9 @@
     <string name="station_wifi_pause_keep">保持 Wi-Fi</string>
     <string name="station_wifi_pause_now">立即断开</string>
     <string name="station_wifi_pause_unknown_network">一个网络</string>
-    <string name="settings_guidance_music_level">导航播报时的音乐音量（实验性）</string>
-    <string name="settings_guidance_music_level_description">仅广汽车机。播报时车机会把音乐压到 9，加上 iPhone 自己的压低后几乎听不见。数值越大，播报时音乐越响。媒体音量 6 档及以下时由车机自己保持音乐音量。从下一次播报起生效。</string>
-    <string name="settings_guidance_music_value_default">%1$d · 默认</string>
-    <string name="settings_guidance_music_value_car">%1$d · 车机默认</string>
+    <string name="settings_guidance_music_level">导航播报时音乐压低（实验性）</string>
+    <string name="settings_guidance_music_level_description">仅广汽车机。播报时音乐比播报前低多少，按播报前的音量算，媒体音量开多大压低的感觉都一样。车机自己是把音乐压到一个固定音量，加上 iPhone 自己的压低，平常音量下几乎听不见。从下一次播报起生效。</string>
+    <string name="settings_guidance_music_value_default">-%1$d dB · 默认</string>
+    <string name="settings_guidance_music_value">-%1$d dB</string>
+    <string name="settings_guidance_music_value_none">不压低</string>
 </resources>

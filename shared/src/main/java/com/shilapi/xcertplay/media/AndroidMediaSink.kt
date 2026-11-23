@@ -72,7 +72,11 @@ internal class AudioFocusCoordinator(
 
         override fun duckForSwitch(on: Boolean) = setSwitchDuck(on)
 
-        override fun outputLatencyMillis(): Long = mediaOutputLatencyMillis()
+        override fun outputLatencyMillis(): Long = outputLatencyMillis(AudioChannel.MEDIA,
+            GuangqiNavigationSource.DEFAULT_LATENCY_MILLIS)
+
+        override fun navigationLatencyMillis(): Long = outputLatencyMillis(AudioChannel.NAVIGATION,
+            GuangqiNavigationSource.DEFAULT_GUIDANCE_LATENCY_MILLIS)
     }
     private val active = LinkedHashMap<AudioTrack, Entry>()
     private var request: Any? = null
@@ -183,9 +187,14 @@ internal class AudioFocusCoordinator(
         current.onAudioFocusChange(change)
     }
 
-    /** Called on every guidance PCM write, whatever the focus settings. */
-    fun onNavigationPcm() {
-        if (!closed) guidanceSource?.onNavigationPcm(report, switchGuard)
+    /** Called before every guidance PCM write, whatever the focus settings; [peak] is its loudest sample. */
+    fun onNavigationPcm(peak: Int) {
+        if (!closed) guidanceSource?.onNavigationPcm(report, switchGuard, audible = peak >= AUDIBLE_PEAK)
+    }
+
+    /** Guangqi: holds a guidance write until the car has switched to its guidance mode. */
+    fun awaitGuidance() {
+        if (!closed) guidanceSource?.awaitGate(GuangqiNavigationSource.GATE_TIMEOUT_MILLIS)
     }
 
     /** Called on every music PCM write. */
@@ -208,14 +217,14 @@ internal class AudioFocusCoordinator(
         return volume
     }
 
-    /** `AudioTrack.getLatency()` (hidden since API 17) of a music track: mixer plus track buffer. */
+    /** `AudioTrack.getLatency()` (hidden since API 17) of a [channel] track: mixer plus track buffer. */
     @Synchronized
-    private fun mediaOutputLatencyMillis(): Long {
-        val track = active.entries.firstOrNull { it.value.channel == AudioChannel.MEDIA }?.key
-            ?: return GuangqiNavigationSource.DEFAULT_LATENCY_MILLIS
+    private fun outputLatencyMillis(channel: AudioChannel, fallback: Long): Long {
+        val track = active.entries.firstOrNull { it.value.channel == channel }?.key
+            ?: return fallback
         return runCatching {
             (AudioTrack::class.java.getMethod("getLatency").invoke(track) as Int).toLong()
-        }.getOrDefault(GuangqiNavigationSource.DEFAULT_LATENCY_MILLIS)
+        }.getOrDefault(fallback)
     }
 
     @Synchronized
@@ -427,6 +436,8 @@ internal class AudioFocusCoordinator(
         /** -20 dB: more than the +19 dB the car's DSP adds when it switches to navigation. */
         const val SWITCH_DUCKED_VOLUME = 0.1f
         const val MEDIA_PLAYING_NANOS = 500_000_000L
+        /** About −40 dBFS: quieter guidance counts as silence for the Guangqi navigation source. */
+        const val AUDIBLE_PEAK = 328
         /** Issue #364: hold the duck briefly past the last announcement frame
          * so a prompt split into bursts does not pump the media volume. */
         const val ANNOUNCEMENT_RELEASE_MILLIS = 1_500L
@@ -2906,6 +2917,12 @@ private class AudioRenderer(
             fadeApplied = true
         }
         applyStreamGain(data, offset, length)
+        if (mappedChannel == AudioChannel.NAVIGATION) {
+            // Guangqi: a prompt waits until the car has switched to its guidance mode, so its first
+            // words are not played in the media mode, much quieter (GuangqiNavigationSource).
+            audioFocusCoordinator.onNavigationPcm(pcm16Peak(data, offset, length))
+            audioFocusCoordinator.awaitGuidance()
+        }
         var written = 0
         while (written < length && running) {
             val writeLength = if (playbackStarted) {
@@ -2942,7 +2959,8 @@ private class AudioRenderer(
             // Issue #309: frame counts prove PCM flows but not that it is audible —
             // a phone-side duck stuck at silence looks identical in the stats. Track
             // the window peak so the next report can tell silence from sound.
-            pcmPeakThisWindow = maxOf(pcmPeakThisWindow, pcm16Peak(data, offset + written, count))
+            val writePeak = pcm16Peak(data, offset + written, count)
+            pcmPeakThisWindow = maxOf(pcmPeakThisWindow, writePeak)
             written += count
             // Keeps the focus lease alive only while audio is actually flowing.
             audioFocusCoordinator.onPcmRendered()
@@ -2950,7 +2968,6 @@ private class AudioRenderer(
             // experiment; the coordinator ignores media frames and stays
             // inert while the setting is off.
             mappedChannel?.let(audioFocusCoordinator::onAnnouncementFrame)
-            if (mappedChannel == AudioChannel.NAVIGATION) audioFocusCoordinator.onNavigationPcm()
             if (mappedChannel == AudioChannel.MEDIA) audioFocusCoordinator.onMediaPcm()
             val framesWritten = count / frameBytes
             totalWrittenFrames += framesWritten

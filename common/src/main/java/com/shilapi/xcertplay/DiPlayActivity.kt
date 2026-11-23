@@ -1498,13 +1498,13 @@ class DiPlayActivity : ComponentActivity() {
             if (com.shilapi.xcertplay.media.GuangqiGuidanceMusic.supported()) {
                 val music = com.shilapi.xcertplay.media.GuangqiGuidanceMusic
                 card.addView(overlaySliderRow(getString(R.string.settings_guidance_music_level), music.choices,
-                    music.musicIndex(this)) { index ->
-                    when (index) {
-                        music.DEFAULT_INDEX -> getString(R.string.settings_guidance_music_value_default, index)
-                        music.CAR_INDEX -> getString(R.string.settings_guidance_music_value_car, index)
-                        else -> index.toString()
+                    music.duckDb(this)) { db ->
+                    when (db) {
+                        music.DEFAULT_DUCK_DB -> getString(R.string.settings_guidance_music_value_default, db)
+                        0 -> getString(R.string.settings_guidance_music_value_none)
+                        else -> getString(R.string.settings_guidance_music_value, db)
                     }
-                }.apply { onSave = { music.setMusicIndex(this@DiPlayActivity, it) } })
+                }.apply { onSave = { music.setDuckDb(this@DiPlayActivity, it) } })
                 card.addView(label(getString(R.string.settings_guidance_music_level_description), 14, MUTED).apply {
                     setPadding(0, dp(4), 0, dp(8))
                 })
