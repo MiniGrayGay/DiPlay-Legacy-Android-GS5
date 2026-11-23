@@ -392,9 +392,7 @@ class CarPlayController(
             // iPhone opened the AirPlay TCP connection and completed the handshake.
             if (config.transport != CarPlayTransport.WIRELESS) {
                 wiredTcpArrived.set(true)
-                // Persisted, not just in memory: the head unit may kill this process
-                // before the next reconnect (issue #269).
-                persistWiredSessionCompleted(true)
+                markWiredSessionCompleted()
                 // Wired CarPlay does not use the car's Bluetooth. Hold auto-connect
                 // off before the iPhone drops HFP, so the module does not page it back.
                 if (replacement) holdGuangqiAutoConnect("wired session")
@@ -2902,6 +2900,21 @@ class CarPlayController(
             appContext.getSharedPreferences(WIRED_SESSION_PREFS, android.content.Context.MODE_PRIVATE)
                 .getBoolean(KEY_WIRED_SESSION_COMPLETED, false)
         }.getOrDefault(false)
+
+    /**
+     * A wired session came up. Persisted, not just in memory: the head unit may kill this process
+     * before the next reconnect (issue #269). The attach-episode latches are cleared too: the
+     * re-enumeration this attach already did (issue #368) or the forced one (issue #275) flushed
+     * the iPhone's state for this session only. Without clearing them, an in-place reconnect after a
+     * session (three-finger menu "save and reconnect", a settings change) reused the configuration
+     * the session left behind: the NCM bulk-out to the iPhone failed on every write and the iPhone
+     * never got an mDNS answer, so only unplugging the cable recovered (GS5, 0.4.6.7).
+     */
+    private fun markWiredSessionCompleted() {
+        persistWiredSessionCompleted(true)
+        forcedReenumerationForAttach = false
+        reenumeratedThisAttach = false
+    }
 
     private fun persistWiredSessionCompleted(completed: Boolean) {
         runCatching {
