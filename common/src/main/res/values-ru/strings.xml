@@ -560,7 +560,7 @@
     <string name="quick_call_keys_note">Кнопка вызова принимает, кнопка отбоя завершает, долгое нажатие голосовой кнопки открывает Siri. Действует сразу.</string>
     <string name="quick_auto_connect_note">Не даёт магнитоле снова подключить телефон по Bluetooth. Действует после переподключения.</string>
     <string name="quick_cluster_map_note">Действует после переподключения.</string>
-    <string name="quick_more_settings">Другие настройки</string>
+    <string name="quick_back_to_home">Главная DiPlay</string>
     <string name="wireless_mode_recommended">Рекомендуется · проверено на этом автомобиле</string>
     <string name="wireless_mode_not_recommended">Другие способы · не проверены на этом автомобиле, не рекомендуются</string>
     <string name="station_wifi_pause_title">Пауза Wi-Fi магнитолы</string>

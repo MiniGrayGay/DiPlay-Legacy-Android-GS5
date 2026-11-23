@@ -243,38 +243,7 @@ class CarPlayHostDisplaySizeTest {
         assertWindowBars(false, false)
     }
 
-    @Test fun menuBarChangesPreviewWithoutSavingAndCancelRestoresTheSavedValues() {
-        invoke("loadPersistedSettings")
-        setField("settingsBaseline", invoke("captureSettingsBaseline"))
-        setField("menuOpen", true)
-        val controls = invoke("buildFullscreenSection") as ViewGroup
 
-        menuBarSwitch(controls, R.string.hide_the_navigation_bar).performClick()
-
-        assertEquals(false, getField("hideBottomBar"))
-        assertWindowBars(true, false)
-        assertTrue(AirPlayPersistence.loadHideBottomBar(activity))
-
-        invoke("cancelSettingsEdits")
-
-        assertEquals(true, getField("hideBottomBar"))
-        assertWindowBars(true, true)
-        assertTrue(AirPlayPersistence.loadHideBottomBar(activity))
-    }
-
-    @Test fun savingMenuBarsPreservesAnIndependentCombination() {
-        AirPlayPersistence.saveWirelessHotspotMode(activity, WirelessHotspotMode.WIFI_P2P)
-        invoke("loadPersistedSettings")
-        setField("menuOpen", true)
-        val controls = invoke("buildFullscreenSection") as ViewGroup
-        menuBarSwitch(controls, R.string.hide_the_status_bar).performClick()
-
-        invoke("saveSettingsAndReconnect")
-
-        assertFalse(AirPlayPersistence.loadHideTopBar(activity))
-        assertTrue(AirPlayPersistence.loadHideBottomBar(activity))
-        assertEquals(false, getField("menuOpen"))
-    }
 
     @Test fun quickOpenAndCloseCancelsThePendingShrink() {
         startSession()
@@ -518,11 +487,6 @@ class CarPlayHostDisplaySizeTest {
         assertEquals(hideTop, activity.window.decorView.systemUiVisibility and View.SYSTEM_UI_FLAG_FULLSCREEN != 0)
         assertEquals(hideBottom, activity.window.decorView.systemUiVisibility and View.SYSTEM_UI_FLAG_HIDE_NAVIGATION != 0)
     }
-
-    private fun menuBarSwitch(controls: ViewGroup, label: Int): Switch = (0 until controls.childCount)
-        .mapNotNull { controls.getChildAt(it) as? ViewGroup }
-        .flatMap { row -> (0 until row.childCount).map { row.getChildAt(it) } }
-        .filterIsInstance<Switch>().single { it.contentDescription == activity.getString(label) }
 
     private fun setField(name: String, value: Any?) {
         activity.javaClass.getDeclaredField(name).apply { isAccessible = true }.set(activity, value)

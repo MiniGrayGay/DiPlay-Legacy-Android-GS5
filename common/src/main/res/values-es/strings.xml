@@ -560,7 +560,7 @@
     <string name="quick_call_keys_note">El botón de llamada contesta, el de colgar termina y una pulsación larga del botón de voz abre Siri. Se aplica al instante.</string>
     <string name="quick_auto_connect_note">Evita que el coche vuelva a conectar el teléfono por Bluetooth. Se aplica al reconectar.</string>
     <string name="quick_cluster_map_note">Se aplica al reconectar.</string>
-    <string name="quick_more_settings">Más ajustes</string>
+    <string name="quick_back_to_home">Inicio de DiPlay</string>
     <string name="wireless_mode_recommended">Recomendado · verificado en este coche</string>
     <string name="wireless_mode_not_recommended">Otras formas · sin verificar en este coche, no recomendadas</string>
     <string name="station_wifi_pause_title">Pausando el Wi-Fi del coche</string>

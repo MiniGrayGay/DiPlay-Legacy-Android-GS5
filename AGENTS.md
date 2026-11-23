@@ -102,7 +102,7 @@ Kernel TUN and the system VPN are unusable on 3.0.35. Wired CarPlay uses the use
 
 ### Wireless link
 
-A fresh install uses Wi-Fi Direct (`WirelessHotspotMode.WIFI_P2P`). That is the path `AirPlayPersistence.loadWirelessHotspotMode` treats as verified on this unit. API 19 starts it with `LegacyWifiP2pGroupManager`. `WifiP2pGroupManager` requires API 28 and is not this unit's path. The radio is an AR6003, 2.4 GHz only; `WifiP2pChannels.supportedChannels` is channels 1–11, and a 5 GHz choice falls back to Auto.
+A fresh install uses Wi-Fi Direct (`WirelessHotspotMode.WIFI_P2P`). That is the path `AirPlayPersistence.loadWirelessHotspotMode` treats as verified on this unit. API 19 starts it with `LegacyWifiP2pGroupManager`. `WifiP2pGroupManager` requires API 28 and is not this unit's path. The radio is an AR6003, 2.4 GHz only; `WifiP2pChannels.supportedChannels` is channels 1–11, and a 5 GHz choice falls back to Auto. On API 19 the preferred channel is pinned with the hidden `WifiP2pManager.setWifiP2pChannels` (the supplicant's `P2P_SET disallow_freq`); Auto clears the pin, a refused channel falls back to Auto, and the pin is cleared when the group closes. The ROM has no `iwconfig`, `iw` or `wpa_cli`, and as group owner the car does no legacy power save.
 
 `HOSTAPD` is the root hotspot opt-in. With that opt-in off, a stored `HOSTAPD` value resolves back to `WIFI_P2P`. When legacy Wi-Fi Direct fails with `createGroup code=1`, leave it and use Existing Wi-Fi / Same LAN or a cable. The ECARX car-hotspot helpers are still in the tree for other units; they are not this unit's default.
 

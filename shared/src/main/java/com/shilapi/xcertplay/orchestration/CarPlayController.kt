@@ -1548,7 +1548,6 @@ class CarPlayController(
                     "band=${hotspotInfo.bandLabel} channel=${hotspotInfo.channel} " +
                     "frequency=${hotspotInfo.frequencyMHz?.toString() ?: "unknown"}MHz",
             )
-            wirelessPerformanceLock.disableP2pPowerSave(hotspotInfo.interfaceName)
             var startedBonjour: CarPlayBonjour? = null
             val receiveDiagnostics = WirelessReceiveDiagnostics(hotspotInfo.interfaceName)
             val diagnostics = WirelessStartupDiagnostics(
@@ -3635,7 +3634,7 @@ class CarPlayController(
     private fun startLegacyWifiDirectWithFallback(generation: Int): WirelessHotspotInfo {
         var primary: WirelessHotspotManager? = null
         try {
-            primary = LegacyWifiP2pGroupManager(appContext, ::debugLog)
+            primary = LegacyWifiP2pGroupManager(appContext, ::debugLog, preferredChannel = config.wifiP2pPreferredChannel)
             hotspot = primary
             debugLog("wireless legacy Wi-Fi Direct starting")
             return primary.start(LEGACY_WIFI_P2P_START_TIMEOUT_MILLIS)

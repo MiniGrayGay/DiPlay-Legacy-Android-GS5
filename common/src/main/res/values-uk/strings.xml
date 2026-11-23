@@ -569,7 +569,7 @@
     <string name="quick_call_keys_note">Кнопка виклику приймає, кнопка відбою завершує, довге натискання голосової кнопки відкриває Siri. Діє одразу.</string>
     <string name="quick_auto_connect_note">Не дає магнітолі знову підключити телефон через Bluetooth. Діє після перепідключення.</string>
     <string name="quick_cluster_map_note">Діє після перепідключення.</string>
-    <string name="quick_more_settings">Інші налаштування</string>
+    <string name="quick_back_to_home">Головна DiPlay</string>
     <string name="wireless_mode_recommended">Рекомендовано · перевірено на цьому автомобілі</string>
     <string name="wireless_mode_not_recommended">Інші способи · не перевірені на цьому автомобілі, не рекомендовані</string>
     <string name="station_wifi_pause_title">Пауза Wi-Fi магнітоли</string>
