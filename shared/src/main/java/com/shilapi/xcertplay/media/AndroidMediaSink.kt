@@ -59,6 +59,8 @@ internal class AudioFocusCoordinator(
     private data class Entry(val channel: AudioChannel, val attributes: Any?, var appliedVolume: Float = FULL_VOLUME)
 
     private val manager = context?.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+    /** Guangqi: holds the car's navigation source while guidance plays; inert elsewhere. */
+    private val guidanceSource = context?.let { runCatching { GuangqiNavigationSource.get(it) }.getOrNull() }
     private val active = LinkedHashMap<AudioTrack, Entry>()
     private var request: Any? = null
     private var requestedChannel: AudioChannel? = null
@@ -167,10 +169,16 @@ internal class AudioFocusCoordinator(
         current.onAudioFocusChange(change)
     }
 
+    /** Called on every guidance PCM write, whatever the focus settings. */
+    fun onNavigationPcm() {
+        if (!closed) guidanceSource?.onNavigationPcm(report)
+    }
+
     @Synchronized
     fun close() {
         if (closed) return
         closed = true
+        guidanceSource?.releaseNow()
         active.clear()
         announcementDucking = false
         announcementTimerArmed = false
@@ -2895,6 +2903,7 @@ private class AudioRenderer(
             // experiment; the coordinator ignores media frames and stays
             // inert while the setting is off.
             mappedChannel?.let(audioFocusCoordinator::onAnnouncementFrame)
+            if (mappedChannel == AudioChannel.NAVIGATION) audioFocusCoordinator.onNavigationPcm()
             val framesWritten = count / frameBytes
             totalWrittenFrames += framesWritten
             writtenFramesThisWindow += framesWritten
