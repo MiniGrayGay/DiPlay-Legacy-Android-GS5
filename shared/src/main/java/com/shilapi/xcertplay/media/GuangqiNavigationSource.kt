@@ -28,6 +28,13 @@ import java.lang.reflect.Proxy
  * request after one output latency, back up once the car's own duck is in place. The way back is a
  * six-step fade in `DspService` and needs no help.
  *
+ * While navigation plays, `DspService` holds the music stream's software volume at a fixed 9 of 30
+ * and the DSP at 20. Its comments and its low-volume branch treat 9/30 as 30 % (`max × level / 20`
+ * keeps music at its level), but Android's volume curve makes 9/30 about −34 dB: at media level 9
+ * music drops about 15 dB, on top of any duck the iPhone applies itself, and is gone. Once the car
+ * has switched, [CarAudioSourceApi.keepMusicLevel] sets the music stream to the car's own
+ * low-volume value, `max × level / 20`. The car's six-step fade back sets it to the maximum again.
+ *
  * The source is held from the first guidance PCM write until [RELEASE_MILLIS] after the last one.
  * CarPlay may keep the guidance track open between prompts, so the track's lifetime is not the
  * signal. A process that dies holding it gives it back at the next [recover]. On other head units
@@ -44,6 +51,8 @@ internal class GuangqiNavigationSource(
         /** Returns the source manager's result bits; [ASR_REQUEST_GRANTED] means held. */
         fun request(sourceId: Int, onChange: (Int) -> Unit): Int
         fun abandon(sourceId: Int): Int
+        /** Sets the music stream as the car does at low media volume; returns what it did, for the log. */
+        fun keepMusicLevel(): String? = null
     }
 
     /** The audio sink's side of the switch: its music, and how long its output buffer is. */
@@ -97,7 +106,10 @@ internal class GuangqiNavigationSource(
                 val request = Runnable {
                     pendingRequest = null
                     request()
-                    val restore = Runnable { restoreMusic("switch done") }
+                    val restore = Runnable {
+                        keepMusicLevel()
+                        restoreMusic("switch done")
+                    }
                     pendingRestore = restore
                     handler.postDelayed(restore, latency + DSP_SWITCH_MILLIS)
                 }
@@ -105,6 +117,14 @@ internal class GuangqiNavigationSource(
                 handler.postDelayed(request, latency + SWITCH_SLACK_MILLIS)
             } else {
                 request()
+                if (held) {
+                    val keep = Runnable {
+                        pendingRestore = null
+                        keepMusicLevel()
+                    }
+                    pendingRestore = keep
+                    handler.postDelayed(keep, DSP_SWITCH_MILLIS)
+                }
             }
         }
         handler.removeCallbacks(check)
@@ -120,6 +140,14 @@ internal class GuangqiNavigationSource(
         log("guidance source $SOURCE_CARPLAY_NAVI requested: " +
             (result.exceptionOrNull()?.let { "failed ${it.javaClass.simpleName}" }
                 ?: "result=0x${Integer.toHexString(result.getOrDefault(0))} held=$granted"))
+    }
+
+    /** After the car's switch: music at the level the car means to keep, not its −15 dB. */
+    private fun keepMusicLevel() {
+        if (!held) return
+        val result = runCatching { api?.keepMusicLevel() }
+        val done = result.getOrNull() ?: result.exceptionOrNull()?.let { "failed ${it.javaClass.simpleName}" } ?: return
+        log("guidance source $SOURCE_CARPLAY_NAVI: music stream $done")
     }
 
     private fun restoreMusic(reason: String) {
@@ -185,6 +213,16 @@ internal class GuangqiNavigationSource(
 
         @Volatile private var shared: GuangqiNavigationSource? = null
 
+        /** What `DspService` sets the music stream to during navigation above media level 6. */
+        const val CAR_MUSIC_INDEX_DURING_GUIDANCE = 9
+
+        /** `DspService`'s low-volume rule, `max × level / 20`, for every level. */
+        fun musicIndexDuringGuidance(mediaLevel: Int, maxIndex: Int): Int =
+            (maxIndex * mediaLevel / DSP_GUIDANCE_LEVEL).coerceIn(1, maxIndex)
+
+        /** The DSP volume `DspService` uses while navigation plays. */
+        private const val DSP_GUIDANCE_LEVEL = 20
+
         /** The process-wide instance; inert where the car's source manager is missing. */
         fun get(context: Context): GuangqiNavigationSource = shared ?: synchronized(this) {
             shared ?: run {
@@ -215,6 +253,8 @@ internal class GuangqiNavigationSource(
             val manager = managerClass.getConstructor(Context::class.java).newInstance(app)
             val request = managerClass.getMethod("requestAudioSource", listenerClass, Int::class.javaPrimitiveType)
             val abandon = managerClass.getMethod("abandonAudioSource", Int::class.javaPrimitiveType)
+            val audio = app.getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
+            val dsp = app.getSystemService("dsp")
             object : CarAudioSourceApi {
                 override fun request(sourceId: Int, onChange: (Int) -> Unit): Int {
                     val listener = Proxy.newProxyInstance(listenerClass.classLoader, arrayOf(listenerClass)) { proxy, method, args ->
@@ -230,6 +270,22 @@ internal class GuangqiNavigationSource(
                 }
 
                 override fun abandon(sourceId: Int): Int = abandon.invoke(manager, sourceId) as? Int ?: 0
+
+                override fun keepMusicLevel(): String? {
+                    val dspManager = dsp ?: return null
+                    // DspService's own media level (policy 0) and its music index scale.
+                    val level = dspManager.javaClass.getMethod("getVolumeByPolicy", Int::class.javaPrimitiveType)
+                        .invoke(dspManager, 0) as Int
+                    val max = audio.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC)
+                    val index = musicIndexDuringGuidance(level, max)
+                    if (index <= CAR_MUSIC_INDEX_DURING_GUIDANCE) {
+                        return "left at the car's $CAR_MUSIC_INDEX_DURING_GUIDANCE/$max (media level $level)"
+                    }
+                    // The call DspService itself uses: the mixer index only, not the volume setting.
+                    audio.javaClass.getMethod("setVolumeByStreamType", Int::class.javaPrimitiveType, Int::class.javaPrimitiveType)
+                        .invoke(audio, android.media.AudioManager.STREAM_MUSIC, index)
+                    return "set to $index/$max for media level $level (car: $CAR_MUSIC_INDEX_DURING_GUIDANCE)"
+                }
             }
         }.getOrNull()
     }

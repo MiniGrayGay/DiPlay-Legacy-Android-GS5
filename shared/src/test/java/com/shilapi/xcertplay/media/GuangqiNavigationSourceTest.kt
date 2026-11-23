@@ -34,6 +34,11 @@ class GuangqiNavigationSourceTest {
             calls += "abandon $sourceId"
             return 0
         }
+
+        override fun keepMusicLevel(): String {
+            calls += "keep music"
+            return "set"
+        }
     }
 
     private fun source(api: GuangqiNavigationSource.CarAudioSourceApi? = car) =
@@ -53,17 +58,18 @@ class GuangqiNavigationSourceTest {
             advance(20)
             source.onNavigationPcm({ log += it })
         }
-        assertEquals(listOf("request 27"), calls)
+        // Once the car has switched, the music stream is set to the car's low-volume rule.
+        assertEquals(listOf("request 27", "keep music"), calls)
         assertTrue(prefs.getBoolean("held", false))
 
         advance(GuangqiNavigationSource.RELEASE_MILLIS + 100)
-        assertEquals(listOf("request 27", "abandon 27"), calls)
+        assertEquals(listOf("request 27", "keep music", "abandon 27"), calls)
         assertFalse(prefs.getBoolean("held", false))
 
         // The next prompt asks again.
         source.onNavigationPcm({ log += it })
         ShadowLooper.idleMainLooper()
-        assertEquals(listOf("request 27", "abandon 27", "request 27"), calls)
+        assertEquals(listOf("request 27", "keep music", "abandon 27", "request 27"), calls)
     }
 
     @Test fun aRefusedRequestIsNotAbandoned() {
@@ -107,7 +113,7 @@ class GuangqiNavigationSourceTest {
         advance(120 + GuangqiNavigationSource.DSP_SWITCH_MILLIS - 1)
         assertEquals(listOf("duck", "request 27"), calls)
         advance(1)
-        assertEquals(listOf("duck", "request 27", "unduck"), calls)
+        assertEquals(listOf("duck", "request 27", "keep music", "unduck"), calls)
     }
 
     @Test fun withoutMusicTheSourceIsRequestedAtOnce() {
@@ -115,6 +121,16 @@ class GuangqiNavigationSourceTest {
         source.onNavigationPcm({ log += it }, Guard(playing = false, calls = calls))
         ShadowLooper.idleMainLooper()
         assertEquals(listOf("request 27"), calls)
+        advance(GuangqiNavigationSource.DSP_SWITCH_MILLIS)
+        assertEquals(listOf("request 27", "keep music"), calls)
+    }
+
+    @Test fun musicDuringGuidanceFollowsTheCarsLowVolumeRule() {
+        // Media level 9 of a 30-step music stream: 13 instead of the car's fixed 9.
+        assertEquals(13, GuangqiNavigationSource.musicIndexDuringGuidance(9, 30))
+        assertEquals(9, GuangqiNavigationSource.musicIndexDuringGuidance(6, 30))
+        assertEquals(30, GuangqiNavigationSource.musicIndexDuringGuidance(25, 30))
+        assertEquals(1, GuangqiNavigationSource.musicIndexDuringGuidance(0, 30))
     }
 
     @Test fun aPromptThatEndsDuringTheSwitchPutsTheMusicBack() {
