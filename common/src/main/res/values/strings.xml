@@ -514,7 +514,7 @@
     <string name="carplay_rotation_smoother">Smoother (1920)</string>
     <string name="carplay_rotation_sharper">Sharper (the screen\'s size)</string>
     <string name="carplay_call_controls_experimental">CarPlay call keys (experimental)</string>
-    <string name="carplay_call_controls_experimental_description">Steering-wheel call keys answer and end CarPlay calls. On the Guangqi head unit the call key answers, the hang-up key ends or declines, and a long press on the voice key opens Siri; while CarPlay is connected the car\'s own call screen stays hidden. A short press on the voice key still opens the car\'s voice assistant. On DiLink 3 the keys are not yet verified. Vehicle testing is still required. Disabled by default; dashboard call cards are a separate setting.</string>
+    <string name="carplay_call_controls_experimental_description">Steering-wheel call keys answer and end CarPlay calls. On the Guangqi head unit the call key answers, the hang-up key ends or declines, and a short or long press on the voice key opens Siri; while CarPlay is connected the car\'s own call screen stays hidden and the car\'s voice assistant and wake word are paused. On DiLink 3 the keys are not yet verified. Vehicle testing is still required. Disabled by default; dashboard call cards are a separate setting.</string>
     <string name="side_panel">Side panel next to CarPlay (experimental)</string>
     <string name="side_panel_description">CarPlay can move to two thirds of the screen while DiPlay shows a panel in the rest: on the passenger\'s side of a landscape screen, at the bottom of a portrait one (clock and, where it is read, the battery). Show and hide it from the in-session menu. Applies at the next connection.</string>
     <string name="side_panel_show">Side panel</string>
@@ -629,4 +629,9 @@
     <string name="quick_more_settings">More settings</string>
     <string name="wireless_mode_recommended">Recommended · verified on this car</string>
     <string name="wireless_mode_not_recommended">Other ways · not verified on this car, not recommended</string>
+    <string name="station_wifi_pause_title">Pausing the car\'s Wi-Fi</string>
+    <string name="station_wifi_pause_message">The car\'s Wi-Fi is connected to %1$s. Wireless CarPlay uses Wi-Fi Direct on the same single 2.4 GHz radio, and the two connections take turns. The car\'s Wi-Fi will disconnect in %2$d s for a steadier connection; it reconnects when CarPlay ends.</string>
+    <string name="station_wifi_pause_keep">Keep Wi-Fi</string>
+    <string name="station_wifi_pause_now">Disconnect now</string>
+    <string name="station_wifi_pause_unknown_network">a network</string>
 </resources>

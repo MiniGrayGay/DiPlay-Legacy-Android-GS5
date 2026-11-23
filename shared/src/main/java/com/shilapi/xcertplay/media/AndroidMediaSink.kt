@@ -59,6 +59,8 @@ internal class AudioFocusCoordinator(
     private data class Entry(val channel: AudioChannel, val attributes: Any?, var appliedVolume: Float = FULL_VOLUME)
 
     private val manager = context?.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+    /** Guangqi: holds the car's navigation source while guidance plays; inert elsewhere. */
+    private val guidanceSource = context?.let { runCatching { GuangqiNavigationSource.get(it) }.getOrNull() }
     private val active = LinkedHashMap<AudioTrack, Entry>()
     private var request: Any? = null
     private var requestedChannel: AudioChannel? = null
@@ -94,6 +96,12 @@ internal class AudioFocusCoordinator(
 
     /** Warns when the head unit's media volume would mute CarPlay audio. See issue #88. */
     internal fun musicVolumeWarning(): String? = musicVolumeWarning(manager)
+
+    /** "volume/max" of a legacy stream, for the track report; head units keep these apart. */
+    internal fun streamVolume(stream: Int): String = runCatching {
+        val audio = manager ?: return@runCatching "unknown"
+        "${audio.getStreamVolume(stream)}/${audio.getStreamMaxVolume(stream)}"
+    }.getOrDefault("unknown")
 
     private fun listenerFor(generation: Long) = AudioManager.OnAudioFocusChangeListener { change ->
         synchronized(this) {
@@ -161,10 +169,16 @@ internal class AudioFocusCoordinator(
         current.onAudioFocusChange(change)
     }
 
+    /** Called on every guidance PCM write, whatever the focus settings. */
+    fun onNavigationPcm() {
+        if (!closed) guidanceSource?.onNavigationPcm(report)
+    }
+
     @Synchronized
     fun close() {
         if (closed) return
         closed = true
+        guidanceSource?.releaseNow()
         active.clear()
         announcementDucking = false
         announcementTimerArmed = false
@@ -840,6 +854,8 @@ class AndroidMediaSink(
                     )
                 }
             }
+            // Guangqi: the stock assistant's wake word holds the only microphone input.
+            appContext?.let { com.shilapi.xcertplay.orchestration.GuangqiStockAssistant.acquire(it, micReason(id)) }
             val uplink = microphoneUplinks.computeIfAbsent(id) {
                 MicrophoneUplink(
                     config = config,
@@ -852,6 +868,7 @@ class AndroidMediaSink(
             if (!uplink.start()) {
                 microphoneUplinks.remove(id, uplink)
                 restoreAudioMode(id)
+                releaseStockAssistant(id)
             }
         } catch (error: Exception) {
             Log.e("xcertplay-usb", "microphone start failed stream=$id", error)
@@ -865,7 +882,14 @@ class AndroidMediaSink(
             microphoneUplinks.remove(id)?.close()
         } finally {
             restoreAudioMode(id)
+            releaseStockAssistant(id)
         }
+    }
+
+    private fun micReason(id: AudioStreamId) = "microphone $id"
+
+    private fun releaseStockAssistant(id: AudioStreamId) {
+        appContext?.let { com.shilapi.xcertplay.orchestration.GuangqiStockAssistant.release(it, micReason(id)) }
     }
 
     /**
@@ -2449,7 +2473,8 @@ private class AudioRenderer(
         startThresholdBytes = MediaAudioBuffer.startBytesFor(plan.startBytes, capacityBytes, PREBUFFER_WRITE_CHUNK_BYTES)
         val trackMetadata = runCatching {
             "api=${Build.VERSION.SDK_INT} trackState=${built.state} trackRate=${built.sampleRate} " +
-                (if (realSdkInt() >= 21) attributeDiagnostic(trackAttributes as? AudioAttributes) else "legacyStream=${streamType()} ") +
+                (if (realSdkInt() >= 21) attributeDiagnostic(trackAttributes as? AudioAttributes)
+                else "legacyStream=${streamType()} streamVolume=${audioFocusCoordinator.streamVolume(built.streamType)} ") +
                 "attributesSource=${if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) "track" else "configured"}"
         }.getOrDefault("api=${Build.VERSION.SDK_INT} trackMetadata=unavailable")
         report("Audio: ready audioType=${format.audioType} codec=${format.codec} " +
@@ -2878,6 +2903,7 @@ private class AudioRenderer(
             // experiment; the coordinator ignores media frames and stays
             // inert while the setting is off.
             mappedChannel?.let(audioFocusCoordinator::onAnnouncementFrame)
+            if (mappedChannel == AudioChannel.NAVIGATION) audioFocusCoordinator.onNavigationPcm()
             val framesWritten = count / frameBytes
             totalWrittenFrames += framesWritten
             writtenFramesThisWindow += framesWritten

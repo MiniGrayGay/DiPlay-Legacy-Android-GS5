@@ -290,6 +290,9 @@ class CarPlayController(
     @Volatile private var hotspot: WirelessHotspotManager? = null
     @Volatile private var bonjour: CarPlayBonjour? = null
     private val wirelessResourceLock = Any()
+    private val wirelessPerformanceLock = com.shilapi.xcertplay.network.WirelessPerformanceLock(appContext, ::debugLog)
+    // Wi-Fi Direct shares the unit's one 2.4 GHz radio with its own Wi-Fi client connection.
+    private val stationWifiPause = com.shilapi.xcertplay.network.StationWifiPause(appContext, ::debugLog)
     private val wirelessFailureReported = AtomicBoolean(false)
     @Volatile private var firstTcpWatchdog: FirstTcpWatchdog? = null
     // Issue #293 (upstream port): the address family advertised to the phone, its
@@ -333,6 +336,9 @@ class CarPlayController(
     init {
         guangqiAutoConnect.recoverAbandoned()
         GuangqiCarlifeKeys.recoverAbandoned(appContext)
+        GuangqiStockAssistant.recover(appContext)
+        com.shilapi.xcertplay.media.GuangqiNavigationSource.recover(appContext, ::debugLog)
+        com.shilapi.xcertplay.network.StationWifiPause.recover(appContext, ::debugLog)
     }
     private val wirelessAirPlayRequestsInFlight = AtomicInteger()
     private val wirelessLastAirPlayActivityMs = AtomicLong(0L)
@@ -373,7 +379,7 @@ class CarPlayController(
             }
             if (replacement) {
                 NavigationOutputs.start()
-                GuangqiCarlifeKeys.sessionStarted(appContext, this@CarPlayController)
+                GuangqiCarlifeKeys.sessionStarted(appContext, this@CarPlayController, ::debugLog)
                 com.shilapi.xcertplay.glance.CarPlayGlance.setConnected(true)
                 // The gear may have changed since /info.
                 if (videoListener != null) {
@@ -1311,6 +1317,7 @@ class CarPlayController(
     private fun startWireless(expectedGeneration: Int? = null) {
         val generation = synchronized(wirelessResourceLock) {
             if (closed || expectedGeneration != null && expectedGeneration != wirelessGeneration.get()) return
+            wirelessPerformanceLock.acquire()
             wirelessFailureReported.set(false)
             diagnosticRun.incrementAndGet()
             availabilityPollGeneration.incrementAndGet()
@@ -1541,6 +1548,7 @@ class CarPlayController(
                     "band=${hotspotInfo.bandLabel} channel=${hotspotInfo.channel} " +
                     "frequency=${hotspotInfo.frequencyMHz?.toString() ?: "unknown"}MHz",
             )
+            wirelessPerformanceLock.disableP2pPowerSave(hotspotInfo.interfaceName)
             var startedBonjour: CarPlayBonjour? = null
             val receiveDiagnostics = WirelessReceiveDiagnostics(hotspotInfo.interfaceName)
             val diagnostics = WirelessStartupDiagnostics(
@@ -1564,6 +1572,9 @@ class CarPlayController(
                 ),
             )
             onStatus(CarPlayStatus.WaitingForPairedIphone)
+            if (hotspotInfo.backend == com.shilapi.xcertplay.network.WirelessHotspotBackend.WIFI_P2P) {
+                stationWifiPause.offer()
+            }
             hotspot?.let { startWirelessClientWatch(generation, it, hotspotInfo.interfaceName) }
             stage = "Bluetooth device selection"
 
@@ -3825,6 +3836,8 @@ class CarPlayController(
     private fun closeWirelessStack(service: CarPlayVpnService? = vpnService, generation: Int? = null) =
         synchronized(wirelessResourceLock) {
             if (generation != null && generation != wirelessGeneration.get()) return@synchronized
+            wirelessPerformanceLock.close()
+            stationWifiPause.end()
             val owner = firstTcpWatchdog?.listener
             firstTcpWatchdog?.terminate()
             val diagnostics = wirelessDiagnostics

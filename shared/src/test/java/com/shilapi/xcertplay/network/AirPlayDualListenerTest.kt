@@ -10,12 +10,7 @@ class AirPlayDualListenerTest {
     private val addresses = listOf(InetAddress.getByName("::1"), InetAddress.getByName("127.0.0.1"))
 
     @Test fun acceptsBothFamiliesOnTheSamePort() {
-        val ipv6Reachable = try {
-            java.net.ServerSocket(0, 1, java.net.InetAddress.getByName("::1")).use { s ->
-                java.net.Socket(java.net.InetAddress.getByName("::1"), s.localPort).use { true }
-            }
-        } catch (_: Exception) { false }
-        org.junit.Assume.assumeTrue("Host environment supports IPv6 loopback connection", ipv6Reachable)
+        assumeIpv6Loopback()
 
         val servers = AirPlayPortSelector.bindAll(addresses, 0)
         try {
@@ -34,6 +29,7 @@ class AirPlayDualListenerTest {
     }
 
     @Test fun collisionOnSecondFamilyClosesPartialBindAndFallsBackTogether() {
+        assumeIpv6Loopback()
         ServerSocket(0, 50, addresses[1]).use { busy ->
             val servers = AirPlayPortSelector.bindAll(addresses, busy.localPort, emptyList())
             try {
@@ -45,6 +41,7 @@ class AirPlayDualListenerTest {
     }
 
     @Test fun failedFallbackNotificationReleasesBothListeners() {
+        assumeIpv6Loopback()
         ServerSocket(0, 50, addresses[1]).use { busy ->
             var port = 0
             assertThrows(IllegalStateException::class.java) {
@@ -59,11 +56,20 @@ class AirPlayDualListenerTest {
     }
 
     @Test fun bindAllRespectsReuseAddress() {
+        assumeIpv6Loopback()
         val servers = AirPlayPortSelector.bindAll(addresses, 0, reuseAddress = true)
         try {
             assertTrue(servers.all { it.reuseAddress })
         } finally {
             servers.forEach { it.close() }
         }
+    }
+
+    /** These tests bind `::1`; a host without IPv6 loopback skips them instead of failing. */
+    private fun assumeIpv6Loopback() {
+        val reachable = try {
+            ServerSocket(0, 1, addresses[0]).use { s -> Socket(addresses[0], s.localPort).use { true } }
+        } catch (_: Exception) { false }
+        org.junit.Assume.assumeTrue("Host environment supports IPv6 loopback connection", reachable)
     }
 }

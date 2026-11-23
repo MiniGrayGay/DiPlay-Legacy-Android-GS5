@@ -457,7 +457,7 @@
     <string name="carplay_rotation_smoother">Плавніше (1920)</string>
     <string name="carplay_rotation_sharper">Чіткіше (розмір екрана)</string>
     <string name="carplay_call_controls_experimental">Кнопки викликів CarPlay (експериментально)</string>
-    <string name="carplay_call_controls_experimental_description">Кнопки виклику на кермі приймають і завершують дзвінки CarPlay. На магнітолі Guangqi кнопка виклику приймає дзвінок, кнопка відбою завершує або відхиляє його, а довге натискання голосової кнопки відкриває Siri; поки CarPlay підключено, екран дзвінка магнітоли не з\'являється. Коротке натискання голосової кнопки й далі відкриває голосового помічника магнітоли. На DiLink 3 кнопки ще не перевірено. Потрібна перевірка в автомобілі. Типово вимкнено; картки дзвінків на приладовій панелі налаштовуються окремо.</string>
+    <string name="carplay_call_controls_experimental_description">Кнопки виклику на кермі приймають і завершують дзвінки CarPlay. На магнітолі Guangqi кнопка виклику приймає дзвінок, кнопка відбою завершує або відхиляє його, а коротке чи довге натискання голосової кнопки відкриває Siri; поки CarPlay підключено, екран дзвінка магнітоли не з\'являється, а голосовий помічник магнітоли та його слово активації призупинено. На DiLink 3 кнопки ще не перевірено. Потрібна перевірка в автомобілі. Типово вимкнено; картки дзвінків на приладовій панелі налаштовуються окремо.</string>
     <string name="side_panel">Бічна панель поруч із CarPlay (експериментально)</string>
     <string name="side_panel_description">CarPlay може переходити на дві третини екрана, а DiPlay показує в решті свою панель: з боку пасажира на горизонтальному екрані, знизу на вертикальному (годинник і заряд, якщо його зчитано). Показуйте й ховайте її з меню під час сесії. Застосовується з наступного підключення.</string>
     <string name="side_panel_show">Бічна панель</string>
@@ -572,4 +572,9 @@
     <string name="quick_more_settings">Інші налаштування</string>
     <string name="wireless_mode_recommended">Рекомендовано · перевірено на цьому автомобілі</string>
     <string name="wireless_mode_not_recommended">Інші способи · не перевірені на цьому автомобілі, не рекомендовані</string>
+    <string name="station_wifi_pause_title">Пауза Wi-Fi магнітоли</string>
+    <string name="station_wifi_pause_message">Wi-Fi магнітоли підключено до %1$s. Бездротовий CarPlay використовує Wi-Fi Direct на тому самому єдиному радіомодулі 2,4 ГГц, і підключення працюють по черзі. Wi-Fi магнітоли вимкнеться через %2$d с для стабільнішого зв\'язку й знову підключиться після завершення CarPlay.</string>
+    <string name="station_wifi_pause_keep">Залишити Wi-Fi</string>
+    <string name="station_wifi_pause_now">Вимкнути зараз</string>
+    <string name="station_wifi_pause_unknown_network">мережі</string>
 </resources>

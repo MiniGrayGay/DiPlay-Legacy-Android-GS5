@@ -232,12 +232,24 @@ object AirPlayPersistence {
             .apply()
     }
 
+    /**
+     * Guangqi (GAEI AVNTG2A10) keeps navigation apart from media on the notification stream:
+     * `DspService` sets STREAM_NOTIFICATION from the car's navigation volume and lowers
+     * STREAM_MUSIC under it, and `/system/etc/sources_conf.xml` gives CarLife and CarPlay
+     * navigation stream type 5. Guidance on STREAM_MUSIC is mixed into media at the media volume.
+     * No setting writes this value any more, so a stored 14 (upstream's BYD stream) or 3 from an
+     * older build also resolves to the notification stream.
+     */
     fun loadNavigationStreamType(context: Context): Int {
         val saved = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .getInt(KEY_NAVIGATION_STREAM_TYPE, android.media.AudioManager.STREAM_MUSIC)
-        // 14 was upstream's BYD-only navigation stream; no other head unit has it.
-        return if (saved == 14) android.media.AudioManager.STREAM_MUSIC else saved
+            .getInt(KEY_NAVIGATION_STREAM_TYPE, GUANGQI_NAVIGATION_STREAM)
+        return when (saved) {
+            14, android.media.AudioManager.STREAM_MUSIC -> GUANGQI_NAVIGATION_STREAM
+            else -> saved
+        }
     }
+
+    private const val GUANGQI_NAVIGATION_STREAM = android.media.AudioManager.STREAM_NOTIFICATION
 
     fun saveNavigationStreamType(context: Context, streamType: Int) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()

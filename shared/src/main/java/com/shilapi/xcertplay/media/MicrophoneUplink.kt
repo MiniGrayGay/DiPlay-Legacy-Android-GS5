@@ -325,6 +325,7 @@ internal class MicrophoneUplink(
         val reference = canceller?.let { ShortArray(it.frameSamples) }
         var filled = 0
         try {
+            awaitRecording(recorder)
             while (running.get()) {
                 stats.reading()
                 val count = if (realSdkInt() >= android.os.Build.VERSION_CODES.M) {
@@ -446,6 +447,37 @@ internal class MicrophoneUplink(
         }
     }
 
+    /**
+     * `startRecording()` does not throw when the audio policy refuses the input; the recorder just
+     * stays stopped. On Android 4.4 only one recorder may run, and a head unit's own wake-word
+     * engine can hold it (the Guangqi assistant is paused for this, but lets go asynchronously).
+     * Retries the start until the recorder runs or [MIC_BUSY_WAIT_MILLIS] pass, and reports either
+     * way so a silent uplink is visible in the report.
+     */
+    private fun awaitRecording(recorder: AudioRecord) {
+        if (isRecording(recorder)) return
+        diagnose("Microphone: recorder did not start; another app may hold the microphone, retrying")
+        val startedAt = System.nanoTime()
+        var waited = 0L
+        while (running.get() && waited < MIC_BUSY_WAIT_MILLIS) {
+            Thread.sleep(MIC_BUSY_RETRY_MILLIS)
+            runCatching { recorder.stop() }
+            runCatching { recorder.startRecording() }
+            waited = (System.nanoTime() - startedAt) / 1_000_000L
+            if (isRecording(recorder)) {
+                diagnose("Microphone: recorder started after ${waited}ms")
+                return
+            }
+        }
+        if (running.get()) {
+            diagnose("Microphone: recorder still not recording after ${waited}ms; the iPhone will hear silence")
+            stats.failure(MicrophoneFailureStage.RECORDING, code = recorder.recordingState)
+        }
+    }
+
+    private fun isRecording(recorder: AudioRecord): Boolean =
+        runCatching { recorder.recordingState == AudioRecord.RECORDSTATE_RECORDING }.getOrDefault(false)
+
     private fun routeType(recorder: AudioRecord): Int? = if (realSdkInt() >= 23)
         runCatching { recorder.routedDevice?.type }.getOrNull() else null
 
@@ -550,6 +582,8 @@ internal class MicrophoneUplink(
         const val TAG = "xcertplay-usb"
         const val MIN_READ_BYTES = 2_048
         const val CLOSE_JOIN_MILLIS = 500L
+        const val MIC_BUSY_WAIT_MILLIS = 3_000L
+        const val MIC_BUSY_RETRY_MILLIS = 150L
         const val ECHO_TAIL_MILLIS = 250
         const val ECHO_REFERENCE_LEAD_NS = 30_000_000L
         /**

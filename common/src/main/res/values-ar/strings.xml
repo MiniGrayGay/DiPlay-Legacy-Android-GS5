@@ -448,7 +448,7 @@
     <string name="carplay_rotation_smoother">أكثر سلاسة (1920)</string>
     <string name="carplay_rotation_sharper">أكثر وضوحًا (حجم الشاشة)</string>
     <string name="carplay_call_controls_experimental">أزرار مكالمات CarPlay (تجريبي)</string>
-    <string name="carplay_call_controls_experimental_description">تجيب أزرار الاتصال على المقود على مكالمات CarPlay وتنهيها. في وحدة Guangqi يجيب زر الاتصال، وينهي زر الإنهاء المكالمة أو يرفضها، ويفتح الضغط المطوّل على زر الصوت Siri؛ ولا تظهر شاشة المكالمات الخاصة بالسيارة أثناء اتصال CarPlay. يظل الضغط القصير على زر الصوت يفتح المساعد الصوتي للسيارة. لم يتم التحقق من الأزرار بعد في DiLink 3. لا يزال يتطلب اختبارًا في السيارة. معطّل افتراضيًا؛ بطاقات المكالمات في لوحة العدادات إعداد منفصل.</string>
+    <string name="carplay_call_controls_experimental_description">تجيب أزرار الاتصال على المقود على مكالمات CarPlay وتنهيها. في وحدة Guangqi يجيب زر الاتصال، وينهي زر الإنهاء المكالمة أو يرفضها، ويفتح الضغط القصير أو المطوّل على زر الصوت Siri؛ ولا تظهر شاشة المكالمات الخاصة بالسيارة أثناء اتصال CarPlay، ويتوقف المساعد الصوتي للسيارة وكلمة التنبيه الخاصة به مؤقتًا. لم يتم التحقق من الأزرار بعد في DiLink 3. لا يزال يتطلب اختبارًا في السيارة. معطّل افتراضيًا؛ بطاقات المكالمات في لوحة العدادات إعداد منفصل.</string>
     <string name="side_panel">لوحة جانبية بجوار CarPlay (تجريبي)</string>
     <string name="side_panel_description">يمكن نقل CarPlay إلى ثلثي الشاشة بينما يعرض DiPlay لوحة في الباقي: على جانب الراكب في الشاشة الأفقية، وفي الأسفل في الشاشة العمودية (الساعة، والبطارية إذا تمت قراءتها). أظهرها وأخفها من قائمة الجلسة. يُطبَّق عند الاتصال التالي.</string>
     <string name="side_panel_show">اللوحة الجانبية</string>
@@ -563,4 +563,9 @@
     <string name="quick_more_settings">مزيد من الإعدادات</string>
     <string name="wireless_mode_recommended">موصى به · تم التحقق منه في هذه السيارة</string>
     <string name="wireless_mode_not_recommended">طرق أخرى · لم يتم التحقق منها في هذه السيارة، غير موصى بها</string>
+    <string name="station_wifi_pause_title">إيقاف Wi-Fi السيارة مؤقتًا</string>
+    <string name="station_wifi_pause_message">Wi-Fi السيارة متصل بـ %1$s. يستخدم CarPlay اللاسلكي Wi-Fi Direct على جهاز الراديو نفسه بتردد 2.4 جيجاهرتز، ويتناوب الاتصالان عليه. سيُقطع Wi-Fi السيارة بعد %2$d ث لاتصال أكثر ثباتًا، ويعود الاتصال عند انتهاء CarPlay.</string>
+    <string name="station_wifi_pause_keep">إبقاء Wi-Fi</string>
+    <string name="station_wifi_pause_now">قطع الآن</string>
+    <string name="station_wifi_pause_unknown_network">شبكة</string>
 </resources>
