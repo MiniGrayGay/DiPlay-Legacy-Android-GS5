@@ -1,7 +1,7 @@
 # DiPlay 混音与音量接管计划（feat/self-mix）
 
 - 分支：`feat/self-mix`，基于 dev `adb7ae0`（0.4.6.10）
-- 状态：阶段 1（钩子 + 音量条）已写完并审查，待上车测试（0.4.6.12，`DiPlay-0.4.6.12-selfmix.apk`）
+- 状态：阶段 1（钩子 + 音量条）在 0.4.6.12-alpha2（vc171）上车测过媒体和导航接管，倒车、通话、关开关三项待测；阶段 2、3 未开始
 - 用法：直接改这份文件。标了 **【可改】** 的是设计决定；改完告诉我，我按改后的版本做。
 
 ## 1. 目标
@@ -139,6 +139,20 @@
 6. 单元测试：D2 的判断规则抽成纯函数来测。反射部分用假对象测「找不到字段就交回原车」。
 
 → 打包 0.4.6.11-selfmix.1 上车测：钩子是否装上、媒体音量能不能调、是否不弹原车条、DiPlay 的条是否显示、倒车和通话时是否交回原车。
+
+#### 上车结果（2026-11-24，0.4.6.12-alpha2，vc171）
+| 场景 | 结果 |
+|---|---|
+| 开机后钩子安装 | ✅ DiPlay 启动时装上 v2；约 45 s 后 `BOOT_COMPLETED` 到达，打出 `already installed v2 (boot)`。从 v1 升到 v2 要重启一次 |
+| 平时放音乐按音量键 | ✅ `step ±1 → media N`，DSP `change media vol … ret: 0`；没有 `doAdjustVolume` 和 `callbackVolumeChanged`，只出现 DiPlay 的白色媒体条，声音跟着变 |
+| 导航播报时按音量键（`mNaviState == 1`） | ✅ 两次播报按 9 下，导航音量 15→18、19→16；DSP 只有 `getVolumeByFlag/setVolumeByFlag flag 2`，只出现 DiPlay 的蓝色导航条，声音跟着变。`setUnmute` 打出的 `cannot unmute media during calling/vr/navi` 和原车一样，不是错误 |
+| 导航和媒体模式来回切换 | ✅ 两分钟内切换约 7 次，都正常切回，没有报错 |
+| 三指菜单「重启车机」短按（`svc power reboot`） | ✅ 车机自己开机回来 |
+| 按住 3 秒（`setprop sys.powerctl reboot`） | 待测 |
+| 倒车、通话时交回原车 | 待测 |
+| 三指菜单关掉接管开关后立即恢复原车 | 待测 |
+
+「重启车机」按钮只为测试方便，合回 dev 前要去掉。
 
 ### 阶段 2：DiPlay 混音
 1. 设置页加「导航播报方式」开关（D1）。
