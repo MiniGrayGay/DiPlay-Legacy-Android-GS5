@@ -1104,6 +1104,7 @@ class AndroidMediaSink(
         try {
             microphoneUplinks.values.forEach(MicrophoneUplink::close)
         } finally {
+            microphoneUplinks.keys.toList().forEach(::releaseStockAssistant)
             microphoneUplinks.clear()
             restoreAudioMode(null)
         }

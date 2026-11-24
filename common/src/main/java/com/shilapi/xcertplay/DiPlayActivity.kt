@@ -3751,10 +3751,6 @@ class DiPlayActivity : ComponentActivity() {
         setOnClickListener { click() }
     }
 
-    // For an action whose label happens to contain the separator, such as "Turn on … · ADB".
-    private fun actionButton(title: String, primary: Boolean, click: () -> Unit) =
-        button(title, primary, click).apply { action = true; text = title }
-
     /**
      * Text in the "Title · Value" form opens a choice, so it reads as a setting row:
      * start-aligned, muted value, chevron. Any other text stays a centred action button.

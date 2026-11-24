@@ -379,6 +379,11 @@ class CarPlayVpnService : VpnService() {
                     lwip.registerPort(port, isTcp)
                     listener.onPortBound(port, isTcp)
                 }
+
+                override fun onPortReleased(port: Int, isTcp: Boolean) {
+                    lwip.unregisterPort(port, isTcp)
+                    listener.onPortReleased(port, isTcp)
+                }
             }
 
             startAirPlayServer(

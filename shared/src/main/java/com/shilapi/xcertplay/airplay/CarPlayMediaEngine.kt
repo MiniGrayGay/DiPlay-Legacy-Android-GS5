@@ -300,7 +300,9 @@ class CarPlayMediaEngine(
         val capture = audioCaptureDirectory?.let { AudioPacketCapture(it, type) }
         if (capture != null) audioCaptures[streamKey] = capture
         val clockProbe = RtpClockProbe()
-        val audio = AudioStream(key, type, session::logDebug, session.localAddress)
+        val audio = AudioStream(key, type, session::logDebug, session.localAddress) { port ->
+            session.releasePort(port, isTcp = false)
+        }
         var localDataPort = 0
         // Upstream #566: a voice message opens a speech stream without downlink audio, so the
         // microphone also starts SILENT_START_MILLIS after SETUP; calls still wait for the downlink.
@@ -642,10 +644,12 @@ class CarPlayMediaEngine(
             .filter { isScreenStreamType(it.type) }
             .forEach { sink.onScreenStreamActive(it.type, false) }
         sessionStreams.forEach { streams.remove(it)?.close() }
-        audioMeta.clear()
-        pendingMicrophone.clear()
-        audioCaptures.values.forEach(AudioPacketCapture::close)
-        audioCaptures.clear()
+        // Only this session's: a replaced session may close after its successor has started.
+        pendingMicrophone.keys.filter { it.session === session }.forEach { key ->
+            if (pendingMicrophone.remove(key) != null) sink.onMicrophoneStopped(AudioStreamId(key.type, key.audioType))
+        }
+        audioMeta.keys.filter { it.session === session }.forEach(audioMeta::remove)
+        audioCaptures.keys.filter { it.session === session }.forEach { audioCaptures.remove(it)?.close() }
     }
 
     /** Removes ownership before a close that may block on delivery or invoke the sink. */

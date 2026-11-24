@@ -26,7 +26,7 @@ class GuangqiStockAssistantTest {
         GuangqiStockAssistant.acquire(app, "microphone 1")
         assertEquals(102, nextCommand())
         GuangqiStockAssistant.acquire(app, "voice-key")
-        assertNull("a second reason sends nothing", nextCommand())
+        assertEquals("the car may have turned it back on since", 102, nextCommand())
 
         GuangqiStockAssistant.release(app, "microphone 1")
         assertNull("still held by the voice key", nextCommand())

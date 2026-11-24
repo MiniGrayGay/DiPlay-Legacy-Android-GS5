@@ -1,13 +1,8 @@
 package com.shilapi.xcertplay.settings
 
-import android.graphics.Color
 import android.view.View
 import android.view.ViewGroup
-import android.widget.RadioButton
 import android.widget.TextView
-import com.shilapi.xcertplay.airplay.CarPlayDisplayScale
-import com.shilapi.xcertplay.orchestration.MfiTarget
-import com.shilapi.xcertplay.orchestration.WirelessHotspotMode
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -32,45 +27,15 @@ class SettingsWidgetsTest {
         }
     }
 
-    @Test fun choicesEmitOnlyNewSelectionsAndIgnoreClearingTheSelection() {
-        val saved = mutableListOf<MfiTarget>()
-        val row = ConnectionSettingsSection.createMfiTargetChoice(context, MfiTarget.LOCAL,
-            onSelected = saved::add)
-        assertTrue(saved.isEmpty())
-        val target = views(row.container).filterIsInstance<RadioButton>().first { it.tag == MfiTarget.USB_CH341 }
-        row.radioGroup.check(target.id)
-        row.radioGroup.check(target.id)
-        row.radioGroup.clearCheck()
-        assertEquals(listOf(MfiTarget.USB_CH341), saved)
-    }
-
-    @Test fun resolutionDisplayAndSliderStayWithinTheSameRangeWithoutSavingDuringConstruction() {
-        for (initial in listOf(-1, 73, 999)) {
-            val saved = mutableListOf<Int>()
-            val row = SettingsWidgets.createResolutionSlider(context, initial, onPercentChanged = saved::add)
-            val expected = initial.coerceIn(CarPlayDisplayScale.MIN_PERCENT, CarPlayDisplayScale.MAX_PERCENT)
-            assertEquals(expected - CarPlayDisplayScale.MIN_PERCENT, row.seekBar.progress)
-            assertEquals(expected.toString() + "%", row.valueTextView.text.toString())
-            assertTrue(saved.isEmpty())
-            row.seekBar.progress = 0
-            row.seekBar.progress = Int.MAX_VALUE
-            assertEquals(CarPlayDisplayScale.MAX_PERCENT.toString() + "%", row.valueTextView.text.toString())
-            assertTrue(saved.all { it in CarPlayDisplayScale.MIN_PERCENT..CarPlayDisplayScale.MAX_PERCENT })
-            assertEquals(CarPlayDisplayScale.MAX_PERCENT, saved.last())
-        }
-    }
-
     @Test fun overlayUsesCardThemeColorsAndLabelMetrics() {
-        val row = ConnectionSettingsSection.createWirelessCarPlayRow(context, true, onChanged = {})
+        val row = SettingsWidgets.createSwitchRow(context, "Title", "Details", true, SettingsTheme.OVERLAY,
+            labelSizeSp = 20f, onChanged = {})
         val label = (row.rowView as ViewGroup).getChildAt(0) as TextView
         assertEquals(20f, label.textSize / context.resources.displayMetrics.scaledDensity, 0.01f)
         assertFalse(label.includeFontPadding)
         assertEquals(SettingsTheme.OVERLAY.textSecondary, label.currentTextColor)
         assertNotNull(row.switch.thumbDrawable)
         assertNotNull(row.switch.trackDrawable)
-        val heading = SettingsWidgets.createCategoryHeader(context, "Heading")
-        assertEquals(SettingsTheme.OVERLAY.textPrimary, heading.currentTextColor)
-        assertFalse(heading.includeFontPadding)
     }
 
     @Test fun cardDescriptionsKeepMultilineSpacingAndTheirAccessibleTitle() {

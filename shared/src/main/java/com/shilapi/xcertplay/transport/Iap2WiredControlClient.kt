@@ -239,7 +239,6 @@ class Iap2WiredControlClient(
         private const val PROACTIVE_START_SESSION_DELAY_MILLIS = 2_500L
         private const val DEFAULT_TIMEOUT_MILLIS = 60_000L
         private const val MAX_TIMEOUT_MILLIS = 24 * 60 * 60 * 1_000L
-        private const val MAX_RECV_TIMEOUT_MILLIS = 5 * 60 * 1_000L
         private const val NANOS_PER_MILLISECOND = 1_000_000L
         /** Idle diagnostic cadence for a quiet iAP2 peer (issue #84/#61, Fix 0). */
         private const val PEER_IDLE_DIAGNOSTIC_MILLIS = 30_000L

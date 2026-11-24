@@ -322,8 +322,6 @@ class Ch341UsbSession internal constructor(
     private fun ByteArray.toHexPreview(): String = joinToString(" ") { "%02x".format(it) }
 
     private companion object {
-        const val NANOS_PER_MILLI = 1_000_000L
-
         /** CH341A bulk endpoints report wMaxPacketSize 32; never request across a boundary. */
         const val MAX_USB_PACKET_BYTES = 32
 
