@@ -40,7 +40,7 @@ import java.lang.reflect.Method;
  */
 public final class GuangqiVolumeHook {
     /** Raised when the hook's behaviour changes; system_server keeps an older one until a reboot. */
-    public static final int VERSION = 1;
+    public static final int VERSION = 2;
 
     public static final String ACTION_INSTALL = "com.shihab.diplay.action.INSTALL_VOLUME_HOOK";
     public static final String ACTION_CAR_VOLUME = "com.shihab.diplay.action.CAR_VOLUME";
@@ -76,14 +76,17 @@ public final class GuangqiVolumeHook {
 
     /**
      * What a volume key does. The car keeps it when the setting is off or DiPlay is gone, while
-     * reversing, while the car itself is in its navigation mode, and outside the media policies
-     * (calls and the stock voice assistant have their own volumes).
+     * reversing, and outside the media policies (calls and the stock voice assistant have their own
+     * volumes). While the car is in its navigation mode (CarPlay guidance on source 27, or any other
+     * navigation app) the key sets the navigation volume, as the car's {@code doAdjustVolume} does
+     * then whatever the policy: it only calls {@code setSwNaviVol} and stores
+     * {@code mPolicyVolumes[1]}, which is exactly {@code setVolumeByFlag(vol, 2)}.
      */
     public static int decide(boolean switchOn, boolean diplayAlive, int rvcState, int naviState, int policy,
                              long now, long naviUntil) {
         if (!switchOn || !diplayAlive) return KIND_PASS;
         if (rvcState != 0) return KIND_PASS;
-        if (naviState == 1) return KIND_PASS;
+        if (naviState == 1) return KIND_NAVI;
         if (!isMediaPolicy(policy)) return KIND_PASS;
         return now < naviUntil ? KIND_NAVI : KIND_MEDIA;
     }
@@ -104,7 +107,6 @@ public final class GuangqiVolumeHook {
         if (!switchOn) return "setting off";
         if (!diplayAlive) return "DiPlay not running";
         if (rvcState != 0) return "reversing (rvc " + rvcState + ")";
-        if (naviState == 1) return "car in its navigation mode";
         if (!isMediaPolicy(policy)) return "car policy " + policy + " has its own volume";
         return "";
     }
@@ -239,7 +241,8 @@ public final class GuangqiVolumeHook {
             final int flag = kind == KIND_NAVI ? DSP_FLAG_NAVI : DSP_FLAG_MEDIA;
             final int taken = kind;
             final int signed = step;
-            final String reason = kind == KIND_NAVI ? "guidance" : "media policy " + carPolicy;
+            final String reason = kind == KIND_MEDIA ? "media policy " + carPolicy
+                : naviState == 1 ? "car navigation mode" : "guidance";
             worker().post(new Runnable() {
                 @Override
                 public void run() {

@@ -38,8 +38,10 @@
 | 音量键由 DiPlay 接管 | 开 / 关 | 关 |
 
 两个开关互相独立。只开接管、不开混音时：
-- 车机自己处在导航模式（`mNaviState==1`）时，钩子不接管，交回原车；
+- 车机自己处在导航模式（`mNaviState==1`，即 CarPlay 播报占着音源 27，或其他导航软件在播报）时，钩子调导航音量，画 DiPlay 的导航音量条；
 - 其他时候照常接管媒体音量，并画 DiPlay 的音量条。
+
+（0.4.6.12-alpha1 上车时导航模式还是交回原车，会弹原车的导航音量条；alpha2 起改为接管。）
 
 ### D2. 钩子什么时候接管 【可改】
 每次按音量键，钩子按下表从上往下判断：
@@ -49,7 +51,7 @@
 | 钩子总开关 `persist.sys.diplay.vol_hook` 不为 1 | 交回原车 |
 | DiPlay 进程不在（`sys.diplay.vol_pid` 对应的进程不存在，或进程名不是 `com.shihab.diplay`） | 交回原车 |
 | 倒车中（`mRvcAvmState.state != 0`） | 交回原车 |
-| 车机处在导航模式（`mNaviState == 1`） | 交回原车 |
+| 车机处在导航模式（`mNaviState == 1`），不论策略 | 导航音量 ± 步数，`setVolumeByFlag(v, 2)`。原车 `doAdjustVolume` 此时也只是 `setSwNaviVol(v)` 并存 `mPolicyVolumes[1]`，和 `setVolumeByFlag(v, 2)` 完全一样 |
 | 当前不是媒体策略 0、2、4（通话、语音等；−1「还没有策略」也算，因为 `setVolumeByFlag` 在 −1 时只记数值、不改 DSP） | 交回原车 |
 | 当前处于导航播报窗口（`uptimeMillis < sys.diplay.navi_until`） | 导航音量 ± 步数，`setVolumeByFlag(v, 2)` |
 | 其他（媒体） | 媒体音量 ± 步数，`setVolumeByFlag(v, 0)` |

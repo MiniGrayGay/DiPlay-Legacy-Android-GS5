@@ -41,12 +41,19 @@ class GuangqiVolumeHookTest {
         assertEquals("setting off", pass, decide(on = false))
         assertEquals("DiPlay gone", pass, decide(alive = false))
         assertEquals("reversing", pass, decide(rvc = 2))
-        assertEquals("car in its navigation mode", pass, decide(naviState = 1, until = 5_000))
+        assertEquals("reversing outranks the navigation mode", pass, decide(rvc = 2, naviState = 1))
         // -1 is the DSP's "none yet": setVolumeByFlag would only store the value there.
         for (policy in listOf(-1, 1, 3, 5, 6, 7, 8)) {
             assertEquals("policy $policy", pass, decide(policy = policy))
             assertEquals("a call outranks guidance, policy $policy", pass, decide(policy = policy, until = 5_000))
         }
+    }
+
+    @Test fun inTheCarsNavigationModeTheKeysSetTheNavigationVolume() {
+        // The car's doAdjustVolume sets the navigation volume then, whatever the policy is.
+        for (policy in listOf(-1, 0, 1, 2, 3, 4)) assertEquals("policy $policy", navi, decide(naviState = 1, policy = policy))
+        assertEquals("setting off", pass, decide(on = false, naviState = 1))
+        assertEquals("DiPlay gone", pass, decide(alive = false, naviState = 1))
     }
 
     @Test fun passReasonsNameTheCase() {
