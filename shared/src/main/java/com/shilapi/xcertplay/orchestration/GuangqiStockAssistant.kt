@@ -17,7 +17,9 @@ import android.util.Log
  * too, around reversing and phone calls.
  *
  * Each user names a reason; the assistant is paused while any reason holds and resumed when the
- * last one lets go. The pause is remembered, so a process that dies holding it resumes the
+ * last one lets go. The car turns it back on by itself after reversing, a Bluetooth call and an
+ * emergency or service call, so every [acquire] sends the pause again: a microphone that starts
+ * while the voice key already holds the pause would otherwise record silence. The pause is remembered, so a process that dies holding it resumes the
  * assistant at the next [recover]. A head unit without the adapter is left alone.
  */
 object GuangqiStockAssistant {
@@ -28,11 +30,9 @@ object GuangqiStockAssistant {
         val app = context.applicationContext
         if (!present(app)) return false
         val first = synchronized(holders) { holders.isEmpty().also { holders.add(reason) } }
-        if (first) {
-            prefs(app).edit().putBoolean(KEY_PAUSED, true).commit()
-            send(app, VR_DISABLE)
-            Log.i(TAG, "stock voice assistant paused ($reason)")
-        }
+        if (first) prefs(app).edit().putBoolean(KEY_PAUSED, true).commit()
+        send(app, VR_DISABLE)
+        Log.i(TAG, "stock voice assistant ${if (first) "paused" else "paused again"} ($reason)")
         return true
     }
 

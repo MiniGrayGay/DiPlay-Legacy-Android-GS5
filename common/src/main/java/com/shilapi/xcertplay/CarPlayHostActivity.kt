@@ -98,8 +98,6 @@ import com.shilapi.xcertplay.orchestration.ManualHotspotSecurity
 import com.shilapi.xcertplay.orchestration.MfiTarget
 import com.shilapi.xcertplay.orchestration.WirelessHotspotMode
 import com.shilapi.xcertplay.orchestration.isManualHotspotChannelCompatible
-import com.shilapi.xcertplay.settings.ConnectionSettingsSection
-import com.shilapi.xcertplay.settings.DisplaySettingsSection
 import com.shilapi.xcertplay.settings.SettingsTheme
 import com.shilapi.xcertplay.settings.SettingsWidgets
 import com.shilapi.xcertplay.transport.Iap2IdentificationConfig
@@ -5079,7 +5077,6 @@ class CarPlayHostActivity : ComponentActivity() {
         const val PROTOCOL_TRACE_PREFIX = "TRACE "
         const val SETTINGS_SWIPE_DISTANCE_DP = 72
         const val SETTINGS_SWIPE_DIRECTION_RATIO = 1.15f
-        const val MAX_SETTINGS_MENU_WIDTH_PX = 1200
         // The in-session menu shares the main settings palette (DiPlayActivity's
         // BG/SURFACE/BUTTON/BORDER and the CARD theme), so the two settings
         // surfaces read as one product.
@@ -5089,11 +5086,7 @@ class CarPlayHostActivity : ComponentActivity() {
         val MENU_BORDER = Color.rgb(42, 56, 75)
         val MENU_SECONDARY = Color.rgb(168, 182, 202)
         val MENU_ACCENT = Color.rgb(166, 200, 255)
-        val MENU_ACCENT_TRACK = Color.rgb(0x32, 0x58, 0x8c)
-        val MENU_TRACK_OFF = Color.rgb(42, 56, 75)
         val MENU_BUTTON_TEXT = Color.rgb(12, 17, 27)
-        val MENU_DANGER = Color.rgb(190, 45, 45)
-        val NO_VIDEO_BACKGROUND = Color.rgb(0x16, 0x16, 0x18)
     }
 
     private data class DisplaySize(val width: Int, val height: Int)

@@ -216,12 +216,6 @@ object AirPlayPersistence {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getBoolean(KEY_HEVC_SOFTWARE_DECODER, false)
 
-    fun saveHevcSoftwareDecoderEnabled(context: Context, enabled: Boolean) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-            .putBoolean(KEY_HEVC_SOFTWARE_DECODER, enabled)
-            .apply()
-    }
-
     fun loadAdvancedAudioChannelMapping(context: Context): Boolean =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getBoolean(KEY_ADVANCED_AUDIO_CHANNEL_MAPPING, false)
@@ -436,33 +430,15 @@ object AirPlayPersistence {
             ?.takeIf { it.isNotBlank() }
             ?: DEFAULT_MFI_I2C_PATH
 
-    fun saveMfiI2cPath(context: Context, path: String) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-            .putString(KEY_MFI_I2C_PATH, path.trim())
-            .apply()
-    }
-
     fun loadRemoteMfiServer(context: Context): String =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getString(KEY_REMOTE_MFI_SERVER, null)
             .orEmpty()
 
-    fun saveRemoteMfiServer(context: Context, server: String) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-            .putString(KEY_REMOTE_MFI_SERVER, server)
-            .apply()
-    }
-
     fun loadRemoteMfiToken(context: Context): String =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getString(KEY_REMOTE_MFI_TOKEN, null)
             .orEmpty()
-
-    fun saveRemoteMfiToken(context: Context, token: String) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-            .putString(KEY_REMOTE_MFI_TOKEN, token)
-            .apply()
-    }
 
     fun loadWirelessHotspotMode(context: Context): WirelessHotspotMode {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -628,23 +604,11 @@ object AirPlayPersistence {
             ?.takeIf { it.isNotBlank() }
             ?: DEFAULT_MANUFACTURER
 
-    fun saveManufacturer(context: Context, manufacturer: String) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-            .putString(KEY_MANUFACTURER, manufacturer)
-            .apply()
-    }
-
     fun loadModel(context: Context): String =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getString(KEY_MODEL, null)
             ?.takeIf { it.isNotBlank() }
             ?: DEFAULT_MODEL
-
-    fun saveModel(context: Context, model: String) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-            .putString(KEY_MODEL, model)
-            .apply()
-    }
 
     fun loadOemLabel(context: Context): String =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -938,12 +902,6 @@ object AirPlayPersistence {
             ?: AirPlayDisplaySettings.DEFAULT_PHYSICAL_SIZE_BASIS
     }
 
-    fun savePhysicalSizeBasis(context: Context, basis: AirPlayPhysicalSizeBasis) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-            .putString(KEY_PHYSICAL_SIZE_BASIS, basis.name)
-            .apply()
-    }
-
     fun loadMaximumDetectedDisplay(context: Context): Pair<Int, Int> {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         return prefs.getInt(KEY_MAX_DETECTED_WIDTH, 0) to
@@ -1235,12 +1193,6 @@ object AirPlayPersistence {
     fun loadSafeAreaDrawOutside(context: Context): Boolean =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getBoolean(KEY_SAFE_AREA_DRAW_OUTSIDE, true)
-
-    fun saveSafeAreaDrawOutside(context: Context, drawOutside: Boolean) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-            .putBoolean(KEY_SAFE_AREA_DRAW_OUTSIDE, drawOutside)
-            .apply()
-    }
 
     fun loadSafeAreaRect(context: Context, widthPixels: Int, heightPixels: Int): SafeAreaRect? {
         require(widthPixels > 0 && heightPixels > 0) { "Activity dimensions must be positive" }

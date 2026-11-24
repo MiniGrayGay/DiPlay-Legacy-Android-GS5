@@ -86,6 +86,15 @@ class LwipNcmNative(
         }
     }
 
+    /** Frees a closed stream's slot; the native tables hold 32 ports. */
+    @Synchronized
+    fun unregisterPort(port: Int, isTcp: Boolean) {
+        val handle = nativeHandle
+        if (handle != 0L) {
+            nativeUnregisterPort(handle, port, isTcp)
+        }
+    }
+
     /**
      * Sends one UDP payload from the relay on [localPort] to the phone's [remotePort]. A relay
      * that has not received from the phone yet borrows its address from another relay or from
@@ -129,6 +138,7 @@ class LwipNcmNative(
     private external fun nativeInputFrames(handle: Long, buffer: ByteArray, ranges: IntArray, count: Int)
     private external fun nativeGetPerfCounters(handle: Long, out: LongArray): Int
     private external fun nativeRegisterPort(handle: Long, port: Int, isTcp: Boolean)
+    private external fun nativeUnregisterPort(handle: Long, port: Int, isTcp: Boolean)
     private external fun nativeSendUdp(handle: Long, localPort: Int, remotePort: Int, payload: ByteArray): Boolean
     private external fun nativeGetSnapshot(handle: Long): String
     private external fun nativeDestroy(handle: Long)
