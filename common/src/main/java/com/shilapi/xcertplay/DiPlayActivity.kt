@@ -1562,6 +1562,15 @@ class DiPlayActivity : ComponentActivity() {
                 AirPlayPersistence.saveDirectUsbfsMode(this, it)
                 reconnectIfRunning()
             }
+            // Wired network stack: kernel TCP/IP through a system VPN TUN instead of the
+            // userspace lwIP bridge. On the Guangqi ROM the VPN table is repaired as the
+            // system uid first (GuangqiVpnSubsystem). Applies at the next connection.
+            toggle(card, getString(R.string.settings_wired_kernel_tun),
+                getString(R.string.settings_wired_kernel_tun_description),
+                AirPlayPersistence.loadWiredKernelTun(this)) {
+                AirPlayPersistence.saveWiredKernelTun(this, it)
+                markReconnectNeeded()
+            }
             // The root hostapd hotspot and its Apple vendor IE are not offered: they run `su`,
             // and the Guangqi system image has none.
             // Issue #343: the car's global "自动连接" pages the phone back after

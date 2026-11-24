@@ -102,6 +102,7 @@ object AirPlayPersistence {
     private const val KEY_CAR_BLUETOOTH_AUDIO = "car_bluetooth_audio"
     private const val KEY_DIRECT_SURFACE_VIEW = "direct_surface_view"
     private const val KEY_DIRECT_USBFS_MODE = "direct_usbfs_mode"
+    private const val KEY_WIRED_KERNEL_TUN = "wired_kernel_tun"
     private const val KEY_CLUSTER_MAP = "cluster_map_enabled"
     private const val KEY_CENTER_MAP_OVERLAY = "center_map_overlay"
     private const val KEY_FLOATING_DOT = "floating_dot"
@@ -754,6 +755,17 @@ object AirPlayPersistence {
 
     fun saveDirectUsbfsMode(context: Context, enabled: Boolean) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_DIRECT_USBFS_MODE, enabled).apply()
+    }
+
+    /**
+     * Wired sessions use the kernel TCP/IP stack through a system VPN TUN instead of the userspace
+     * lwIP bridge. Off by default: lwIP is the verified wired path.
+     */
+    fun loadWiredKernelTun(context: Context): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_WIRED_KERNEL_TUN, false)
+
+    fun saveWiredKernelTun(context: Context, enabled: Boolean) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_WIRED_KERNEL_TUN, enabled).apply()
     }
 
     /** Issues #294/#299: experimental root hostapd hotspot opt-in (Advanced). */

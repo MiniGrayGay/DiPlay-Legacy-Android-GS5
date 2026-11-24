@@ -592,6 +592,8 @@
     <string name="settings_navigation_volume">Navigation volume</string>
     <string name="settings_stream_volume_description">Balances each sound inside DiPlay when the head unit has a single volume for everything.</string>
     <string name="settings_direct_usbfs_mode_description">For head units whose system USB list never shows the iPhone: enumerates USB devices directly and opens the device node, which may require root. Applies at the next connection and restarts CarPlay.</string>
+    <string name="settings_wired_kernel_tun">Wired kernel network (experimental)</string>
+    <string name="settings_wired_kernel_tun_description">Wired CarPlay uses the kernel network of the system VPN (TUN) instead of the built-in DiPlay network stack (lwIP). For comparison testing; turn it off if the wired connection fails. Applies at the next connection.</string>
     <string name="settings_root_hotspot_mode">Root hotspot (hostapd) (experimental)</string>
     <string name="settings_carplay_auto_disconnect_bt">Turn off Bluetooth auto-connect while CarPlay is connected (experimental)</string>
     <string name="settings_carplay_auto_disconnect_bt_description">While CarPlay is connected by cable or wirelessly, turns off the car\'s global Bluetooth auto-connect so the car does not page the phone again after the phone drops the call link. DiPlay also disconnects the phone from the car\'s Bluetooth, as the car\'s Bluetooth page does. The Bluetooth radio stays on. The previous switch position comes back when the session ends, or the next time DiPlay opens if the app exits abnormally. Has no effect while CarPlay audio over the car\'s Bluetooth is on. Applies at the next connection.</string>

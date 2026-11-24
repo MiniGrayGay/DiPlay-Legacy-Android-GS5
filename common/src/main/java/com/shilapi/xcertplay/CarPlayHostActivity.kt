@@ -241,6 +241,7 @@ class CarPlayHostActivity : ComponentActivity() {
         carplayAutoDisconnectBt = carplayAutoDisconnectBt,
         locationReportingEnabled = locationReportingEnabled,
         directUsbfsMode = AirPlayPersistence.loadDirectUsbfsMode(this),
+        userspaceNetworkEnabled = !AirPlayPersistence.loadWiredKernelTun(this),
     )
 
     private val vpnConsent =
@@ -1083,6 +1084,9 @@ class CarPlayHostActivity : ComponentActivity() {
             maybeStartCarPlay()
             return
         }
+        // Guangqi: the ROM never initialises its VPN table and has no consent dialog; repair
+        // both as the system uid before the standard prepare.
+        com.shilapi.xcertplay.network.GuangqiVpnSubsystem.prepare(this) { appendLog(it) }
         val consent = try {
             CarPlayVpnService.prepare(this)
         } catch (e: Exception) {
