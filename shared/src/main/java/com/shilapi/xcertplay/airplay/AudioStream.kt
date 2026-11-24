@@ -36,6 +36,8 @@ class AudioStream(
     private val streamType: Int = -1,
     private val onDiagnostic: (String) -> Unit = {},
     private val bindReference: InetAddress? = null,
+    /** Each UDP port, just before its socket closes. */
+    private val onPortClosing: (Int) -> Unit = {},
 ) : Closeable {
     interface Listener {
         fun onStarted(firstSample: Int) {}
@@ -83,6 +85,7 @@ class AudioStream(
 
     override fun close() {
         if (!closed.compareAndSet(false, true)) return
+        listOfNotNull(dataSocket, controlSocket).forEach { onPortClosing(it.localPort) }
         dataSocket?.close()
         controlSocket?.close()
         dataThread?.interrupt()

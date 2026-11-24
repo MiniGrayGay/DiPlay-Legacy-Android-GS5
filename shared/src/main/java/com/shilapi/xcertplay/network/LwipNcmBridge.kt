@@ -157,6 +157,15 @@ class LwipNcmBridge(
         }
     }
 
+    /** The stream on [port] closed: frees its slot in the native tables. */
+    fun unregisterPort(port: Int, isTcp: Boolean) {
+        lwipNative.unregisterPort(port, isTcp)
+        if (isTcp) {
+            registeredTcpPorts -= port
+            registeredTcpPortArray = registeredTcpPorts.toIntArray()
+        }
+    }
+
     private fun enqueueTxFrame(frame: ByteArray, tag: String = "lwip"): Boolean {
         if (!running.get()) return false
         val queued = txQueue.offer(frame)

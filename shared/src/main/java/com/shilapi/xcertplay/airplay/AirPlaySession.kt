@@ -43,6 +43,8 @@ interface AirPlaySessionListener {
     fun onVideoPlaybackUiRequested(session: AirPlaySession) {}
     fun onModesChanged(session: AirPlaySession, appStates: List<Map<String, Any?>>, resources: List<Map<String, Any?>>) {}
     fun onPortBound(port: Int, isTcp: Boolean) {}
+    /** A port from [onPortBound] is about to close; called while its socket still holds the number. */
+    fun onPortReleased(port: Int, isTcp: Boolean) {}
     fun onDebugLog(message: String) {}
 }
 
@@ -108,6 +110,9 @@ class AirPlaySession(
     // Only the controller's single touch thread calls sendTouch.
     private val touchSlots = AirPlayTouchSlots(AirPlayHid.TOUCH_CONTACTS)
     private val ntp = NtpClock(socket.localAddress)
+    /** Ports told to the listener and not yet given back, as port to isTcp. */
+    private val boundPorts: MutableSet<Pair<Int, Boolean>> =
+        java.util.Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap())
     private var keepAliveSocket: DatagramSocket? = null
     private var keepAliveThread: Thread? = null
     private val eventWriteLock = Any()
@@ -743,7 +748,7 @@ class AirPlaySession(
                         activeStreams.add(type)
                         if (type == STREAM_TYPE_ALT_SCREEN) beginClusterContent()
                         else mainScreenToken = Any()
-                        listener.onPortBound(port, isTcp = true)
+                        portBound(port, isTcp = true)
                         result.add(linkedMapOf("type" to type, "dataPort" to port))
                     }
                 }
@@ -756,8 +761,8 @@ class AirPlaySession(
                     )
                     if (streamResponse != null) {
                         activeStreams.add(type)
-                        (streamResponse["dataPort"] as? Number)?.toInt()?.let { listener.onPortBound(it, isTcp = false) }
-                        (streamResponse["controlPort"] as? Number)?.toInt()?.let { listener.onPortBound(it, isTcp = false) }
+                        (streamResponse["dataPort"] as? Number)?.toInt()?.let { portBound(it, isTcp = false) }
+                        (streamResponse["controlPort"] as? Number)?.toInt()?.let { portBound(it, isTcp = false) }
                         result.add(streamResponse)
                     }
                 }
@@ -767,7 +772,7 @@ class AirPlaySession(
                         "dataPort=${streamResponse?.get("dataPort") ?: "none"}")
                     if (streamResponse != null) {
                         activeStreams.add(type)
-                        (streamResponse["dataPort"] as? Number)?.toInt()?.let { listener.onPortBound(it, isTcp = true) }
+                        (streamResponse["dataPort"] as? Number)?.toInt()?.let { portBound(it, isTcp = true) }
                         result.add(streamResponse)
                     }
                 }
@@ -779,7 +784,7 @@ class AirPlaySession(
                     )
                     if (streamResponse != null) {
                         activeStreams.add(type)
-                        (streamResponse["dataPort"] as? Number)?.toInt()?.let { listener.onPortBound(it, isTcp = true) }
+                        (streamResponse["dataPort"] as? Number)?.toInt()?.let { portBound(it, isTcp = true) }
                         result.add(streamResponse)
                     }
                 }
@@ -880,10 +885,20 @@ class AirPlaySession(
         return RtspMessage.Response(status = 200)
     }
 
+    internal fun portBound(port: Int, isTcp: Boolean) {
+        boundPorts.add(port to isTcp)
+        listener.onPortBound(port, isTcp)
+    }
+
+    /** Gives a stream's port back to the transport. Call it before closing the socket on [port]. */
+    internal fun releasePort(port: Int, isTcp: Boolean) {
+        if (boundPorts.remove(port to isTcp)) listener.onPortReleased(port, isTcp)
+    }
+
     private fun openTiming(peerPort: Int): Int {
         val port = ntp.listen()
         if (peerPort > 0) peerAddress?.let { ntp.start(it, peerPort) }
-        listener.onPortBound(port, isTcp = false)
+        portBound(port, isTcp = false)
         return port
     }
 
@@ -895,7 +910,7 @@ class AirPlaySession(
             start()
         }
         val port = socket.localPort
-        listener.onPortBound(port, isTcp = false)
+        portBound(port, isTcp = false)
         return port
     }
 
@@ -915,13 +930,14 @@ class AirPlaySession(
         eventServer = server
         spawnEvent("airplay-event-accept") { acceptEvent(server) }
         val port = server.localPort
-        listener.onPortBound(port, isTcp = true)
+        portBound(port, isTcp = true)
         return port
     }
 
     private fun teardown() {
         videoPlaybackAvailability.setEventReady(false)
         videoPlaybackAvailability.setFeatureEnabled(false)
+        boundPorts.toList().forEach { (port, isTcp) -> releasePort(port, isTcp) }
         ntp.close()
         safeClose(keepAliveSocket)
         keepAliveSocket = null

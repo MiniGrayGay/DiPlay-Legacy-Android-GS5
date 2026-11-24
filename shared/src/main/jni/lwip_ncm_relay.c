@@ -1112,6 +1112,50 @@ Java_com_shilapi_xcertplay_network_LwipNcmNative_nativeRegisterPort(
         ctx->port_mappings[ctx->num_port_mappings].active = 1;
         ctx->num_port_mappings++;
         LOGI("Registered port %d (tcp=%d) for relay", port, isTcp ? 1 : 0);
+    } else {
+        LOGE("No free port mapping for port %d (tcp=%d); the stream gets no data", port, isTcp ? 1 : 0);
+    }
+    pthread_mutex_unlock(&lwip_core_lock);
+
+    trigger_wake(ctx);
+}
+
+/*
+ * Gives a closed stream's port back. Every audio SETUP binds two new UDP ports, so without this
+ * the mapping and relay tables fill up within a drive and later streams are silent. Accepted TCP
+ * connections are left to end by themselves; only the listener goes.
+ */
+JNIEXPORT void JNICALL
+Java_com_shilapi_xcertplay_network_LwipNcmNative_nativeUnregisterPort(
+        JNIEnv *env, jobject thiz, jlong handle, jint port, jboolean isTcp) {
+    (void)env;
+    (void)thiz;
+    LwipContext *ctx = (LwipContext *)(intptr_t)handle;
+    if (ctx == NULL || !ctx->running || port <= 0) return;
+
+    pthread_mutex_lock(&lwip_core_lock);
+    int is_tcp = isTcp ? 1 : 0;
+    for (int i = 0; i < ctx->num_port_mappings; i++) {
+        if (ctx->port_mappings[i].port != port || ctx->port_mappings[i].is_tcp != is_tcp) continue;
+        ctx->port_mappings[i] = ctx->port_mappings[--ctx->num_port_mappings];
+        LOGI("Released port %d (tcp=%d) from relay", port, is_tcp);
+        break;
+    }
+    if (is_tcp) {
+        for (int i = 0; i < ctx->num_listen_pcbs; i++) {
+            if (ctx->listen_pcbs[i] == NULL || ctx->listen_pcbs[i]->local_port != port) continue;
+            tcp_close(ctx->listen_pcbs[i]);
+            ctx->listen_pcbs[i] = ctx->listen_pcbs[--ctx->num_listen_pcbs];
+            ctx->listen_pcbs[ctx->num_listen_pcbs] = NULL;
+            break;
+        }
+    } else {
+        for (int i = 0; i < MAX_UDP_RELAYS; i++) {
+            if (ctx->udp_relays[i].active && ctx->udp_relays[i].port == port) {
+                close_udp_relay(ctx, &ctx->udp_relays[i]);
+                break;
+            }
+        }
     }
     pthread_mutex_unlock(&lwip_core_lock);
 
