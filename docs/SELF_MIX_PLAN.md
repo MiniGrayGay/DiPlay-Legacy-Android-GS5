@@ -53,16 +53,16 @@
 | 倒车中（`mRvcAvmState.state != 0`） | 交回原车 |
 | 车机处在导航模式（`mNaviState == 1`），不论策略 | 导航音量 ± 步数，`setVolumeByFlag(v, 2)`。原车 `doAdjustVolume` 此时也只是 `setSwNaviVol(v)` 并存 `mPolicyVolumes[1]`，和 `setVolumeByFlag(v, 2)` 完全一样 |
 | 当前不是媒体策略 0、2、4（通话、语音等；−1「还没有策略」也算，因为 `setVolumeByFlag` 在 −1 时只记数值、不改 DSP） | 交回原车 |
-| 当前处于导航播报窗口（`uptimeMillis < sys.diplay.navi_until`） | 导航音量 ± 步数，`setVolumeByFlag(v, 2)` |
 | 其他（媒体） | 媒体音量 ± 步数，`setVolumeByFlag(v, 0)` |
 
 - 接管后，钩子给 DiPlay 发一个广播：`com.shihab.diplay.action.CAR_VOLUME`，附带 `kind=media|navi`、`value`、`step`。DiPlay 收到后画音量条。
-- 交回原车就是照原样调用 `original.handleMessage(msg)`，行为和没装钩子时完全一样。
-- 接管时和原车一样，先 `setUnmute()` 再调音量。DSP 调用放在钩子自己的线程上执行：`setVolumeByFlag` 要拿 `DspService.mLock`，车机做导航→媒体渐变时会持锁约 0.4 s，不能让窗口策略线程等。原车的 `adjustVolume` 也是交给 DSP 的 Handler 异步执行的。
+- 交回原车就是照原样调用 `original.dispatchMessage(msg)`，行为和没装钩子时完全一样。接管后 DSP 调用失败的那一下也交回原车处理（v3 起；v1、v2 会丢掉）。
+- 接管时和原车一样，先 `setUnmute()` 再调音量。DSP 调用放在钩子自己的线程上执行：`setVolumeByFlag` 要拿 `DspService.mLock`，车机做导航→媒体渐变时会持锁约 0.4 s，不让窗口策略线程等。原车的 `DspService.adjustVolume` 是直接调 `doAdjustVolume`，在窗口策略线程上同步等锁（反编译；DSP 的消息 7 没有人发）。
 - 按住音量键时的连续调节（消息 5/6）调用的也是 `setVolume(±1)`，同样走消息 19，钩子能接管。
 - 三指下滑菜单里也有这个开关，关掉后音量键立即交还车机。
 
-### D3. 播报窗口 【可改】
+### D3. 播报窗口（阶段 3，未做） 【可改】
+- 钩子里原来读 `sys.diplay.navi_until` 的代码没有任何地方写它，v3 删掉；做阶段 3 时连同 D2 的判断一起加回。
 - 混音模式下，每收到一段有声音的导航数据，DiPlay 就把 `sys.diplay.navi_until` 设成「现在 + 1500 ms」。
 - 播报结束放掉时（按现有算法：导航音轨延迟 − 50 ms），改成设成「现在 + 宽限时间」。
 - 宽限时间：**800 ms**。播报刚结束时按音量键，调的仍然是导航音量。
@@ -103,10 +103,10 @@
 2. `DiPlayApplication.attachBaseContext` / `onCreate` 先判断当前进程是不是 `system_server`（读 `/proc/self/cmdline`）。如果是，**什么都不做**：不装崩溃处理器、不初始化日志、不恢复悬浮点、不装 MultiDex。
 3. 钩子的每个入口都包在 `try/catch (Throwable)` 里，任何一步出错就交回 `original.handleMessage(msg)`。
 4. 安装时机：
-   - `GuangqiVolumeHookReceiver`（`android:process="system"`，不导出）在 BOOT_COMPLETED 时，只有 `persist.sys.diplay.vol_hook=1` 才安装。开关关闭时，system_server 里不会有钩子。
-   - DiPlay 启动时，如果接管开关是开的，再发一次显式广播触发安装。
+   - `GuangqiVolumeHookReceiver`（`android:process="system"`，不导出）只收 DiPlay 的显式广播：DiPlay 启动时接管开关开着，或者打开开关时发。
+   - 没有开机安装（v3 起）：钩子只在 DiPlay 活着时接管，DiPlay 启动时自己会请求安装。开关关着时，system_server 不加载 DiPlay 的代码。
    - 安装操作 post 到 `PhoneWindowManager` 的 Handler 线程上执行。重复安装时，判断类名和版本号，已经装过就跳过；旧版本就套在旧钩子的 original 外面重新装。
-5. 更新 DiPlay 后，system_server 里还是旧钩子，**重启车机才会换成新的**。钩子带版本号，DiPlay 发现版本不一致会写日志，并在设置页提示「重启车机后生效」。
+5. 更新 DiPlay 后，system_server 里还是旧钩子，**重启车机才会换成新的**。钩子带版本号，DiPlay 发现装着的版本不一致会写日志提示重启；设置说明里也写明更新后要重启。
 6. **随时可以关闭**：
    - 关掉接管开关，DiPlay 会清掉 `sys.diplay.vol_pid`，钩子立即交回原车；
    - 设 `persist.sys.diplay.vol_hook=0` 也一样（远控救急用）。属性名必须以 `persist.sys.` 开头，系统 uid 才有权限写；
@@ -164,7 +164,7 @@
 → 打包 0.4.6.11-selfmix.2 上车测：和车机导航声道模式对比播报响度、音乐压低、恢复的感受。
 
 ### 阶段 3：播报中调导航音量
-1. 播报窗口生效时，钩子改调导航音量（D2 第 5 行），DiPlay 画导航条，混音增益立即更新。
+1. 给钩子加上 D3 的播报窗口（升版本，需重启车机），窗口生效时改调导航音量，DiPlay 画导航条，混音增益立即更新。
 2. 上车测：播报中按方向盘 ± 和转旋钮，导航音量是否变化、原车设置里的导航滑块是否同步、播报结束后 800 ms 内按键是否仍调导航。
 
 测完合回 dev，版本号按规则顺延。

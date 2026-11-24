@@ -8,9 +8,10 @@ import android.util.Log;
 
 /**
  * Installs {@link GuangqiVolumeHook} in system_server. The car app's manifest declares this receiver
- * with {@code android:process="system"}; it does nothing in any other process. At boot it installs the
- * hook only when the driver's setting is on; DiPlay sends {@link GuangqiVolumeHook#ACTION_INSTALL}
- * when it starts with the setting on, or when the driver turns it on.
+ * with {@code android:process="system"}; it does nothing in any other process. DiPlay sends
+ * {@link GuangqiVolumeHook#ACTION_INSTALL} when it starts with the setting on, or when the driver
+ * turns it on. There is no boot trigger: the hook takes keys only while DiPlay runs, and with the
+ * setting off system_server never loads DiPlay's code.
  */
 public final class GuangqiVolumeHookReceiver extends BroadcastReceiver {
     @Override
@@ -20,10 +21,7 @@ public final class GuangqiVolumeHookReceiver extends BroadcastReceiver {
                 Log.w("DiPlayVolumeHook", "not in system_server (" + GuangqiVolumeHook.processName() + "); ignored");
                 return;
             }
-            String action = intent == null ? null : intent.getAction();
-            if (Intent.ACTION_BOOT_COMPLETED.equals(action)) {
-                if (GuangqiVolumeHook.switchOn()) GuangqiVolumeHook.install(context, "boot");
-            } else if (GuangqiVolumeHook.ACTION_INSTALL.equals(action)) {
+            if (intent != null && GuangqiVolumeHook.ACTION_INSTALL.equals(intent.getAction())) {
                 GuangqiVolumeHook.install(context, "DiPlay");
             }
         } catch (Throwable error) {

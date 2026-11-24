@@ -25,16 +25,10 @@ class GuangqiVolumeHookTest {
 
     private fun decide(
         on: Boolean = true, alive: Boolean = true, rvc: Int = 0, naviState: Int = 0, policy: Int = 0,
-        now: Long = 1_000, until: Long = 0,
-    ) = GuangqiVolumeHook.decide(on, alive, rvc, naviState, policy, now, until)
+    ) = GuangqiVolumeHook.decide(on, alive, rvc, naviState, policy)
 
     @Test fun mediaKeysAreTakenInEveryMediaPolicy() {
         for (policy in listOf(0, 2, 4)) assertEquals("policy $policy", media, decide(policy = policy))
-    }
-
-    @Test fun duringGuidanceTheKeysSetTheNavigationVolume() {
-        assertEquals(navi, decide(now = 1_000, until = 1_001))
-        assertEquals("the window has ended", media, decide(now = 1_001, until = 1_001))
     }
 
     @Test fun theCarKeepsItsOwnCases() {
@@ -43,10 +37,7 @@ class GuangqiVolumeHookTest {
         assertEquals("reversing", pass, decide(rvc = 2))
         assertEquals("reversing outranks the navigation mode", pass, decide(rvc = 2, naviState = 1))
         // -1 is the DSP's "none yet": setVolumeByFlag would only store the value there.
-        for (policy in listOf(-1, 1, 3, 5, 6, 7, 8)) {
-            assertEquals("policy $policy", pass, decide(policy = policy))
-            assertEquals("a call outranks guidance, policy $policy", pass, decide(policy = policy, until = 5_000))
-        }
+        for (policy in listOf(-1, 1, 3, 5, 6, 7, 8)) assertEquals("policy $policy", pass, decide(policy = policy))
     }
 
     @Test fun inTheCarsNavigationModeTheKeysSetTheNavigationVolume() {
@@ -110,8 +101,8 @@ class GuangqiVolumeHookTest {
     }
 
     @Test fun aTakenStepUnmutesSetsTheVolumeAndTellsDiPlay() {
-        val (_, targets) = fakeTargets()
-        targets.apply(GuangqiVolumeHook.KIND_NAVI, GuangqiVolumeHook.DSP_FLAG_NAVI, 2, "guidance")
+        val (policy, targets) = fakeTargets()
+        targets.apply(GuangqiVolumeHook.KIND_NAVI, GuangqiVolumeHook.DSP_FLAG_NAVI, 2, "car navigation mode", policy.mHandler)
         assertEquals(listOf("unmute", "get 2", "set 12 2"), (targets.dsp as FakeDsp).calls)
         val shadow = shadowOf(app as android.app.Application)
         val sent = (shadow.broadcastIntents + shadow.getBroadcastIntentsForUser(android.os.Process.myUserHandle()))
@@ -122,9 +113,32 @@ class GuangqiVolumeHookTest {
     }
 
     @Test fun theEndOfTheRangeStillUnmutesAndShowsTheBar() {
-        val (_, targets) = fakeTargets()
-        targets.apply(GuangqiVolumeHook.KIND_MEDIA, GuangqiVolumeHook.DSP_FLAG_MEDIA, 25, "media policy 0")
+        val (policy, targets) = fakeTargets()
+        targets.apply(GuangqiVolumeHook.KIND_MEDIA, GuangqiVolumeHook.DSP_FLAG_MEDIA, 25, "media policy 0", policy.mHandler)
         assertEquals(listOf("unmute", "get 0", "set 30 0"), (targets.dsp as FakeDsp).calls)
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals("a handled step does not reach the car too", emptyList<String>(), (policy.mHandler as RecordingHandler).seen)
+    }
+
+    @Test fun aStepWhoseDspCallFailsIsHandledByTheCar() {
+        val (policy, targets) = fakeTargets()
+        val original = policy.mHandler as RecordingHandler
+        GuangqiVolumeHook.swap(app, targets, "test")
+        (targets.dsp as FakeDsp).broken = true
+        targets.apply(GuangqiVolumeHook.KIND_MEDIA, GuangqiVolumeHook.DSP_FLAG_MEDIA, 2, "media policy 0", original)
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals(listOf("19:2"), original.seen)
+    }
+
+    @Test fun theStateNamesTheHookInPlaceNotThisDiPlays() {
+        val (_, targets) = fakeTargets()
+        GuangqiVolumeHook.swap(app, targets, "first")
+        GuangqiVolumeHook.swap(app, targets, "second")
+        val shadow = shadowOf(app as android.app.Application)
+        val state = (shadow.broadcastIntents + shadow.getBroadcastIntentsForUser(android.os.Process.myUserHandle()))
+            .last { it.action == GuangqiVolumeHook.ACTION_HOOK_STATE }
+        assertEquals(GuangqiVolumeHook.VERSION, state.getIntExtra(GuangqiVolumeHook.EXTRA_VERSION, -1))
+        assertTrue(state.getStringExtra(GuangqiVolumeHook.EXTRA_DETAIL)!!.startsWith("already installed v${GuangqiVolumeHook.VERSION}"))
     }
 
     private val app: Context get() = RuntimeEnvironment.getApplication()
@@ -147,7 +161,11 @@ class GuangqiVolumeHookTest {
         @JvmField var mPolicy = 0
         @JvmField var mNaviState = 0
         val calls = mutableListOf<String>()
-        fun getVolumeByFlag(flag: Int): Int = 10.also { calls += "get $flag" }
+        var broken = false
+        fun getVolumeByFlag(flag: Int): Int {
+            check(!broken) { "DSP gone" }
+            return 10.also { calls += "get $flag" }
+        }
         fun setVolumeByFlag(vol: Int, flag: Int): Int = 0.also { calls += "set $vol $flag" }
         fun setUnmute(): Int = 0.also { calls += "unmute" }
     }

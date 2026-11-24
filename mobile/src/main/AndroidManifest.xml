@@ -34,11 +34,7 @@
         <receiver
             android:name="com.shilapi.xcertplay.orchestration.GuangqiVolumeHookReceiver"
             android:exported="false"
-            android:process="system">
-            <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
-            </intent-filter>
-        </receiver>
+            android:process="system" />
 
     </application>
 

@@ -8,7 +8,6 @@ import android.os.HandlerThread;
 import android.os.IBinder;
 import android.os.Message;
 import android.os.Process;
-import android.os.SystemClock;
 import android.util.Log;
 
 import java.io.FileInputStream;
@@ -29,8 +28,9 @@ import java.lang.reflect.Method;
  * repeats {@code setVolume(±1)} through the same message, so a held key is taken too.
  *
  * <p>The decision only reads fields. The DSP calls take {@code DspService.mLock}, which the car holds
- * for its whole navigation-to-media fade, so they run on this hook's own thread, as the car's own
- * {@code adjustVolume} hands them to the DSP's handler, and the window policy thread never waits.
+ * for its whole navigation-to-media fade. The car's own {@code adjustVolume} runs them on the window
+ * policy thread, which then waits for the fade; this hook runs them on its own thread instead. A step
+ * whose DSP call fails is given to the car.
  *
  * <p>It runs in system_server: {@link GuangqiVolumeHookReceiver} is declared with
  * {@code android:process="system"}, as the ROM's SettingsProvider is. It is written in Java so it
@@ -40,7 +40,7 @@ import java.lang.reflect.Method;
  */
 public final class GuangqiVolumeHook {
     /** Raised when the hook's behaviour changes; system_server keeps an older one until a reboot. */
-    public static final int VERSION = 2;
+    public static final int VERSION = 3;
 
     public static final String ACTION_INSTALL = "com.shihab.diplay.action.INSTALL_VOLUME_HOOK";
     public static final String ACTION_CAR_VOLUME = "com.shihab.diplay.action.CAR_VOLUME";
@@ -62,8 +62,6 @@ public final class GuangqiVolumeHook {
     public static final String PROP_SWITCH = "persist.sys.diplay.vol_hook";
     /** The DiPlay process the keys belong to; the hook checks it is still alive at every key. */
     public static final String PROP_PID = "sys.diplay.vol_pid";
-    /** {@link SystemClock#uptimeMillis()} until which the keys set the navigation volume. */
-    public static final String PROP_NAVI_UNTIL = "sys.diplay.navi_until";
 
     public static final int MAX_VOLUME = 30;
     static final int MSG_VOLUME_SET_DELAY = 19;
@@ -82,13 +80,11 @@ public final class GuangqiVolumeHook {
      * then whatever the policy: it only calls {@code setSwNaviVol} and stores
      * {@code mPolicyVolumes[1]}, which is exactly {@code setVolumeByFlag(vol, 2)}.
      */
-    public static int decide(boolean switchOn, boolean diplayAlive, int rvcState, int naviState, int policy,
-                             long now, long naviUntil) {
+    public static int decide(boolean switchOn, boolean diplayAlive, int rvcState, int naviState, int policy) {
         if (!switchOn || !diplayAlive) return KIND_PASS;
         if (rvcState != 0) return KIND_PASS;
         if (naviState == 1) return KIND_NAVI;
-        if (!isMediaPolicy(policy)) return KIND_PASS;
-        return now < naviUntil ? KIND_NAVI : KIND_MEDIA;
+        return isMediaPolicy(policy) ? KIND_MEDIA : KIND_PASS;
     }
 
     /**
@@ -139,7 +135,7 @@ public final class GuangqiVolumeHook {
             });
         } catch (Throwable error) {
             Log.w(TAG, "install failed", error);
-            notifyState(app, false, "install failed (" + trigger + "): " + error);
+            notifyState(app, false, VERSION, "install failed (" + trigger + "): " + error);
         }
     }
 
@@ -151,25 +147,26 @@ public final class GuangqiVolumeHook {
                 // Ours, perhaps from an earlier DiPlay whose classes system_server still holds.
                 int version = readInt(current, "version", 0);
                 if (current instanceof VolumeHandler || version >= VERSION) {
-                    notifyState(app, true, "already installed v" + version + " (" + trigger + ")");
+                    notifyState(app, true, version, "already installed v" + version + " (" + trigger + ")");
                     return;
                 }
                 original = (Handler) readField(current, "original");
             }
             targets.handlerField.set(targets.policy, new VolumeHandler(original, targets));
             Log.i(TAG, "installed v" + VERSION + " on PhoneWindowManager.mHandler (" + trigger + ")");
-            notifyState(app, true, "installed v" + VERSION + " on PhoneWindowManager.mHandler (" + trigger + ")");
+            notifyState(app, true, VERSION, "installed v" + VERSION + " on PhoneWindowManager.mHandler (" + trigger + ")");
         } catch (Throwable error) {
             Log.w(TAG, "swap failed", error);
-            notifyState(app, false, "swap failed (" + trigger + "): " + error);
+            notifyState(app, false, VERSION, "swap failed (" + trigger + "): " + error);
         }
     }
 
-    private static void notifyState(Context app, boolean installed, String detail) {
+    /** {@code version}: of the hook now in place, which may be another DiPlay's. */
+    private static void notifyState(Context app, boolean installed, int version, String detail) {
         try {
             send(app, new Intent(ACTION_HOOK_STATE).setPackage(app.getPackageName())
                 .putExtra(EXTRA_INSTALLED, installed)
-                .putExtra(EXTRA_VERSION, VERSION)
+                .putExtra(EXTRA_VERSION, version)
                 .putExtra(EXTRA_DETAIL, detail));
         } catch (Throwable error) {
             Log.w(TAG, "state broadcast failed", error);
@@ -222,16 +219,14 @@ public final class GuangqiVolumeHook {
         }
 
         /** Returns true when the key was handled here, false to give it to the car. */
-        boolean handle(int step) throws Exception {
+        boolean handle(int step, final Handler original) throws Exception {
             if (step == 0) return false;
             boolean on = switchOn();
             boolean alive = diplayAlive(app.getPackageName(), property(PROP_PID, ""));
             int rvc = rvcState();
             int naviState = dspNaviState.getInt(dsp);
             int carPolicy = dspPolicy.getInt(dsp);
-            long now = SystemClock.uptimeMillis();
-            long until = parseLong(property(PROP_NAVI_UNTIL, "0"));
-            int kind = decide(on, alive, rvc, naviState, carPolicy, now, until);
+            int kind = decide(on, alive, rvc, naviState, carPolicy);
             if (kind == KIND_PASS) {
                 if (on && alive) {
                     tell(KIND_PASS, -1, step, passReason(on, alive, rvc, naviState, carPolicy));
@@ -241,19 +236,18 @@ public final class GuangqiVolumeHook {
             final int flag = kind == KIND_NAVI ? DSP_FLAG_NAVI : DSP_FLAG_MEDIA;
             final int taken = kind;
             final int signed = step;
-            final String reason = kind == KIND_MEDIA ? "media policy " + carPolicy
-                : naviState == 1 ? "car navigation mode" : "guidance";
+            final String reason = kind == KIND_MEDIA ? "media policy " + carPolicy : "car navigation mode";
             worker().post(new Runnable() {
                 @Override
                 public void run() {
-                    apply(taken, flag, signed, reason);
+                    apply(taken, flag, signed, reason, original);
                 }
             });
             return true;
         }
 
-        /** On the hook's thread: what the car's message 19 does, without its bar. */
-        void apply(int kind, int flag, int step, String reason) {
+        /** On the hook's thread: what the car's message 19 does, without its bar; the car's when it fails. */
+        void apply(int kind, int flag, int step, String reason, Handler original) {
             try {
                 // The car unmutes before every step, also at the end of the range.
                 setUnmute.invoke(dsp);
@@ -263,6 +257,8 @@ public final class GuangqiVolumeHook {
                 tell(kind, next, step, reason);
             } catch (Throwable error) {
                 Log.w(TAG, "volume step failed", error);
+                // Straight to the car's handler, past this hook, as PhoneWindowManager.setVolume sends it.
+                original.sendMessageAtFrontOfQueue(original.obtainMessage(MSG_VOLUME_SET_DELAY, step, -1));
                 tell(KIND_PASS, -1, step, "DSP call failed: " + error);
             }
         }
@@ -312,7 +308,7 @@ public final class GuangqiVolumeHook {
         public void dispatchMessage(Message msg) {
             if (msg.what == MSG_VOLUME_SET_DELAY && msg.getCallback() == null) {
                 try {
-                    if (targets.handle(msg.arg1)) return;
+                    if (targets.handle(msg.arg1, original)) return;
                 } catch (Throwable error) {
                     Log.w(TAG, "volume key left to the car", error);
                 }
