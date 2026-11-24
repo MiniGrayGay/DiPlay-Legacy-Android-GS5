@@ -23,7 +23,7 @@ data class MicrophoneConfig(
     val opusClockRate: Int = OPUS_CAPTURE_RATE,
     /**
      * This stream's local data port. On a wired session the userspace lwIP bridge relays that port,
-     * and the uplink leaves through it ([com.shilapi.xcertplay.network.WiredUdpUplink]).
+     * and the uplink leaves through it ([WiredUdpUplink]).
      */
     val relayPort: Int? = null,
 ) {

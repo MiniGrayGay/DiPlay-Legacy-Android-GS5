@@ -1,4 +1,4 @@
-package com.shilapi.xcertplay.network
+package com.shilapi.xcertplay.airplay
 
 import org.junit.After
 import org.junit.Assert.assertArrayEquals

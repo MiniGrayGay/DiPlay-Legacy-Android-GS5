@@ -31,9 +31,13 @@ object GuangqiVpnSubsystem {
         Process.myUid() == Process.SYSTEM_UID &&
             runCatching { Class.forName("android.media.AudioSourceManager") }.isSuccess
 
-    /** Repairs the VPN table and grants DiPlay the VPN. True when the grant succeeded. */
+    /** Grants DiPlay the VPN, first making the ROM create its VPN table if it has none. */
     fun prepare(context: Context, log: (String) -> Unit = {}): Boolean {
         if (!applies()) return false
+        if (runCatching { prepareVpn(context.packageName) }.isSuccess) {
+            log("Wired TUN: prepareVpn granted")
+            return true
+        }
         runCatching {
             context.sendBroadcast(Intent(ACTION_USER_STARTING).putExtra(EXTRA_USER_HANDLE, 0))
             log("Wired TUN: USER_STARTING sent so the ROM creates its VPN table")
@@ -44,15 +48,15 @@ object GuangqiVpnSubsystem {
         // The service handles the broadcast on its own thread; prepareVpn fails until it has.
         var lastError: Throwable? = null
         repeat(PREPARE_ATTEMPTS) { attempt ->
+            runCatching { Thread.sleep(PREPARE_RETRY_MILLIS) }
             val result = runCatching { prepareVpn(context.packageName) }
             if (result.isSuccess) {
-                log("Wired TUN: IConnectivityManager.prepareVpn granted after ${attempt + 1} attempt(s)")
+                log("Wired TUN: prepareVpn granted ${(attempt + 1) * PREPARE_RETRY_MILLIS}ms after the broadcast")
                 return true
             }
             lastError = result.exceptionOrNull()
-            runCatching { Thread.sleep(PREPARE_RETRY_MILLIS) }
         }
-        val cause = lastError?.let { (it.cause ?: it) }
+        val cause = lastError?.let { it.cause ?: it }
         Log.w(TAG, "prepareVpn failed", cause)
         log("Wired TUN: prepareVpn failed ${cause?.javaClass?.simpleName}: ${cause?.message}")
         return false

@@ -1,5 +1,6 @@
 package com.shilapi.xcertplay.network
 
+import com.shilapi.xcertplay.airplay.WiredUdpUplink
 import android.os.Process
 import android.util.Log
 import com.shilapi.xcertplay.transport.EthernetIpv6Codec

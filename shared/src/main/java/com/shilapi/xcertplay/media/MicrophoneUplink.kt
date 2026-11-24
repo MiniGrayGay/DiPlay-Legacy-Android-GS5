@@ -14,7 +14,7 @@ import com.shilapi.xcertplay.airplay.AudioCodecKind
 import com.shilapi.xcertplay.airplay.MicrophoneConfig
 import com.shilapi.xcertplay.airplay.MicrophoneCounters
 import com.shilapi.xcertplay.airplay.MicrophonePacketizer
-import com.shilapi.xcertplay.network.WiredUdpUplink
+import com.shilapi.xcertplay.airplay.WiredUdpUplink
 import java.io.Closeable
 import java.net.DatagramPacket
 import java.net.DatagramSocket
@@ -442,7 +442,7 @@ internal class MicrophoneUplink(
             samples = samples,
         )
         try {
-            // Wired sessions have no kernel route to the iPhone: the lwIP bridge sends it.
+            // On wired lwIP config.host is loopback; only the bridge reaches the iPhone.
             val delivered = WiredUdpUplink.deliver(config.relayPort, config.port, packet) { wire ->
                 socket.send(DatagramPacket(wire, wire.size, config.host, config.port))
             }
