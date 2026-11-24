@@ -2202,6 +2202,19 @@ class CarPlayHostActivity : ComponentActivity() {
                 com.shilapi.xcertplay.orchestration.GuangqiVolumeTakeover.enabled(this)) { enabled ->
                 com.shilapi.xcertplay.orchestration.GuangqiVolumeTakeover.setEnabled(this, enabled)
             })
+            // The head unit follows the car's power and has no power button: without this a restart
+            // (for example to load a newer volume hook into system_server) needs the engine off.
+            addRow(LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                addView(LinearLayout(this@CarPlayHostActivity).apply {
+                    orientation = LinearLayout.VERTICAL
+                    addView(menuText(getString(R.string.quick_reboot_head_unit), 18f, Color.WHITE))
+                    addView(menuText(getString(R.string.quick_reboot_head_unit_note), 14f, MENU_SECONDARY)
+                        .apply { setPadding(0, dp(4), dp(16), 0) })
+                }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                addView(rebootHeadUnitButton(), LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(52)))
+            })
         }
 
         val footer = LinearLayout(this).apply {
@@ -2227,6 +2240,64 @@ class CarPlayHostActivity : ComponentActivity() {
             setMargins(dp(24), dp(24), dp(24), dp(24))
         })
         return overlay
+    }
+
+    /**
+     * The quick menu's restart button, for testing: a tap runs `svc power reboot` (Android's own
+     * restart: services are told and data is written first); held for [REBOOT_HOLD_MILLIS] it runs
+     * `setprop sys.powerctl reboot` (init restarts at once). This ROM's shutdown never tells the MCU
+     * to cut power, so the head unit comes back by itself while the car is on. DiPlay's uid (system)
+     * may do both.
+     */
+    private fun rebootHeadUnitButton(): Button {
+        val label = getString(R.string.quick_reboot_head_unit_action)
+        val button = quickMenuButton(label, primary = false) {}
+        var held = false
+        val hard = Runnable {
+            held = true
+            button.text = label
+            rebootHeadUnit(hard = true)
+        }
+        button.setOnTouchListener { view, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    held = false
+                    view.isPressed = true
+                    view.parent?.requestDisallowInterceptTouchEvent(true)
+                    button.text = getString(R.string.quick_reboot_head_unit_holding)
+                    view.postDelayed(hard, REBOOT_HOLD_MILLIS)
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    view.removeCallbacks(hard)
+                    view.isPressed = false
+                    button.text = label
+                    val inside = event.x >= 0 && event.y >= 0 && event.x <= view.width && event.y <= view.height
+                    if (event.actionMasked == MotionEvent.ACTION_UP && !held && inside) rebootHeadUnit(hard = false)
+                }
+            }
+            true
+        }
+        return button
+    }
+
+    private fun rebootHeadUnit(hard: Boolean) {
+        val command = if (hard) "setprop sys.powerctl reboot" else "svc power reboot diplay"
+        Log.i(TAG, "head unit restart from the quick menu: $command")
+        Thread({
+            val failure = runCatching {
+                val process = Runtime.getRuntime().exec(arrayOf("sh", "-c", command))
+                val output = (process.inputStream.bufferedReader().readText() +
+                    process.errorStream.bufferedReader().readText()).trim()
+                val code = process.waitFor()
+                // svc prints "Failed to reboot." when the power service refused.
+                if (code != 0 || output.contains("Failed")) "exit $code $output".trim() else null
+            }.getOrElse { it.toString() } ?: return@Thread
+            Log.w(TAG, "head unit restart failed: $command: $failure")
+            runOnUiThread {
+                android.widget.Toast.makeText(this, getString(R.string.quick_reboot_head_unit_failed, failure),
+                    android.widget.Toast.LENGTH_LONG).show()
+            }
+        }, "diplay-reboot").start()
     }
 
     /** True while a USB Bluetooth dongle is plugged in: it cannot play car Bluetooth audio. */
@@ -5035,6 +5106,8 @@ class CarPlayHostActivity : ComponentActivity() {
 
     private companion object {
         const val SIDE_PANEL_REFRESH_MILLIS = 5_000L
+        // The quick menu's restart button: held this long it restarts at once (sys.powerctl).
+        const val REBOOT_HOLD_MILLIS = 3_000L
         const val TAG = "xcertplay-usb"
         const val SCREEN_TYPE_MAIN = 110
         const val SCREEN_TYPE_ALT = 111
