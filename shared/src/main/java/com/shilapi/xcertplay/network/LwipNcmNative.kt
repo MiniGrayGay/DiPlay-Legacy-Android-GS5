@@ -86,7 +86,11 @@ class LwipNcmNative(
         }
     }
 
-    /** Sends one UDP payload through a relay that has already learned the phone's IPv6 address. */
+    /**
+     * Sends one UDP payload from the relay on [localPort] to the phone's [remotePort]. A relay
+     * that has not received from the phone yet borrows its address from another relay or from
+     * the AirPlay TCP session. False when no relay serves [localPort] or the phone is unknown.
+     */
     @Synchronized
     fun sendUdp(localPort: Int, remotePort: Int, payload: ByteArray): Boolean {
         val handle = nativeHandle

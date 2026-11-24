@@ -370,6 +370,7 @@ class CarPlayVpnService : VpnService() {
             attachStage = "NCM lwIP bridge startup"
             lwip.start()
             lwipBridge = lwip
+            WiredUdpUplink.install(lwip)
             runCatching { listener.onDebugLog("wired userspace lwIP bridge started") }
 
             attachStage = "AirPlay loopback listener bind"
@@ -751,6 +752,7 @@ class CarPlayVpnService : VpnService() {
         closeSessionsLocked()
         bridge?.close()
         bridge = null
+        lwipBridge?.let(WiredUdpUplink::clear)
         lwipBridge?.close()
         lwipBridge = null
         runCatching { wiredBonjour?.close() }

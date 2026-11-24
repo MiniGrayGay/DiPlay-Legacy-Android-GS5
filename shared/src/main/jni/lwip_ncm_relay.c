@@ -1118,6 +1118,30 @@ Java_com_shilapi_xcertplay_network_LwipNcmNative_nativeRegisterPort(
     trigger_wake(ctx);
 }
 
+/*
+ * The phone's address for a UDP relay that has not received from it yet, such as the
+ * microphone of a speech stream that plays no downlink (#566): another relay's peer, else
+ * the remote end of an accepted TCP connection (the AirPlay control session). Call with
+ * lwip_core_lock held.
+ */
+static int find_phone_ip(LwipContext *ctx, ip_addr_t *out) {
+    for (int i = 0; i < MAX_UDP_RELAYS; i++) {
+        UdpRelay *relay = &ctx->udp_relays[i];
+        if (relay->active && relay->has_peer) {
+            ip_addr_copy(*out, relay->peer_ip);
+            return 1;
+        }
+    }
+    for (int i = 0; i < MAX_RELAY_CONNS; i++) {
+        TcpRelayConn *conn = &ctx->tcp_conns[i];
+        if (conn->active && conn->lwip_pcb != NULL) {
+            ip_addr_copy(*out, conn->lwip_pcb->remote_ip);
+            return 1;
+        }
+    }
+    return 0;
+}
+
 JNIEXPORT jboolean JNICALL
 Java_com_shilapi_xcertplay_network_LwipNcmNative_nativeSendUdp(
         JNIEnv *env, jobject thiz, jlong handle, jint localPort, jint remotePort,
@@ -1135,11 +1159,17 @@ Java_com_shilapi_xcertplay_network_LwipNcmNative_nativeSendUdp(
     pthread_mutex_lock(&lwip_core_lock);
     for (int i = 0; i < MAX_UDP_RELAYS; i++) {
         UdpRelay *relay = &ctx->udp_relays[i];
-        if (!relay->active || relay->port != localPort || relay->lwip_pcb == NULL || !relay->has_peer) continue;
+        if (!relay->active || relay->port != localPort || relay->lwip_pcb == NULL) continue;
+        ip_addr_t phone;
+        if (relay->has_peer) {
+            ip_addr_copy(phone, relay->peer_ip);
+        } else if (!find_phone_ip(ctx, &phone)) {
+            break;
+        }
         struct pbuf *p = pbuf_alloc(PBUF_TRANSPORT, (u16_t)length, PBUF_RAM);
         if (p != NULL) {
             pbuf_take(p, bytes, (u16_t)length);
-            sent = udp_sendto(relay->lwip_pcb, p, &relay->peer_ip, (u16_t)remotePort) == ERR_OK
+            sent = udp_sendto(relay->lwip_pcb, p, &phone, (u16_t)remotePort) == ERR_OK
                 ? JNI_TRUE : JNI_FALSE;
             pbuf_free(p);
         }

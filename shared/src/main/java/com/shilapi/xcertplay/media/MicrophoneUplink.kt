@@ -14,6 +14,7 @@ import com.shilapi.xcertplay.airplay.AudioCodecKind
 import com.shilapi.xcertplay.airplay.MicrophoneConfig
 import com.shilapi.xcertplay.airplay.MicrophoneCounters
 import com.shilapi.xcertplay.airplay.MicrophonePacketizer
+import com.shilapi.xcertplay.network.WiredUdpUplink
 import java.io.Closeable
 import java.net.DatagramPacket
 import java.net.DatagramSocket
@@ -39,6 +40,8 @@ internal class MicrophoneUplink(
     private val context: android.content.Context? = null,
 ) : Closeable {
     private val running = AtomicBoolean(false)
+    /** The wired relay's first refusal is reported once; the counters carry the rest. */
+    @Volatile private var relayFailureReported = false
     private val stats = MicrophoneCaptureStats(config, report = { message ->
         Log.i(TAG, message)
         onDiagnostic(message)
@@ -439,8 +442,19 @@ internal class MicrophoneUplink(
             samples = samples,
         )
         try {
-            socket.send(DatagramPacket(packet, packet.size, config.host, config.port))
-            stats.sent()
+            // Wired sessions have no kernel route to the iPhone: the lwIP bridge sends it.
+            val delivered = WiredUdpUplink.deliver(config.relayPort, config.port, packet) { wire ->
+                socket.send(DatagramPacket(wire, wire.size, config.host, config.port))
+            }
+            if (delivered) {
+                stats.sent()
+            } else {
+                stats.sendFailed()
+                if (!relayFailureReported) {
+                    relayFailureReported = true
+                    diagnose("Microphone: wired relay could not send to the iPhone port=${config.port} relayPort=${config.relayPort}")
+                }
+            }
         } catch (error: Exception) {
             stats.sendFailed()
             if (running.get()) throw error

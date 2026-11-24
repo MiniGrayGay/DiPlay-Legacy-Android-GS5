@@ -21,7 +21,10 @@ data class MicrophoneConfig(
      * rule. The report's "Audio: rtp clock" line measures the iPhone's own clock for each stream.
      */
     val opusClockRate: Int = OPUS_CAPTURE_RATE,
-    /** Desktop userspace-lwIP UDP relay port; null on a normal kernel-network transport. */
+    /**
+     * This stream's local data port. On a wired session the userspace lwIP bridge relays that port,
+     * and the uplink leaves through it ([com.shilapi.xcertplay.network.WiredUdpUplink]).
+     */
     val relayPort: Int? = null,
 ) {
     val samplesPerPacket: Int
