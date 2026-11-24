@@ -737,7 +737,6 @@ class CarPlayController(
         }
     }
 
-    /** Sends one CarPlay media-button press (an [com.shilapi.xcertplay.airplay.AirPlayHid] media index). */
     /** The host reports its physical cluster surface independently of the centre-map pause policy. */
     fun setDashboardMapOutputVisible(visible: Boolean) {
         val next = visible && !closed
@@ -4376,7 +4375,6 @@ class CarPlayController(
         /** 无线建连持续观察设备入网的时长（port 自 ding2548-ui/DiPlay@main）。 */
         private const val WIRELESS_CLIENT_WATCH_MILLIS = 120_000L
         private const val WIRELESS_CLIENT_WATCH_POLL_MILLIS = 2_000L
-        private const val RFCOMM_CONNECT_TIMEOUT_MILLIS = 15_000L
         private const val MAXIMUM_REENUMERATION_ATTEMPTS = 2
         /** Issue #266: minimum spacing between direct usbfs bring-up attempts. */
         private const val DIRECT_ATTEMPT_MIN_INTERVAL_NANOS = 10_000_000_000L

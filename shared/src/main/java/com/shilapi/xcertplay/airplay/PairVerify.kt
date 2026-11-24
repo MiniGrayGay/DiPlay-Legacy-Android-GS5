@@ -20,7 +20,6 @@ class PairVerify(
     private var verified = false
     private var controllerId: String? = null
 
-    val isVerified: Boolean get() = verified
     val verifiedControllerId: String? get() = controllerId
     val controlKeys: ControlKeys? get() = keys
     val shared: ByteArray? get() = sharedSecret
