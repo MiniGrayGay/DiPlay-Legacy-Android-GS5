@@ -30,7 +30,7 @@ object GuangqiVolumeTakeover {
     /** True on head units with the car's DSP manager, the only ones the hook works on. */
     fun supported(): Boolean = runCatching { Class.forName("android.os.DspManager") }.isSuccess
 
-    fun enabled(context: Context): Boolean = prefs(context).getBoolean(KEY_ENABLED, false)
+    fun enabled(context: Context): Boolean = prefs(context).getBoolean(KEY_ENABLED, true)
 
     fun setEnabled(context: Context, on: Boolean) {
         prefs(context).edit().putBoolean(KEY_ENABLED, on).apply()

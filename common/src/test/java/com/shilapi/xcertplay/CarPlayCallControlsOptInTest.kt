@@ -24,7 +24,8 @@ class CarPlayCallControlsOptInTest {
         NavigationOutputs.endNow()
     }
 
-    @Test fun newCallKeysCannotConsumeOrSendAnythingWithoutOptIn() {
+    @Test fun newCallKeysCannotConsumeOrSendAnythingWhenOff() {
+        WheelIntegrationSettings.setCarPlayCallControls(app, false)
         val controller = mock(CarPlayController::class.java)
         for (code in listOf(313, 314, 309)) {
             assertFalse(CarPlayCallKeys.onKey(app, code, true, controller))
@@ -33,7 +34,7 @@ class CarPlayCallControlsOptInTest {
         verifyNoInteractions(controller)
     }
 
-    @Test fun explicitOptInEnablesAnswerAndDisableRestoresPassThrough() {
+    @Test fun onEnablesAnswerAndDisableRestoresPassThrough() {
         val controller = mock(CarPlayController::class.java)
         `when`(controller.activeAirPlaySessionToken()).thenReturn(Any())
         NavigationOutputs.onFrame(Iap2Messages.buildRaw(CarPlayCallState.CALL_STATE_UPDATE) {

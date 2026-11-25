@@ -713,9 +713,9 @@ object AirPlayPersistence {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_DIRECT_SURFACE_VIEW, enabled).apply()
     }
 
-    /** Issue #266: direct usbfs mode for ROMs whose UsbManager never lists the iPhone. */
+    /** Issue #266: direct usbfs mode for ROMs whose UsbManager never lists the iPhone. On by default: only tried while the list is empty. */
     fun loadDirectUsbfsMode(context: Context): Boolean =
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_DIRECT_USBFS_MODE, false)
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_DIRECT_USBFS_MODE, true)
 
     fun saveDirectUsbfsMode(context: Context, enabled: Boolean) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_DIRECT_USBFS_MODE, enabled).apply()
@@ -723,10 +723,10 @@ object AirPlayPersistence {
 
     /**
      * Wired sessions use the kernel TCP/IP stack through a system VPN TUN instead of the userspace
-     * lwIP bridge. Off by default: lwIP is the verified wired path.
+     * lwIP bridge. On by default: verified on the Guangqi head unit, 0.4.6.14-alpha4.
      */
     fun loadWiredKernelTun(context: Context): Boolean =
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_WIRED_KERNEL_TUN, false)
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_WIRED_KERNEL_TUN, true)
 
     fun saveWiredKernelTun(context: Context, enabled: Boolean) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_WIRED_KERNEL_TUN, enabled).apply()
@@ -751,7 +751,7 @@ object AirPlayPersistence {
 
     /** Issue #343: hold the car's global Bluetooth auto-connect off during CarPlay (Advanced, experimental). */
     fun loadCarplayAutoDisconnectBt(context: Context): Boolean =
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_CARPLAY_AUTO_DISCONNECT_BT, false)
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_CARPLAY_AUTO_DISCONNECT_BT, true)
 
     fun saveCarplayAutoDisconnectBt(context: Context, enabled: Boolean) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_CARPLAY_AUTO_DISCONNECT_BT, enabled).apply()

@@ -3,7 +3,7 @@ package com.shilapi.xcertplay.hud
 import android.content.Context
 
 /**
- * Two opt-in settings: the car's speed to the iPhone, and the wheel's call keys. The preference
+ * Two settings: the car's speed to the iPhone (opt-in), and the wheel's call keys (on by default). The preference
  * file and keys are upstream's (`BydOutputSettings`), so a value the driver set before still applies.
  */
 object WheelIntegrationSettings {
@@ -20,7 +20,7 @@ object WheelIntegrationSettings {
 
     /** The steering wheel's call keys answer and end CarPlay calls. */
     fun carPlayCallControls(context: Context): Boolean =
-        prefs(context).getBoolean(KEY_CARPLAY_CALL_CONTROLS, false)
+        prefs(context).getBoolean(KEY_CARPLAY_CALL_CONTROLS, true)
 
     fun setCarPlayCallControls(context: Context, enabled: Boolean) =
         prefs(context).edit().putBoolean(KEY_CARPLAY_CALL_CONTROLS, enabled).apply()
