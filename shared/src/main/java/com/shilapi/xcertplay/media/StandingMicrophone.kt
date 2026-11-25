@@ -128,10 +128,11 @@ internal class StandingMicrophone(
             recorder = null
             opened?.let { runCatching { it.release() } }
             // Refused, not unable to open: asking did not help, so someone else really holds it.
-            if (opened == null && running && openFailures == 0 && attempts >= EVICT_AFTER &&
+            val evicting = opened == null && running && openFailures == 0 && attempts >= EVICT_AFTER &&
                 (attempts - EVICT_AFTER) % EVICT_EVERY == 0
-            ) runCatching(evict)
-            if (running) pause()
+            if (evicting) runCatching(evict)
+            // An ended holder may be started again: be there first.
+            if (running) pause(if (evicting) minOf(retryMillis, AFTER_EVICT_MILLIS) else retryMillis)
         }
         log("Standing microphone: released")
         runCatching(onReleased)
@@ -184,8 +185,8 @@ internal class StandingMicrophone(
         }
     }
 
-    private fun pause() = synchronized(waitLock) {
-        if (running) runCatching { waitLock.wait(retryMillis) }
+    private fun pause(millis: Long) = synchronized(waitLock) {
+        if (running) runCatching { waitLock.wait(millis) }
     }
 
     companion object {
@@ -199,10 +200,11 @@ internal class StandingMicrophone(
         private const val RETRY_MILLIS = 500L
         private const val MAKE_ROOM_MILLIS = 15_000L
         private const val MAX_OPEN_FAILURES = 3
-        /** 3 s of asking; the car was seen to let go within 1 s. */
-        const val EVICT_AFTER = 6
-        /** 30 s. */
-        private const val EVICT_EVERY = 60
+        /** The first attempt and three retries, 1.5 s; the car was seen to let go within 1 s. */
+        const val EVICT_AFTER = 4
+        /** 10 s. */
+        private const val EVICT_EVERY = 20
+        private const val AFTER_EVICT_MILLIS = 150L
 
         private fun openDefault(source: Int): AudioRecord? {
             val min = AudioRecord.getMinBufferSize(SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)

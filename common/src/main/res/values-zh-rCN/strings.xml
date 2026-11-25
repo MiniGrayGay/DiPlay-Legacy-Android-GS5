@@ -571,8 +571,8 @@
     <string name="settings_guidance_music_level_description">仅广汽车机。播报时音乐比播报前低多少，按播报前的音量算，媒体音量开多大压低的感觉都一样。车机自己是把音乐压到一个固定音量，加上 iPhone 自己的压低，平常音量下几乎听不见。从下一次播报起生效。</string>
     <string name="settings_volume_takeover">音量键由 DiPlay 接管（实验性）</string>
     <string name="settings_volume_takeover_description">仅广汽车机。DiPlay 运行时，方向盘、面板和旋钮的音量键由 DiPlay 调节车机的媒体音量，导航播报时调节导航音量，并显示 DiPlay 自己的音量条，不再弹出原车音量条。倒车、原车通话和原车语音时仍由车机处理。打开后立即生效。更新 DiPlay 后需重启车机才会用上新版本。</string>
-    <string name="settings_standing_microphone">CarPlay 期间常开麦克风（实验性）</string>
-    <string name="settings_standing_microphone_description">仅广汽车机。CarPlay 连着时一直占用麦克风，通话和 Siri 不用等麦克风打开，原车语音也不会中途抢走（例如倒车后）。断开 CarPlay 前，原车语音助手不能用。打开后立即生效。</string>
+    <string name="settings_standing_microphone">CarPlay 期间常开麦克风</string>
+    <string name="settings_standing_microphone_description">仅广汽车机。CarPlay 连着时一直占用麦克风，通话和 Siri 不用等麦克风打开，原车语音也不会中途抢走（例如倒车后）。断开 CarPlay 前，原车语音助手不能用。麦克风 1.5 秒还拿不到时，会结束正在录音的程序。默认开，立即生效。</string>
     <string name="settings_guidance_music_value_default">-%1$d dB · 默认</string>
     <string name="settings_guidance_music_value">-%1$d dB</string>
     <string name="settings_guidance_music_value_none">不压低</string>

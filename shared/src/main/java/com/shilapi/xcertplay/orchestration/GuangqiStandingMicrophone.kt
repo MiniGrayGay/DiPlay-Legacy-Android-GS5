@@ -12,7 +12,7 @@ import com.shilapi.xcertplay.media.StandingMicrophone
 /**
  * The setting and the session lifetime of the [StandingMicrophone]: with it on, DiPlay holds the
  * Guangqi head unit's microphone from the start of a CarPlay session to its end, and the stock
- * assistant ([GuangqiStockAssistant]) stays paused for as long. Off by default.
+ * assistant ([GuangqiStockAssistant]) stays paused for as long. On by default.
  */
 object GuangqiStandingMicrophone {
     private const val TAG = "DiPlay-GQ-StandingMic"
@@ -30,7 +30,7 @@ object GuangqiStandingMicrophone {
     /** True on head units with the car's audio source manager, whose assistant holds the microphone. */
     fun supported(): Boolean = runCatching { Class.forName("android.media.AudioSourceManager") }.isSuccess
 
-    fun enabled(context: Context): Boolean = prefs(context).getBoolean(KEY_ENABLED, false)
+    fun enabled(context: Context): Boolean = prefs(context).getBoolean(KEY_ENABLED, true)
 
     /** Applies to a running session at once; off waits for a call or Siri that is using it. */
     fun setEnabled(context: Context, on: Boolean) {

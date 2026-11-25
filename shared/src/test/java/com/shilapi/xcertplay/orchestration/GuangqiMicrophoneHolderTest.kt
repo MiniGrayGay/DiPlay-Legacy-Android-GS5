@@ -45,11 +45,13 @@ class GuangqiMicrophoneHolderTest {
         assertEquals(emptyList<Int>(), GuangqiMicrophoneHolder.recordingPids(""))
     }
 
-    @Test fun onlyTheStockAssistantIsEverEnded() {
-        assertTrue(GuangqiMicrophoneHolder.isAssistant("com.tencent.wecarspeech"))
-        assertTrue(GuangqiMicrophoneHolder.isAssistant("com.tencent.wecarspeech:wecarbase"))
-        for (other in listOf("", "com.android.bluetooth", "gaei.ecallbcall", "com.tencent.wecarnavi", "com.tencent.wecarspeechx")) {
-            assertFalse(other, GuangqiMicrophoneHolder.isAssistant(other))
+    @Test fun anyHolderIsEndedButDiPlayAndTheSystemServer() {
+        val own = "com.shihab.diplay"
+        for (other in listOf("com.tencent.wecarspeech", "com.tencent.wecarspeech:wecarbase", "com.tencent.mm", "com.shihab.diplayx")) {
+            assertTrue(other, GuangqiMicrophoneHolder.mayEnd(other, own))
+        }
+        for (kept in listOf("system_server", own, "$own:helper")) {
+            assertFalse(kept, GuangqiMicrophoneHolder.mayEnd(kept, own))
         }
     }
 }

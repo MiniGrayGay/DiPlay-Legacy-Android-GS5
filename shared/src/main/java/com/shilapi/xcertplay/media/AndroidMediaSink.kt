@@ -62,6 +62,10 @@ internal class AudioFocusCoordinator(
     /** Guangqi: holds the car's navigation source while guidance plays; inert elsewhere. */
     private val guidanceSource = context?.let { runCatching { GuangqiNavigationSource.get(it) }.getOrNull() }
         ?.takeIf { it.available }
+    /** Guangqi: holds the car's voice source while Siri would not be heard; inert elsewhere. */
+    private val assistantSource = context?.let { runCatching { GuangqiAssistantSource.get(it) }.getOrNull() }
+        ?.takeIf { it.available }
+    private val assistantTracks = LinkedHashSet<AudioTrack>()
     /** Music lowered by [GuangqiNavigationSource] while the car switches to navigation. */
     private var switchDucking = false
     /** Wall clock of the last music PCM write; tells the switch whether music would be heard. */
@@ -161,6 +165,10 @@ internal class AudioFocusCoordinator(
         // registration also runs for the duck alone; refreshRequest() itself
         // stays gated on the focus setting and issues no request then.
         if (closed || manager == null) return
+        // Whatever the focus settings: without it Siri is silent over the radio.
+        if (channel == AudioChannel.ASSISTANT && assistantSource != null && assistantTracks.add(track)) {
+            assistantSource.started(track, report)
+        }
         // The Guangqi navigation switch lowers music through the same per-track bookkeeping.
         if (!enabled && !announcementDuckEnabled && guidanceSource == null) return
         active[track] = Entry(channel, attributes)
@@ -179,6 +187,7 @@ internal class AudioFocusCoordinator(
 
     @Synchronized
     fun release(track: AudioTrack) {
+        if (assistantTracks.remove(track)) assistantSource?.ended(track)
         if (active.remove(track) != null) refreshRequest()
     }
 
@@ -232,6 +241,8 @@ internal class AudioFocusCoordinator(
         if (closed) return
         closed = true
         guidanceSource?.releaseNow()
+        assistantSource?.endedAll(assistantTracks.toList())
+        assistantTracks.clear()
         active.clear()
         announcementDucking = false
         announcementTimerArmed = false

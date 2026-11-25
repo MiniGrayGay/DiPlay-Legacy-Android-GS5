@@ -338,6 +338,7 @@ class CarPlayController(
         GuangqiCarlifeKeys.recoverAbandoned(appContext)
         GuangqiStockAssistant.recover(appContext)
         com.shilapi.xcertplay.media.GuangqiNavigationSource.recover(appContext, ::debugLog)
+        com.shilapi.xcertplay.media.GuangqiAssistantSource.recover(appContext, ::debugLog)
         com.shilapi.xcertplay.network.StationWifiPause.recover(appContext, ::debugLog)
     }
     private val wirelessAirPlayRequestsInFlight = AtomicInteger()
