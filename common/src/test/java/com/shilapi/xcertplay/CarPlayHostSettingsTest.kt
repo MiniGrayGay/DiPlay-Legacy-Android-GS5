@@ -82,6 +82,26 @@ class CarPlayHostSettingsTest {
         }
     }
 
+    @Test fun theWaitingScreenPassesTheSwipeToTheMenu() {
+        activity.window.decorView // Creates the window this bare activity has none of.
+        assertEquals("no picture yet", View.VISIBLE, (field("connectionPanel") as View).visibility)
+        fun window(action: Int, fingers: Int, y: Float) {
+            val properties = Array(fingers) { MotionEvent.PointerProperties().apply { id = it } }
+            val coords = Array(fingers) { MotionEvent.PointerCoords().apply { x = 100f + it * 50; this.y = y; pressure = 1f; size = 1f } }
+            val full = if (action == MotionEvent.ACTION_POINTER_DOWN) action or ((fingers - 1) shl MotionEvent.ACTION_POINTER_INDEX_SHIFT) else action
+            activity.dispatchTouchEvent(MotionEvent.obtain(0, 0, full, fingers, properties, coords, 0, 0, 1f, 1f, 0, 0, 0, 0))
+        }
+        window(MotionEvent.ACTION_DOWN, 1, 100f)
+        window(MotionEvent.ACTION_POINTER_DOWN, 2, 100f)
+        window(MotionEvent.ACTION_POINTER_DOWN, 3, 100f)
+        assertFalse(field("menuOpen") as Boolean)
+        window(MotionEvent.ACTION_MOVE, 3, 700f)
+        assertTrue(field("menuOpen") as Boolean)
+        window(MotionEvent.ACTION_UP, 1, 700f)
+        assertTrue("the end of the swipe does not close it", field("menuOpen") as Boolean)
+        invoke("cancelSettingsEdits")
+    }
+
     @Test fun wrongFingerCountsAndNonDownwardSwipesDoNotOpenTheMenu() {
         for (configured in 2..4) {
             AirPlayPersistence.saveSettingsGestureFingers(activity, configured)
@@ -111,16 +131,17 @@ class CarPlayHostSettingsTest {
         assertTrue(field("menuOpen") as Boolean)
     }
 
-    @Test fun fullSettingsShortcutDiscardsPreviewWithoutRestartingTheSession() {
+
+
+
+
+
+
+    @Test fun diPlaySettingsButtonLeavesTheSessionRunningAndOpensSettings() {
         val controller = attachController()
-        openFullMenu()
-        val original = AirPlayPersistence.loadDisplayScalePercent(activity)
-        resolutionSlider().progress = 0
-        fullSettingsButton().performClick()
+        invoke("openSettingsMenu")
+        quickButton(activity.getString(R.string.app_name) + " " + activity.getString(R.string.settings)).performClick()
         assertFalse(field("menuOpen") as Boolean)
-        assertNull(field("settingsBaseline"))
-        assertEquals(original, field("displayScalePercent"))
-        assertEquals(original, AirPlayPersistence.loadDisplayScalePercent(activity))
         assertSame(controller, field("controller"))
         assertEquals(0, field("restartGeneration"))
         val intent = shadowOf(activity).nextStartedActivity
@@ -128,76 +149,25 @@ class CarPlayHostSettingsTest {
         assertEquals("settings", intent.getStringExtra("page"))
     }
 
-    @Test fun returningFromFullSettingsReloadsSavedConnectionPreferences() {
-        attachController()
-        openFullMenu()
-        fullSettingsButton().performClick()
-        AirPlayPersistence.saveMfiTarget(activity, MfiTarget.LOCAL)
-        AirPlayPersistence.saveWirelessHotspotMode(activity, WirelessHotspotMode.MANUAL)
-        AirPlayPersistence.saveManualHotspotSsid(activity, "Updated in full settings")
-        invoke("onResume")
-        assertEquals(MfiTarget.LOCAL, field("mfiTarget"))
-        assertEquals(WirelessHotspotMode.MANUAL, field("wirelessHotspotMode"))
-        assertEquals("Updated in full settings", field("manualHotspotSsid"))
-    }
-
-    @Test fun openingAndCancellingKeepsTheCurrentControllerAndRestoresControls() {
+    @Test fun homeButtonLeavesTheSessionRunningAndOpensDiPlayHome() {
         val controller = attachController()
-        openFullMenu()
-        val original = AirPlayPersistence.loadDisplayScaleTenths(activity)
-        resolutionSlider().progress = 0
-        gestureButton().performClick()
-        assertEquals(3, AirPlayPersistence.loadSettingsGestureFingers(activity))
-        invoke("cancelSettingsEdits")
+        invoke("openSettingsMenu")
+        quickButton(activity.getString(R.string.quick_back_to_home)).performClick()
+        assertFalse(field("menuOpen") as Boolean)
         assertSame(controller, field("controller"))
         assertEquals(0, field("restartGeneration"))
-        assertEquals(original, field("displayScaleTenths"))
-        assertEquals(3, field("gestureFingerCount"))
-        openFullMenu()
-        assertEquals(original * 10 - CarPlayDisplayScale.MIN_PERCENT, resolutionSlider().progress)
-        assertEquals(activity.getString(R.string.settings_gesture_fingers, 3), gestureButton().text)
+        val intent = shadowOf(activity).nextStartedActivity
+        assertEquals(DiPlayActivity::class.java.name, intent.component!!.className)
+        assertEquals("home", intent.getStringExtra("page"))
     }
 
-    @Test fun customResolutionSurvivesCancelAndUnrelatedSettingsSave() {
-        for (percent in listOf(73, 157, 160)) {
-            AirPlayPersistence.saveDisplayScalePercent(activity, percent)
-            openFullMenu()
-            val slider = resolutionSlider()
-            assertEquals(percent - CarPlayDisplayScale.MIN_PERCENT, slider.progress)
-            val listener = SeekBar::class.java.getDeclaredField("mOnSeekBarChangeListener")
-                .apply { isAccessible = true }.get(slider) as SeekBar.OnSeekBarChangeListener
-            listener.onProgressChanged(slider, 0, true)
-            assertEquals(percent, AirPlayPersistence.loadDisplayScalePercent(activity))
-            invoke("cancelSettingsEdits")
-            assertEquals(percent, field("displayScalePercent"))
-            assertEquals(percent, AirPlayPersistence.loadDisplayScalePercent(activity))
-            openFullMenu()
-            invoke("persistMenuSettings")
-            assertEquals(percent, AirPlayPersistence.loadDisplayScalePercent(activity))
-            invoke("cancelSettingsEdits")
-        }
-    }
-
-    @Test fun resolutionEndpointLabelsMatchTheActualSliderRange() {
-        openFullMenu()
-        val labels = views(menu()).filterIsInstance<TextView>().map { it.text.toString() }.toList()
-        assertTrue(labels.contains(activity.getString(R.string.custom_resolution_summary, 30)))
-        assertTrue(labels.contains(activity.getString(R.string.custom_resolution_summary, 160)))
-        assertFalse(labels.contains("2.0x"))
-    }
-
-    @Test fun resumingWithTheMenuOpenPreservesUnsavedConnectionEdits() {
-        openFullMenu()
-        setField("wirelessHotspotMode", WirelessHotspotMode.MANUAL)
-        setField("manualHotspotSsid", "Draft hotspot")
-        setField("mfiTarget", MfiTarget.LOCAL)
-        invoke("onResume")
-        assertEquals(WirelessHotspotMode.MANUAL, field("wirelessHotspotMode"))
-        assertEquals("Draft hotspot", field("manualHotspotSsid"))
-        assertEquals(MfiTarget.LOCAL, field("mfiTarget"))
-        invoke("cancelSettingsEdits")
-        assertEquals(WirelessHotspotMode.WIFI_P2P, field("wirelessHotspotMode"))
-        assertEquals(MfiTarget.USB_CH341, field("mfiTarget"))
+    @Test fun quickMenuChangeSurvivesLeavingForDiPlaySettings() {
+        attachController()
+        invoke("openSettingsMenu")
+        val before = AirPlayPersistence.loadClusterMapEnabled(activity)
+        quickRow(R.string.carplay_map_on_instrument_cluster_experimental).performClick()
+        quickButton(activity.getString(R.string.app_name) + " " + activity.getString(R.string.settings)).performClick()
+        assertEquals(!before, AirPlayPersistence.loadClusterMapEnabled(activity))
     }
 
     @Test fun threeFingersOpenTheGuangqiQuickMenu() {
@@ -205,13 +175,17 @@ class CarPlayHostSettingsTest {
         invoke("openSettingsMenu")
         val texts = views(menu()).filterIsInstance<TextView>().map { it.text.toString() }.toList()
         assertTrue(activity.getString(R.string.settings_quick_settings) in texts)
-        assertTrue(activity.getString(R.string.carplay_call_controls_experimental) in texts)
-        assertTrue(activity.getString(R.string.settings_carplay_auto_disconnect_bt) in texts)
         assertTrue(activity.getString(R.string.carplay_map_on_instrument_cluster_experimental) in texts)
-        assertTrue(activity.getString(R.string.quick_more_settings) in texts)
+        assertTrue(activity.getString(R.string.settings_car_bluetooth_audio) in texts)
+        assertTrue(activity.getString(R.string.settings_carplay_auto_disconnect_bt) in texts)
+        assertTrue(activity.getString(R.string.music_buffer) in texts)
+        assertFalse(activity.getString(R.string.smooth_video) in texts)
+        assertFalse(activity.getString(R.string.carplay_call_controls_experimental) in texts)
+        assertTrue(activity.getString(R.string.app_name) + " " + activity.getString(R.string.settings) in texts)
+        assertTrue(activity.getString(R.string.quick_back_to_home) in texts)
         assertTrue(activity.getString(R.string.done) in texts)
         val buttons = views(menu()).filterIsInstance<Button>().filterNot { it is android.widget.CompoundButton }.count()
-        assertEquals(2, buttons)
+        assertEquals(3, buttons)
     }
 
     @Test fun carTopBarShowsOverCarPlayWhileTheMenuIsOpen() {
@@ -230,10 +204,6 @@ class CarPlayHostSettingsTest {
         assertEquals(0, flags and View.SYSTEM_UI_FLAG_FULLSCREEN)
         invoke("closeQuickMenu")
         assertTrue(activity.window.attributes.flags and fullscreen != 0)
-        // The full menu previews its own bar settings, so it goes back to full screen.
-        invoke("openSettingsMenu")
-        invoke("openFullSettingsMenu")
-        assertTrue(activity.window.attributes.flags and fullscreen != 0)
     }
 
     @Test fun quickMenuChangeForTheNextSessionReconnectsOnDone() {
@@ -248,33 +218,55 @@ class CarPlayHostSettingsTest {
         assertEquals(1, field("restartGeneration"))
     }
 
-    @Test fun quickMenuChangeThatAppliesAtOnceClosesWithoutReconnecting() {
+    @Test fun quickMenuClosedWithoutChangesDoesNotReconnect() {
         val controller = attachController()
         invoke("openSettingsMenu")
-        val before = com.shilapi.xcertplay.hud.WheelIntegrationSettings.carPlayCallControls(activity)
-        quickRow(R.string.carplay_call_controls_experimental).performClick()
-        assertEquals(!before, com.shilapi.xcertplay.hud.WheelIntegrationSettings.carPlayCallControls(activity))
         invoke("closeQuickMenu")
         assertSame(controller, field("controller"))
         assertEquals(0, field("restartGeneration"))
     }
 
-    @Test fun savingPersistsSettingsAndRestartsOnce() {
+    @Test fun carBluetoothAudioAndNoAutoConnectExcludeEachOther() {
+        AirPlayPersistence.saveCarBluetoothAudio(activity, false)
+        AirPlayPersistence.saveCarplayAutoDisconnectBt(activity, true)
         attachController()
-        openFullMenu()
-        resolutionSlider().progress = 0
-        gestureButton().performClick()
-        invoke("saveSettingsAndReconnect")
-        assertFalse(field("menuOpen") as Boolean)
-        assertEquals(CarPlayDisplayScale.MIN_TENTHS, AirPlayPersistence.loadDisplayScaleTenths(activity))
-        assertEquals(4, AirPlayPersistence.loadSettingsGestureFingers(activity))
-        assertEquals(1, field("restartGeneration"))
-        assertTrue(field("handshakeResetInProgress") as Boolean)
+        invoke("openSettingsMenu")
+        quickRow(R.string.settings_car_bluetooth_audio).performClick()
+        assertTrue(AirPlayPersistence.loadCarBluetoothAudio(activity))
+        assertFalse(AirPlayPersistence.loadCarplayAutoDisconnectBt(activity))
+        assertFalse(quickSwitch(R.string.settings_carplay_auto_disconnect_bt).isChecked)
+
+        quickRow(R.string.settings_carplay_auto_disconnect_bt).performClick()
+        assertTrue(AirPlayPersistence.loadCarplayAutoDisconnectBt(activity))
+        assertFalse(AirPlayPersistence.loadCarBluetoothAudio(activity))
+        assertFalse(quickSwitch(R.string.settings_car_bluetooth_audio).isChecked)
     }
+
+    @Test fun aSavedPairWithBothOnKeepsCarBluetoothAudio() {
+        AirPlayPersistence.saveCarBluetoothAudio(activity, true)
+        AirPlayPersistence.saveCarplayAutoDisconnectBt(activity, true)
+        attachController()
+        invoke("openSettingsMenu")
+        assertTrue(quickSwitch(R.string.settings_car_bluetooth_audio).isChecked)
+        assertFalse(quickSwitch(R.string.settings_carplay_auto_disconnect_bt).isChecked)
+        assertFalse(AirPlayPersistence.loadCarplayAutoDisconnectBt(activity))
+    }
+
+    @Test fun musicBufferChoiceIsSavedAndReconnectsOnDone() {
+        attachController()
+        invoke("openSettingsMenu")
+        views(menu()).filterIsInstance<TextView>()
+            .first { it.isClickable && it.text == activity.getString(R.string.s_1000_ms_most_stable) }
+            .performClick()
+        assertEquals(1000, AirPlayPersistence.loadMediaBufferMillis(activity))
+        invoke("closeQuickMenu")
+        assertEquals(1, field("restartGeneration"))
+    }
+
 
     @Test fun failedStartupWhileMenuIsOpenRecoversOnCancel() {
         attachController()
-        openFullMenu()
+        invoke("openSettingsMenu")
         report(CarPlayStatus.Failed("Authentication failed"))
         assertEquals(0, field("restartGeneration"))
         invoke("cancelSettingsEdits")
@@ -283,7 +275,7 @@ class CarPlayHostSettingsTest {
 
     @Test fun transportLossWhileMenuIsOpenRecoversOnCancel() {
         attachController()
-        openFullMenu()
+        invoke("openSettingsMenu")
         val listener = activity.javaClass.getDeclaredMethod("createSessionListener", Int::class.javaPrimitiveType)
             .apply { isAccessible = true }.invoke(activity, 0) as AirPlaySessionListener
         listener.onTransportError("transport lost")
@@ -293,7 +285,7 @@ class CarPlayHostSettingsTest {
 
     @Test fun wifiResetFailureRequiresManualRecoveryAfterCancel() {
         attachController()
-        openFullMenu()
+        invoke("openSettingsMenu")
         report(CarPlayStatus.Failed("Wi-Fi needs a reset", wifiResetRequired = true))
         invoke("cancelSettingsEdits")
         assertEquals(View.VISIBLE, (field("wifiRecoveryButton") as View).visibility)
@@ -301,70 +293,19 @@ class CarPlayHostSettingsTest {
         assertFalse(field("reconnectScheduled") as Boolean)
     }
 
-    @Test fun savingWirelessAfterWifiResetFailureStillRequiresManualRecovery() {
-        attachController()
-        AirPlayPersistence.saveWirelessEnabled(activity, true)
-        openFullMenu()
-        report(CarPlayStatus.Failed("Wi-Fi needs a reset", wifiResetRequired = true))
-        invoke("saveSettingsAndReconnect")
-        assertEquals(View.VISIBLE, (field("wifiRecoveryButton") as View).visibility)
-        assertEquals(0, field("restartGeneration"))
-    }
 
-    @Test fun savingWiredModeAfterWifiResetFailureRestartsWithTheNewSettings() {
-        attachController()
-        AirPlayPersistence.saveWirelessEnabled(activity, true)
-        openFullMenu()
-        report(CarPlayStatus.Failed("Wi-Fi needs a reset", wifiResetRequired = true))
-        setField("wirelessEnabled", false)
-        invoke("saveSettingsAndReconnect")
-        assertFalse(AirPlayPersistence.loadWirelessEnabled(activity))
-        assertEquals(1, field("restartGeneration"))
-    }
 
     @Test fun staleFailureDoesNotRestartWhenTheMenuCloses() {
         val controller = attachController()
-        openFullMenu()
+        invoke("openSettingsMenu")
         report(CarPlayStatus.Failed("old failure"), generation = -1)
         invoke("cancelSettingsEdits")
         assertSame(controller, field("controller"))
         assertEquals(0, field("restartGeneration"))
     }
 
-    @Test fun authenticationChoicesOnlyExposeLocalAndCh341() {
-        openFullMenu()
-        val options = views(menu()).filterIsInstance<RadioButton>().filter { it.tag is MfiTarget }.toList()
-        assertEquals(listOf(MfiTarget.LOCAL, MfiTarget.USB_CH341), options.map { it.tag })
-        options.first().performClick()
-        invoke("cancelSettingsEdits")
-        assertEquals(MfiTarget.USB_CH341, AirPlayPersistence.loadMfiTarget(activity))
-        assertEquals(MfiTarget.USB_CH341, field("mfiTarget"))
-    }
 
-    @Test fun selectingLocalWithoutIdentityKeepsTheMenuAndSavedUsbChoice() {
-        attachController()
-        openFullMenu()
-        views(menu()).filterIsInstance<RadioButton>().first { it.tag == MfiTarget.LOCAL }.performClick()
-        invoke("saveSettingsAndReconnect")
-        assertTrue(field("menuOpen") as Boolean)
-        assertEquals(MfiTarget.USB_CH341, AirPlayPersistence.loadMfiTarget(activity))
-        assertEquals(View.VISIBLE, (field("mfiErrorView") as View).visibility)
-        assertEquals(0, field("restartGeneration"))
-    }
 
-    @Test fun switchingToUsbPersistsAndPassesUsbToTheRuntime() {
-        AirPlayPersistence.saveMfiTarget(activity, MfiTarget.LOCAL)
-        attachController()
-        openFullMenu()
-        views(menu()).filterIsInstance<RadioButton>().first { it.tag == MfiTarget.USB_CH341 }.performClick()
-        invoke("saveSettingsAndReconnect")
-        assertFalse(field("menuOpen") as Boolean)
-        assertEquals(MfiTarget.USB_CH341, AirPlayPersistence.loadMfiTarget(activity))
-        val config = invoke("createRuntimeConfig") as CarPlayRuntimeConfig
-        assertEquals(MfiTarget.USB_CH341, config.mfiTarget)
-        assertEquals(listOf(com.shilapi.xcertplay.transport.UsbDeviceId(0x1a86, 0x5512)), config.ch341Devices)
-        assertEquals(1, field("restartGeneration"))
-    }
 
     @Test fun localRuntimeDoesNotRequestCh341Devices() {
         AirPlayPersistence.saveMfiTarget(activity, MfiTarget.LOCAL)
@@ -435,7 +376,7 @@ class CarPlayHostSettingsTest {
         attachController()
         AirPlayPersistence.saveWirelessEnabled(activity, true)
         invoke("loadPersistedSettings")
-        openFullMenu()
+        invoke("openSettingsMenu")
         assertTrue(field("menuOpen") as Boolean)
         val device = mock(UsbDevice::class.java)
         `when`(device.vendorId).thenReturn(0x05ac)
@@ -461,74 +402,10 @@ class CarPlayHostSettingsTest {
         assertEquals(false, method.invoke(activity, Intent(UsbManager.ACTION_USB_DEVICE_DETACHED).putExtra(UsbManager.EXTRA_DEVICE, device)))
     }
 
-    @Test fun cancelRestoresSafeAreaResetAfterTheWindowChangesSize() {
-        val original = SafeAreaRect(20, 20, 1800, 900)
-        AirPlayPersistence.saveSafeAreaRect(activity, 1920, 942, original)
-        openFullMenu()
-        resizeWindow(1920, 942)
-        invoke("resetSafeAreaForCurrentSize")
-        assertNull(AirPlayPersistence.loadSafeAreaRect(activity, 1920, 942))
 
-        invoke("cancelSettingsEdits")
 
-        assertEquals(original, AirPlayPersistence.loadSafeAreaRect(activity, 1920, 942))
-    }
 
-    @Test fun cancelRemovesNewSafeAreaSavedAtAnotherWindowSize() {
-        openFullMenu()
-        resizeWindow(1920, 942)
-        invoke("openSafeAreaEditor")
-        val editor = field("safeAreaEditorView") as SafeAreaEditorView
-        editor.setRect(SafeAreaRect(20, 20, 1800, 900), 1920, 942)
-        invoke("saveSafeAreaEditor")
-        assertNotNull(AirPlayPersistence.loadSafeAreaRect(activity, 1920, 942))
 
-        invoke("cancelSettingsEdits")
-
-        assertNull(AirPlayPersistence.loadSafeAreaRect(activity, 1920, 942))
-    }
-
-    @Test fun savingKeepsSafeAreaEditsMadeAfterAWindowResize() {
-        openFullMenu()
-        resizeWindow(1920, 942)
-        invoke("openSafeAreaEditor")
-        val edited = SafeAreaRect(20, 20, 1800, 900)
-        (field("safeAreaEditorView") as SafeAreaEditorView).setRect(edited, 1920, 942)
-        invoke("saveSafeAreaEditor")
-
-        invoke("saveSettingsAndReconnect")
-
-        assertFalse(field("menuOpen") as Boolean)
-        assertEquals(edited, AirPlayPersistence.loadSafeAreaRect(activity, 1920, 942))
-    }
-
-    @Test fun carBrandSelectionSyncsOemLabelAndSurvivesSaveAndReconnect() {
-        openFullMenu()
-        val preset = CarBrandPresets.ALL.first { it.id == "toyota" }
-        val bytes = preset.loadBytes(activity)!!
-        AirPlayPersistence.saveCustomAirPlayIcon(activity, bytes)
-        AirPlayPersistence.saveOemLabel(activity, preset.defaultOemName)
-        setField("oemLabel", preset.defaultOemName)
-        invoke("saveSettingsAndReconnect")
-
-        assertEquals(preset.defaultOemName, field("oemLabel"))
-        assertEquals(preset.defaultOemName, AirPlayPersistence.loadOemLabel(activity))
-        assertNotNull(AirPlayPersistence.loadCustomAirPlayIconBytes(activity))
-    }
-
-    @Test fun settingsMenuRendersDualColumnLayoutWithNavigationRail() {
-        openFullMenu()
-        val menu = menu()
-        assertEquals(View.VISIBLE, menu.visibility)
-        assertNotNull(fullSettingsButton())
-        val saveButton = views(menu).filterIsInstance<Button>()
-            .firstOrNull { it.text == activity.getString(R.string.save_and_reconnect) }
-        assertNotNull(saveButton)
-        val connectionRailBtn = views(menu).filterIsInstance<Button>()
-            .firstOrNull { it.text == activity.getString(R.string.connection) }
-        assertNotNull(connectionRailBtn)
-        invoke("cancelSettingsEdits")
-    }
 
     private fun resizeWindow(width: Int, height: Int) {
         val sizeClass = Class.forName("com.shilapi.xcertplay.CarPlayHostActivity\$DisplaySize")
@@ -571,10 +448,6 @@ class CarPlayHostSettingsTest {
     }
 
     private fun menu() = field("settingsMenu") as View
-    private fun resolutionSlider() = views(menu()).filterIsInstance<SeekBar>()
-        .first { it.max == CarPlayDisplayScale.MAX_PERCENT - CarPlayDisplayScale.MIN_PERCENT }
-    private fun gestureButton() = views(menu()).filterIsInstance<Button>()
-        .first { it.text == activity.getString(R.string.settings_gesture_fingers, field("gestureFingerCount")) }
     /** The clickable quick-menu row that holds [title]. */
     private fun quickRow(title: Int): View {
         val label = views(menu()).filterIsInstance<TextView>().first { it.text == activity.getString(title) }
@@ -582,16 +455,12 @@ class CarPlayHostSettingsTest {
         while (!view.isClickable) view = view.parent as View
         return view
     }
-    private fun fullSettingsButton() = views(menu()).filterIsInstance<Button>()
-        .first { it.text == activity.getString(R.string.app_name) + " " + activity.getString(R.string.settings) }
+    private fun quickSwitch(title: Int): android.widget.Switch =
+        views(quickRow(title)).filterIsInstance<android.widget.Switch>().single()
+    private fun quickButton(text: String) = views(menu()).filterIsInstance<Button>().first { it.text == text }
     private fun views(view: View): Sequence<View> = sequence {
         yield(view)
         if (view is ViewGroup) for (index in 0 until view.childCount) yieldAll(views(view.getChildAt(index)))
-    }
-    /** Three fingers open the quick menu; its More settings button leads to the full menu. */
-    private fun openFullMenu() {
-        invoke("openSettingsMenu")
-        invoke("openFullSettingsMenu")
     }
 
     private fun invoke(name: String): Any? = activity.javaClass.getDeclaredMethod(name)

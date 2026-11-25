@@ -29,6 +29,8 @@ class ExistingWifiSettingsTest {
     private lateinit var activity: DiPlayActivity
 
     @Before fun setup() {
+        // These checks read the English interface; DiPlay itself defaults to Simplified Chinese.
+        AppLocale.save(org.robolectric.RuntimeEnvironment.getApplication(), AppLocale.ENGLISH)
         app.getSharedPreferences("xcertplay_airplay", 0).edit().clear().commit()
         activity = Robolectric.buildActivity(DiPlayActivity::class.java).get()
         activity.setTheme(android.R.style.Theme_Material_NoActionBar)

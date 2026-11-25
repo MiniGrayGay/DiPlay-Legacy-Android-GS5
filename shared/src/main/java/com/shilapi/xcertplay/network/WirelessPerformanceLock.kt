@@ -9,7 +9,6 @@ import java.io.Closeable
 internal class WirelessPerformanceLock(context: Context, private val log: (String) -> Unit) : Closeable {
     private val appContext = context.applicationContext
     private val locks = mutableListOf<WifiManager.WifiLock>()
-    private var p2pPowerSaveInterface: String? = null
 
     @Synchronized
     fun acquire() {
@@ -23,39 +22,6 @@ internal class WirelessPerformanceLock(context: Context, private val log: (Strin
             }
         } catch (error: Exception) {
             log("Wireless Wi-Fi performance policy unavailable: ${error.javaClass.simpleName}")
-        }
-    }
-
-    /**
-     * Disable Wi-Fi power save on the P2P interface so the radio stays awake
-     * for the entire CarPlay session. WifiLock only covers the STA interface;
-     * the P2P group owner interface needs an explicit iwconfig call.
-     */
-    @Synchronized
-    fun disableP2pPowerSave(interfaceName: String?) {
-        val iface = interfaceName?.takeIf { it.matches(P2P_INTERFACE_PATTERN) } ?: return
-        try {
-            val result = Runtime.getRuntime().exec(arrayOf("iwconfig", iface, "power", "off"))
-            val exited = result.waitFor()
-            if (exited == 0) {
-                p2pPowerSaveInterface = iface
-                log("Wireless P2P power save disabled on $iface")
-            } else {
-                log("Wireless P2P power save disable failed on $iface exit=$exited")
-            }
-        } catch (error: Exception) {
-            log("Wireless P2P power save disable unavailable on $iface: ${error.javaClass.simpleName}")
-        }
-    }
-
-    private fun restoreP2pPowerSave() {
-        val iface = p2pPowerSaveInterface ?: return
-        p2pPowerSaveInterface = null
-        try {
-            Runtime.getRuntime().exec(arrayOf("iwconfig", iface, "power", "on")).waitFor()
-            log("Wireless P2P power save restored on $iface")
-        } catch (_: Exception) {
-            // Best effort; the interface may already be gone.
         }
     }
 
@@ -73,7 +39,6 @@ internal class WirelessPerformanceLock(context: Context, private val log: (Strin
 
     @Synchronized
     override fun close() {
-        restoreP2pPowerSave()
         locks.forEach { lock ->
             try {
                 if (lock.isHeld) lock.release()
@@ -82,9 +47,5 @@ internal class WirelessPerformanceLock(context: Context, private val log: (Strin
             }
         }
         locks.clear()
-    }
-
-    private companion object {
-        val P2P_INTERFACE_PATTERN = Regex("p2p(?:-[A-Za-z0-9_.-]+|[0-9]+)")
     }
 }

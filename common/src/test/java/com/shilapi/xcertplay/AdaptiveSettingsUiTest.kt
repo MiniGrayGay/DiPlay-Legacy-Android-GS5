@@ -40,6 +40,11 @@ import org.robolectric.util.ReflectionHelpers
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [29], qualifiers = "en-w600dp-h700dp")
 class AdaptiveSettingsUiTest {
+    // These checks read the English interface; DiPlay itself defaults to Simplified Chinese.
+    @org.junit.Before fun english() {
+        AppLocale.save(org.robolectric.RuntimeEnvironment.getApplication(), AppLocale.ENGLISH)
+    }
+
     private val context get() = RuntimeEnvironment.getApplication()
     private var activity: DiPlayActivity? = null
 

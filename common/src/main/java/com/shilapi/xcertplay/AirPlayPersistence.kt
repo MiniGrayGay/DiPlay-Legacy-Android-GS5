@@ -102,6 +102,7 @@ object AirPlayPersistence {
     private const val KEY_CAR_BLUETOOTH_AUDIO = "car_bluetooth_audio"
     private const val KEY_DIRECT_SURFACE_VIEW = "direct_surface_view"
     private const val KEY_DIRECT_USBFS_MODE = "direct_usbfs_mode"
+    private const val KEY_WIRED_KERNEL_TUN = "wired_kernel_tun"
     private const val KEY_CLUSTER_MAP = "cluster_map_enabled"
     private const val KEY_CENTER_MAP_OVERLAY = "center_map_overlay"
     private const val KEY_FLOATING_DOT = "floating_dot"
@@ -128,7 +129,6 @@ object AirPlayPersistence {
     private const val KEY_HIDE_BOTTOM_BAR = "hide_bottom_bar"
     private const val KEY_DOCK_AUTO_HIDE = "dock_auto_hide"
     private const val KEY_FORCE_SQUARE_CORNERS = "force_square_corners"
-    private const val KEY_HARMAN_FULLSCREEN = "harman_fullscreen"
     private const val KEY_SAFE_AREA_DRAW_OUTSIDE = "safe_area_draw_outside"
     private const val KEY_ADAPT_PIP_RESOLUTION = "adapt_pip_resolution"
     private const val KEY_AUTO_START_ON_BOOT = "auto_start_on_boot"
@@ -215,12 +215,6 @@ object AirPlayPersistence {
     fun loadHevcSoftwareDecoderEnabled(context: Context): Boolean =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getBoolean(KEY_HEVC_SOFTWARE_DECODER, false)
-
-    fun saveHevcSoftwareDecoderEnabled(context: Context, enabled: Boolean) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-            .putBoolean(KEY_HEVC_SOFTWARE_DECODER, enabled)
-            .apply()
-    }
 
     fun loadAdvancedAudioChannelMapping(context: Context): Boolean =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -436,33 +430,15 @@ object AirPlayPersistence {
             ?.takeIf { it.isNotBlank() }
             ?: DEFAULT_MFI_I2C_PATH
 
-    fun saveMfiI2cPath(context: Context, path: String) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-            .putString(KEY_MFI_I2C_PATH, path.trim())
-            .apply()
-    }
-
     fun loadRemoteMfiServer(context: Context): String =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getString(KEY_REMOTE_MFI_SERVER, null)
             .orEmpty()
 
-    fun saveRemoteMfiServer(context: Context, server: String) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-            .putString(KEY_REMOTE_MFI_SERVER, server)
-            .apply()
-    }
-
     fun loadRemoteMfiToken(context: Context): String =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getString(KEY_REMOTE_MFI_TOKEN, null)
             .orEmpty()
-
-    fun saveRemoteMfiToken(context: Context, token: String) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-            .putString(KEY_REMOTE_MFI_TOKEN, token)
-            .apply()
-    }
 
     fun loadWirelessHotspotMode(context: Context): WirelessHotspotMode {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -628,23 +604,11 @@ object AirPlayPersistence {
             ?.takeIf { it.isNotBlank() }
             ?: DEFAULT_MANUFACTURER
 
-    fun saveManufacturer(context: Context, manufacturer: String) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-            .putString(KEY_MANUFACTURER, manufacturer)
-            .apply()
-    }
-
     fun loadModel(context: Context): String =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getString(KEY_MODEL, null)
             ?.takeIf { it.isNotBlank() }
             ?: DEFAULT_MODEL
-
-    fun saveModel(context: Context, model: String) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-            .putString(KEY_MODEL, model)
-            .apply()
-    }
 
     fun loadOemLabel(context: Context): String =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -721,8 +685,15 @@ object AirPlayPersistence {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_CAR_BLUETOOTH_AUDIO, enabled).apply()
     }
 
-    fun loadSmoothVideo(context: Context): Boolean =
+    /**
+     * Smooth video schedules each decoded frame with `MediaCodec.releaseOutputBuffer(index, time)`,
+     * which Android 5.0 (API 21) added. Below that it cannot work, so it reads as off whatever was
+     * saved, and Settings does not offer it.
+     */
+    fun loadSmoothVideo(context: Context): Boolean = smoothVideoSupported() &&
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_SMOOTH_VIDEO, false)
+
+    fun smoothVideoSupported(): Boolean = realSdkInt() >= Build.VERSION_CODES.LOLLIPOP
 
     fun saveSmoothVideo(context: Context, enabled: Boolean) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_SMOOTH_VIDEO, enabled).apply()
@@ -748,6 +719,17 @@ object AirPlayPersistence {
 
     fun saveDirectUsbfsMode(context: Context, enabled: Boolean) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_DIRECT_USBFS_MODE, enabled).apply()
+    }
+
+    /**
+     * Wired sessions use the kernel TCP/IP stack through a system VPN TUN instead of the userspace
+     * lwIP bridge. Off by default: lwIP is the verified wired path.
+     */
+    fun loadWiredKernelTun(context: Context): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_WIRED_KERNEL_TUN, false)
+
+    fun saveWiredKernelTun(context: Context, enabled: Boolean) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_WIRED_KERNEL_TUN, enabled).apply()
     }
 
     /** Issues #294/#299: experimental root hostapd hotspot opt-in (Advanced). */
@@ -918,12 +900,6 @@ object AirPlayPersistence {
             .getString(KEY_PHYSICAL_SIZE_BASIS, null)
         return AirPlayPhysicalSizeBasis.entries.firstOrNull { it.name == stored }
             ?: AirPlayDisplaySettings.DEFAULT_PHYSICAL_SIZE_BASIS
-    }
-
-    fun savePhysicalSizeBasis(context: Context, basis: AirPlayPhysicalSizeBasis) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-            .putString(KEY_PHYSICAL_SIZE_BASIS, basis.name)
-            .apply()
     }
 
     fun loadMaximumDetectedDisplay(context: Context): Pair<Int, Int> {
@@ -1194,16 +1170,6 @@ object AirPlayPersistence {
             .apply()
     }
 
-    fun loadHarmanFullscreen(context: Context): Boolean =
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .getBoolean(KEY_HARMAN_FULLSCREEN, false)
-
-    fun saveHarmanFullscreen(context: Context, enabled: Boolean) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-            .putBoolean(KEY_HARMAN_FULLSCREEN, enabled)
-            .apply()
-    }
-
     fun loadDockAutoHide(context: Context): Boolean =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getBoolean(KEY_DOCK_AUTO_HIDE, false)
@@ -1227,12 +1193,6 @@ object AirPlayPersistence {
     fun loadSafeAreaDrawOutside(context: Context): Boolean =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getBoolean(KEY_SAFE_AREA_DRAW_OUTSIDE, true)
-
-    fun saveSafeAreaDrawOutside(context: Context, drawOutside: Boolean) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-            .putBoolean(KEY_SAFE_AREA_DRAW_OUTSIDE, drawOutside)
-            .apply()
-    }
 
     fun loadSafeAreaRect(context: Context, widthPixels: Int, heightPixels: Int): SafeAreaRect? {
         require(widthPixels > 0 && heightPixels > 0) { "Activity dimensions must be positive" }

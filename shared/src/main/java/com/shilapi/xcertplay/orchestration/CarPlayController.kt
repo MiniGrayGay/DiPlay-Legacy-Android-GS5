@@ -338,6 +338,7 @@ class CarPlayController(
         GuangqiCarlifeKeys.recoverAbandoned(appContext)
         GuangqiStockAssistant.recover(appContext)
         com.shilapi.xcertplay.media.GuangqiNavigationSource.recover(appContext, ::debugLog)
+        com.shilapi.xcertplay.media.GuangqiAssistantSource.recover(appContext, ::debugLog)
         com.shilapi.xcertplay.network.StationWifiPause.recover(appContext, ::debugLog)
     }
     private val wirelessAirPlayRequestsInFlight = AtomicInteger()
@@ -380,6 +381,8 @@ class CarPlayController(
             if (replacement) {
                 NavigationOutputs.start()
                 GuangqiCarlifeKeys.sessionStarted(appContext, this@CarPlayController, ::debugLog)
+                GuangqiVolumeTakeover.sessionStarted(::debugLog)
+                GuangqiStandingMicrophone.sessionStarted(appContext, this@CarPlayController, ::debugLog)
                 com.shilapi.xcertplay.glance.CarPlayGlance.setConnected(true)
                 // The gear may have changed since /info.
                 if (videoListener != null) {
@@ -392,9 +395,7 @@ class CarPlayController(
             // iPhone opened the AirPlay TCP connection and completed the handshake.
             if (config.transport != CarPlayTransport.WIRELESS) {
                 wiredTcpArrived.set(true)
-                // Persisted, not just in memory: the head unit may kill this process
-                // before the next reconnect (issue #269).
-                persistWiredSessionCompleted(true)
+                markWiredSessionCompleted()
                 // Wired CarPlay does not use the car's Bluetooth. Hold auto-connect
                 // off before the iPhone drops HFP, so the module does not page it back.
                 if (replacement) holdGuangqiAutoConnect("wired session")
@@ -461,6 +462,8 @@ class CarPlayController(
             debugLog("AirPlay session ended peer=${session.host}")
             releaseGuangqiAutoConnect("session ended")
             GuangqiCarlifeKeys.sessionEnded(appContext, this@CarPlayController)
+            GuangqiVolumeTakeover.sessionEnded()
+            GuangqiStandingMicrophone.sessionEnded(this@CarPlayController)
             uiListener?.onSessionEnded(session)
         }
 
@@ -739,7 +742,6 @@ class CarPlayController(
         }
     }
 
-    /** Sends one CarPlay media-button press (an [com.shilapi.xcertplay.airplay.AirPlayHid] media index). */
     /** The host reports its physical cluster surface independently of the centre-map pause policy. */
     fun setDashboardMapOutputVisible(visible: Boolean) {
         val next = visible && !closed
@@ -824,6 +826,8 @@ class CarPlayController(
         firstTcpWatchdog?.terminate()
         releaseGuangqiAutoConnect("controller closed")
         GuangqiCarlifeKeys.sessionEnded(appContext, this)
+        GuangqiVolumeTakeover.sessionEnded()
+        GuangqiStandingMicrophone.sessionEnded(this)
         startupTimer.shutdownNow()
         (hotspot as? ManualHotspotManager)?.close()
         val teardownStarted = System.nanoTime()
@@ -1548,7 +1552,6 @@ class CarPlayController(
                     "band=${hotspotInfo.bandLabel} channel=${hotspotInfo.channel} " +
                     "frequency=${hotspotInfo.frequencyMHz?.toString() ?: "unknown"}MHz",
             )
-            wirelessPerformanceLock.disableP2pPowerSave(hotspotInfo.interfaceName)
             var startedBonjour: CarPlayBonjour? = null
             val receiveDiagnostics = WirelessReceiveDiagnostics(hotspotInfo.interfaceName)
             val diagnostics = WirelessStartupDiagnostics(
@@ -2904,6 +2907,21 @@ class CarPlayController(
                 .getBoolean(KEY_WIRED_SESSION_COMPLETED, false)
         }.getOrDefault(false)
 
+    /**
+     * A wired session came up. Persisted, not just in memory: the head unit may kill this process
+     * before the next reconnect (issue #269). The attach-episode latches are cleared too: the
+     * re-enumeration this attach already did (issue #368) or the forced one (issue #275) flushed
+     * the iPhone's state for this session only. Without clearing them, an in-place reconnect after a
+     * session (three-finger menu "save and reconnect", a settings change) reused the configuration
+     * the session left behind: the NCM bulk-out to the iPhone failed on every write and the iPhone
+     * never got an mDNS answer, so only unplugging the cable recovered (GS5, 0.4.6.7).
+     */
+    private fun markWiredSessionCompleted() {
+        persistWiredSessionCompleted(true)
+        forcedReenumerationForAttach = false
+        reenumeratedThisAttach = false
+    }
+
     private fun persistWiredSessionCompleted(completed: Boolean) {
         runCatching {
             appContext.getSharedPreferences(WIRED_SESSION_PREFS, android.content.Context.MODE_PRIVATE)
@@ -3635,7 +3653,7 @@ class CarPlayController(
     private fun startLegacyWifiDirectWithFallback(generation: Int): WirelessHotspotInfo {
         var primary: WirelessHotspotManager? = null
         try {
-            primary = LegacyWifiP2pGroupManager(appContext, ::debugLog)
+            primary = LegacyWifiP2pGroupManager(appContext, ::debugLog, preferredChannel = config.wifiP2pPreferredChannel)
             hotspot = primary
             debugLog("wireless legacy Wi-Fi Direct starting")
             return primary.start(LEGACY_WIFI_P2P_START_TIMEOUT_MILLIS)
@@ -4364,7 +4382,6 @@ class CarPlayController(
         /** 无线建连持续观察设备入网的时长（port 自 ding2548-ui/DiPlay@main）。 */
         private const val WIRELESS_CLIENT_WATCH_MILLIS = 120_000L
         private const val WIRELESS_CLIENT_WATCH_POLL_MILLIS = 2_000L
-        private const val RFCOMM_CONNECT_TIMEOUT_MILLIS = 15_000L
         private const val MAXIMUM_REENUMERATION_ATTEMPTS = 2
         /** Issue #266: minimum spacing between direct usbfs bring-up attempts. */
         private const val DIRECT_ATTEMPT_MIN_INTERVAL_NANOS = 10_000_000_000L

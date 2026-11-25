@@ -16,10 +16,10 @@ import org.robolectric.annotation.Config
 @Config(sdk = [33], manifest = Config.NONE)
 class NightModeDialogsTest {
     @Test @Config(qualifiers = "zh-rCN") fun chineseDialogs() = numericDialogsKeepNaturalHeightWhenResetting()
-    @Test @Config(qualifiers = "ar") fun arabicDialogs() = numericDialogsKeepNaturalHeightWhenResetting()
-    @Test @Config(qualifiers = "es") fun spanishDialogs() = numericDialogsKeepNaturalHeightWhenResetting()
-    @Test @Config(qualifiers = "ru") fun russianDialogs() = numericDialogsKeepNaturalHeightWhenResetting()
-    @Test @Config(qualifiers = "uk") fun ukrainianDialogs() = numericDialogsKeepNaturalHeightWhenResetting()
+    @Test fun englishDialogs() {
+        AppLocale.save(org.robolectric.RuntimeEnvironment.getApplication(), AppLocale.ENGLISH)
+        numericDialogsKeepNaturalHeightWhenResetting()
+    }
     @Test fun numericDialogsKeepNaturalHeightWhenResetting() {
         val a = Robolectric.buildActivity(DiPlayActivity::class.java).get()
         val parent = LinearLayout(a)

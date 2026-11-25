@@ -47,7 +47,6 @@ class CarPlayHostDisplaySizeTest {
     @Before fun setUp() {
         activity = Robolectric.buildActivity(CarPlayHostActivity::class.java).get()
         AirPlayPersistence.saveAdaptPipResolution(activity, false)
-        AirPlayPersistence.saveHarmanFullscreen(activity, false)
         // Source-only tests have no provisioned local authentication identity.
         AirPlayPersistence.saveMfiTarget(activity, MfiTarget.USB_CH341)
         // Exercise host startup without launching vendor-service workers or real transports.
@@ -204,7 +203,6 @@ class CarPlayHostDisplaySizeTest {
     @Test fun fullscreenApplicationSupportsAllFourBarCombinations() {
         for (hideTop in listOf(false, true)) {
             for (hideBottom in listOf(false, true)) {
-                setField("harmanFullscreenEnabled", false)
                 setField("hideTopBar", hideTop)
                 setField("hideBottomBar", hideBottom)
 
@@ -215,66 +213,9 @@ class CarPlayHostDisplaySizeTest {
         }
     }
 
-    @Suppress("DEPRECATION")
-    // Issue #363: the flags gained IMMERSIVE_STICKY (0x1000) — without it a
-    // system overlay re-shown by a reverse-camera cycle was never hidden
-    // again. The exact value stays pinned so any further change is deliberate.
-    @Test fun harmanFullscreenUsesTheVerifiedLegacyFlags() {
-        setField("harmanFullscreenEnabled", true)
-        setField("hideTopBar", false)
-        setField("hideBottomBar", false)
 
-        invoke("applyFullscreenMode")
 
-        assertEquals(0x180e, activity.window.decorView.systemUiVisibility)
-    }
 
-    @Suppress("DEPRECATION")
-    @Test fun disablingHarmanFullscreenRestoresStandardBars() {
-        setField("harmanFullscreenEnabled", true)
-        invoke("applyFullscreenMode")
-        setField("harmanFullscreenEnabled", false)
-        setField("hideTopBar", false)
-        setField("hideBottomBar", false)
-
-        invoke("applyFullscreenMode")
-
-        assertEquals(0, activity.window.decorView.systemUiVisibility and HarmanFullscreenCompat.OEM_FULLSCREEN_BIT)
-        assertWindowBars(false, false)
-    }
-
-    @Test fun menuBarChangesPreviewWithoutSavingAndCancelRestoresTheSavedValues() {
-        invoke("loadPersistedSettings")
-        setField("settingsBaseline", invoke("captureSettingsBaseline"))
-        setField("menuOpen", true)
-        val controls = invoke("buildFullscreenSection") as ViewGroup
-
-        menuBarSwitch(controls, R.string.hide_the_navigation_bar).performClick()
-
-        assertEquals(false, getField("hideBottomBar"))
-        assertWindowBars(true, false)
-        assertTrue(AirPlayPersistence.loadHideBottomBar(activity))
-
-        invoke("cancelSettingsEdits")
-
-        assertEquals(true, getField("hideBottomBar"))
-        assertWindowBars(true, true)
-        assertTrue(AirPlayPersistence.loadHideBottomBar(activity))
-    }
-
-    @Test fun savingMenuBarsPreservesAnIndependentCombination() {
-        AirPlayPersistence.saveWirelessHotspotMode(activity, WirelessHotspotMode.WIFI_P2P)
-        invoke("loadPersistedSettings")
-        setField("menuOpen", true)
-        val controls = invoke("buildFullscreenSection") as ViewGroup
-        menuBarSwitch(controls, R.string.hide_the_status_bar).performClick()
-
-        invoke("saveSettingsAndReconnect")
-
-        assertFalse(AirPlayPersistence.loadHideTopBar(activity))
-        assertTrue(AirPlayPersistence.loadHideBottomBar(activity))
-        assertEquals(false, getField("menuOpen"))
-    }
 
     @Test fun quickOpenAndCloseCancelsThePendingShrink() {
         startSession()
@@ -518,11 +459,6 @@ class CarPlayHostDisplaySizeTest {
         assertEquals(hideTop, activity.window.decorView.systemUiVisibility and View.SYSTEM_UI_FLAG_FULLSCREEN != 0)
         assertEquals(hideBottom, activity.window.decorView.systemUiVisibility and View.SYSTEM_UI_FLAG_HIDE_NAVIGATION != 0)
     }
-
-    private fun menuBarSwitch(controls: ViewGroup, label: Int): Switch = (0 until controls.childCount)
-        .mapNotNull { controls.getChildAt(it) as? ViewGroup }
-        .flatMap { row -> (0 until row.childCount).map { row.getChildAt(it) } }
-        .filterIsInstance<Switch>().single { it.contentDescription == activity.getString(label) }
 
     private fun setField(name: String, value: Any?) {
         activity.javaClass.getDeclaredField(name).apply { isAccessible = true }.set(activity, value)

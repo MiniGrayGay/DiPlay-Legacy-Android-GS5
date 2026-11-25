@@ -35,6 +35,7 @@ import android.os.SystemClock
 import android.provider.Settings
 import android.util.Log
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.*
@@ -214,7 +215,7 @@ class DiPlayActivity : ComponentActivity() {
         if (uri != null) exportDiagnostics(uri)
     }
 
-    private var languagePreferenceAtCreate = AppLocale.SYSTEM
+    private var languagePreferenceAtCreate = AppLocale.DEFAULT
     private var userNavigatedFromCarPlay = false
 
     private var interfaceOverride: Configuration? = null
@@ -287,7 +288,8 @@ class DiPlayActivity : ComponentActivity() {
         }
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                if (page != "home") navigateBack()
+                if (quickMenu != null) closeQuickMenu()
+                else if (page != "home") navigateBack()
                 else { isEnabled = false; onBackPressedDispatcher.onBackPressed(); isEnabled = true }
             }
         })
@@ -422,6 +424,58 @@ class DiPlayActivity : ComponentActivity() {
             SettingsLayoutPolicy.isExpanded(it.screenWidthDp, it.screenHeightDp, it.fontScale)
         }
 
+    private var quickMenu: QuickMenu? = null
+    private val settingsSwipe = SettingsSwipe()
+
+    /** The settings swipe opens the quick menu here too, so it can be reached without CarPlay. */
+    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        val density = resources.displayMetrics.density
+        if (quickMenu == null) {
+            when (settingsSwipe.onTouch(event, AirPlayPersistence.loadSettingsGestureFingers(this), density)) {
+                SettingsSwipe.Result.PASS -> Unit
+                SettingsSwipe.Result.TAKEN -> {
+                    SettingsSwipe.cancelled(event) { super.dispatchTouchEvent(it) }
+                    return true
+                }
+                SettingsSwipe.Result.CONSUMED -> return true
+                SettingsSwipe.Result.OPEN -> {
+                    openQuickMenu()
+                    return true
+                }
+            }
+        } else if (settingsSwipe.active) {
+            settingsSwipe.onTouch(event, AirPlayPersistence.loadSettingsGestureFingers(this), density)
+            return true
+        }
+        return super.dispatchTouchEvent(event)
+    }
+
+    private fun openQuickMenu() {
+        if (quickMenu != null) return
+        quickMenu = QuickMenu(this, object : QuickMenu.Host {
+            // Nothing to reconnect here; a session in the background gets the reconnect bar.
+            override fun changedSession() = markReconnectNeeded()
+            override fun close() = closeQuickMenu()
+            override fun openDiPlay(page: String) {
+                this@DiPlayActivity.page = page
+                render()
+            }
+        }).also { showAbovePage(it.view) }
+    }
+
+    private fun showAbovePage(view: View) {
+        (view.parent as? ViewGroup)?.removeView(view)
+        findViewById<ViewGroup>(android.R.id.content).addView(view, ViewGroup.LayoutParams(-1, -1))
+    }
+
+    private fun closeQuickMenu() {
+        val menu = quickMenu ?: return
+        quickMenu = null
+        (menu.view.parent as? ViewGroup)?.removeView(menu.view)
+        // The page below shows the same settings.
+        render()
+    }
+
     private fun render() {
         enforceInterfaceSize()
         applyPalette()
@@ -468,6 +522,8 @@ class DiPlayActivity : ComponentActivity() {
             scroll
         }
         setContentView(root)
+        // The menu stays above a page that renders again below it.
+        quickMenu?.view?.let(::showAbovePage)
         renderedPage = page
         renderedSettingsCategory = settingsCategory.takeIf { page == "settings" }
         refreshStatus()
@@ -1302,6 +1358,9 @@ class DiPlayActivity : ComponentActivity() {
             }.apply { isEnabled = !exportInProgress }
             card.addView(exportButton, matchButton(10, 60))
             card.addView(button(getString(R.string.choose_save_location), false) { chooseReportDestination() }, matchButton(10, 60))
+            if (com.shilapi.xcertplay.orchestration.GuangqiSelfTest.supported()) {
+                card.addView(button(getString(R.string.car_self_test), false) { CarSelfTestActivity.open(this) }, matchButton(10, 60))
+            }
             // 蓝牙诊断：SDP/RFCOMM 有界探针，排查原生蓝牙配对冲突类问题（port 自 xiaomiren/DiPlay）。
             card.addView(button(getString(R.string.settings_bluetooth_diagnostic), false) {
                 openBluetoothDiagnostics()
@@ -1419,11 +1478,6 @@ class DiPlayActivity : ComponentActivity() {
         }
         filteredSection(content, SettingsSection.EXPERIMENTAL_DISPLAY,
             getString(R.string.settings_experimental_display), R.drawable.ic_dp_display) { card ->
-            toggle(card, getString(R.string.settings_harman_fullscreen_experimental),
-                getString(R.string.settings_harman_fullscreen_experimental_description),
-                AirPlayPersistence.loadHarmanFullscreen(this)) { enabled ->
-                AirPlayPersistence.saveHarmanFullscreen(this, enabled)
-            }
             // Issue #363: on launchers that keep a dock bar over the
             // picture, the reporter proved that bringing the app task to
             // the front drops the bar without any desktop round-trip. When
@@ -1470,10 +1524,12 @@ class DiPlayActivity : ComponentActivity() {
         filteredSection(content, SettingsSection.ADVANCED_MEDIA,
             getString(R.string.settings_advanced_media), R.drawable.ic_dp_advanced) { card ->
             toggle(card, getString(R.string.efficient_video), getString(R.string.use_hevc_leave_off_for_the_widest_head_unit_compatibility), AirPlayPersistence.loadHevcEnabled(this)) { AirPlayPersistence.saveHevcEnabled(this, it); markReconnectNeeded() }
-            toggle(card, getString(R.string.smooth_video), getString(R.string.smooth_video_description),
-                AirPlayPersistence.loadSmoothVideo(this)) {
-                AirPlayPersistence.saveSmoothVideo(this, it)
-                reconnectIfRunning()
+            if (AirPlayPersistence.smoothVideoSupported()) {
+                toggle(card, getString(R.string.smooth_video), getString(R.string.smooth_video_description),
+                    AirPlayPersistence.loadSmoothVideo(this)) {
+                    AirPlayPersistence.saveSmoothVideo(this, it)
+                    reconnectIfRunning()
+                }
             }
             toggle(card, getString(R.string.settings_direct_surface_view),
                 getString(R.string.settings_direct_surface_view_description),
@@ -1498,6 +1554,34 @@ class DiPlayActivity : ComponentActivity() {
                 markReconnectNeeded()
             }
             audioFocusControls(card)
+            if (com.shilapi.xcertplay.media.GuangqiGuidanceMusic.supported()) {
+                val music = com.shilapi.xcertplay.media.GuangqiGuidanceMusic
+                card.addView(overlaySliderRow(getString(R.string.settings_guidance_music_level), music.choices,
+                    music.duckDb(this)) { db ->
+                    when (db) {
+                        music.DEFAULT_DUCK_DB -> getString(R.string.settings_guidance_music_value_default, db)
+                        0 -> getString(R.string.settings_guidance_music_value_none)
+                        else -> getString(R.string.settings_guidance_music_value, db)
+                    }
+                }.apply { onSave = { music.setDuckDb(this@DiPlayActivity, it) } })
+                card.addView(label(getString(R.string.settings_guidance_music_level_description), 14, MUTED).apply {
+                    setPadding(0, dp(4), 0, dp(8))
+                })
+            }
+            if (com.shilapi.xcertplay.orchestration.GuangqiVolumeTakeover.supported()) {
+                val takeover = com.shilapi.xcertplay.orchestration.GuangqiVolumeTakeover
+                toggle(card, getString(R.string.settings_volume_takeover),
+                    getString(R.string.settings_volume_takeover_description), takeover.enabled(this)) {
+                    takeover.setEnabled(this, it)
+                }
+            }
+            if (com.shilapi.xcertplay.orchestration.GuangqiStandingMicrophone.supported()) {
+                val standing = com.shilapi.xcertplay.orchestration.GuangqiStandingMicrophone
+                toggle(card, getString(R.string.settings_standing_microphone),
+                    getString(R.string.settings_standing_microphone_description), standing.enabled(this)) {
+                    standing.setEnabled(this, it)
+                }
+            }
             if (resources.getBoolean(R.bool.config_advanced_audio_channel_mapping)) {
                 toggle(card, getString(R.string.advanced_audio_channel_mapping),
                     getString(R.string.use_usage_content_type_routing_instead_of_stream_type),
@@ -1511,8 +1595,6 @@ class DiPlayActivity : ComponentActivity() {
                 AirPlayPersistence.saveMainBufferedAudio(this, it)
                 reconnectIfRunning()
             }
-            var carBluetoothAudioSwitch: android.widget.Switch? = null
-            var carBluetoothAudioGuard = false
             carBluetoothAudioSwitch = toggle(card, getString(R.string.settings_car_bluetooth_audio), getString(R.string.settings_car_bluetooth_audio_description),
                 AirPlayPersistence.loadCarBluetoothAudio(this)) { enabled ->
                 if (carBluetoothAudioGuard) return@toggle
@@ -1531,12 +1613,14 @@ class DiPlayActivity : ComponentActivity() {
                             carBluetoothAudioGuard = true
                             carBluetoothAudioSwitch?.isChecked = true
                             carBluetoothAudioGuard = false
+                            turnOffAutoDisconnectBtForCarAudio()
                             reconnectIfRunning()
                         }
                         .setNegativeButton(getString(R.string.cancel), null)
                         .show()
                 } else {
                     AirPlayPersistence.saveCarBluetoothAudio(this, enabled)
+                    if (enabled) turnOffAutoDisconnectBtForCarAudio()
                     reconnectIfRunning()
                 }
             }
@@ -1551,6 +1635,15 @@ class DiPlayActivity : ComponentActivity() {
                 AirPlayPersistence.saveDirectUsbfsMode(this, it)
                 reconnectIfRunning()
             }
+            // Wired network stack: kernel TCP/IP through a system VPN TUN instead of the
+            // userspace lwIP bridge. On the Guangqi ROM the VPN table is repaired as the
+            // system uid first (GuangqiVpnSubsystem). Applies at the next connection.
+            toggle(card, getString(R.string.settings_wired_kernel_tun),
+                getString(R.string.settings_wired_kernel_tun_description),
+                AirPlayPersistence.loadWiredKernelTun(this)) {
+                AirPlayPersistence.saveWiredKernelTun(this, it)
+                markReconnectNeeded()
+            }
             // The root hostapd hotspot and its Apple vendor IE are not offered: they run `su`,
             // and the Guangqi system image has none.
             // Issue #343: the car's global "自动连接" pages the phone back after
@@ -1559,10 +1652,18 @@ class DiPlayActivity : ComponentActivity() {
             // the car's Bluetooth page does. The previous value is restored when
             // the session ends. The Bluetooth radio stays on. Has no effect while
             // "car Bluetooth audio" is on. Applies at the next connection.
-            toggle(card, getString(R.string.settings_carplay_auto_disconnect_bt),
+            // Excludes car Bluetooth audio (the phone must stay on the car's Bluetooth for that):
+            // turning either on turns the other off, here and in the three-finger menu.
+            autoDisconnectBtSwitch = toggle(card, getString(R.string.settings_carplay_auto_disconnect_bt),
                 getString(R.string.settings_carplay_auto_disconnect_bt_description),
                 AirPlayPersistence.loadCarplayAutoDisconnectBt(this)) {
                 AirPlayPersistence.saveCarplayAutoDisconnectBt(this, it)
+                if (it && AirPlayPersistence.loadCarBluetoothAudio(this)) {
+                    AirPlayPersistence.saveCarBluetoothAudio(this, false)
+                    carBluetoothAudioGuard = true
+                    carBluetoothAudioSwitch?.isChecked = false
+                    carBluetoothAudioGuard = false
+                }
                 markReconnectNeeded()
             }
             // Issue #343-Q1: when the call downlink is silent on the telephony stream
@@ -3182,10 +3283,16 @@ class DiPlayActivity : ComponentActivity() {
     }
 
     /** True when a USB Bluetooth dongle is plugged in; used to warn before audio is routed away. */
-    private fun usbBluetoothDonglePresent(): Boolean = runCatching {
-        val usbManager = getSystemService(Context.USB_SERVICE) as? UsbManager ?: return false
-        UsbBtDongleDetector(applicationContext).findDongles(usbManager).isNotEmpty()
-    }.getOrDefault(false)
+    // Car Bluetooth audio and "no Bluetooth auto-connect during CarPlay" exclude each other.
+    private var carBluetoothAudioSwitch: android.widget.Switch? = null
+    private var carBluetoothAudioGuard = false
+    private var autoDisconnectBtSwitch: android.widget.Switch? = null
+
+    private fun turnOffAutoDisconnectBtForCarAudio() {
+        if (!AirPlayPersistence.loadCarplayAutoDisconnectBt(this)) return
+        AirPlayPersistence.saveCarplayAutoDisconnectBt(this, false)
+        autoDisconnectBtSwitch?.isChecked = false
+    }
 
     private fun openBluetoothDiagnostics() {
         runCatching { startActivity(Intent(this, BluetoothDiagnosticActivity::class.java)) }
@@ -3331,7 +3438,7 @@ class DiPlayActivity : ComponentActivity() {
         appendLine("Head unit: ${Build.MANUFACTURER} ${Build.MODEL}")
         appendLine("Full report build failed: ${buildError.javaClass.simpleName}: ${buildError.message}")
         appendLine()
-        val names = listOf("bluetooth-diagnostic.log") + SessionLogFile.REPORT_NAMES.toList()
+        val names = listOf("bluetooth-diagnostic.log", CarSelfTestActivity.REPORT_NAME) + SessionLogFile.REPORT_NAMES.toList()
         names.forEach { name ->
             val file = File(filesDir, "logs/$name")
             if (file.isFile) {
@@ -3381,7 +3488,7 @@ class DiPlayActivity : ComponentActivity() {
         appendLine("--- Recent own-app process exits (Android 11+) ---")
         appendLine(ProcessExitDiagnostics.report(appContext))
         appendLine()
-        val logFiles = listOf("bluetooth-diagnostic.log") + SessionLogFile.REPORT_NAMES
+        val logFiles = listOf("bluetooth-diagnostic.log", CarSelfTestActivity.REPORT_NAME) + SessionLogFile.REPORT_NAMES
         for (name in logFiles) {
             val file = File(appContext.filesDir, "logs/$name")
             if (file.isFile) {
@@ -3713,10 +3820,6 @@ class DiPlayActivity : ComponentActivity() {
         searchIndexSink?.add(title.substringBefore(VALUE_SEPARATOR))
         setOnClickListener { click() }
     }
-
-    // For an action whose label happens to contain the separator, such as "Turn on … · ADB".
-    private fun actionButton(title: String, primary: Boolean, click: () -> Unit) =
-        button(title, primary, click).apply { action = true; text = title }
 
     /**
      * Text in the "Title · Value" form opens a choice, so it reads as a setting row:

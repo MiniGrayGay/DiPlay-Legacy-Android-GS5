@@ -22,12 +22,23 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 
-/** Android 4.4 - 8 system-generated Wi-Fi Direct group owner for wireless CarPlay. */
+/**
+ * Android 4.4 - 8 system-generated Wi-Fi Direct group owner for wireless CarPlay.
+ *
+ * [preferredChannel] (1-11) pins the group's operating channel through the hidden
+ * `WifiP2pManager.setWifiP2pChannels`, which on 4.4 makes the supplicant disallow every other
+ * frequency (`P2P_SET disallow_freq`). Auto clears that restriction instead, so one left behind by
+ * a process that died does not keep a later group on its channel. A manual channel the radio
+ * refuses falls back to Auto. The restriction is cleared again when the group closes.
+ */
 @android.annotation.SuppressLint("MissingPermission")
 internal class LegacyWifiP2pGroupManager(
     context: Context,
     private val diagnostic: (String) -> Unit = {},
+    preferredChannel: Int = WifiP2pChannels.AUTO,
 ) : WirelessHotspotManager {
+    /** A manual 2.4 GHz channel, or 0 for Auto (which includes "Auto · 2.4 GHz" on this radio). */
+    private val pinnedChannel = preferredChannel.takeIf { it in WifiP2pChannels.supportedChannels } ?: 0
     private val appContext = context.applicationContext
     private val manager =
         appContext.getSystemService(Context.WIFI_P2P_SERVICE) as? WifiP2pManager
@@ -65,6 +76,8 @@ internal class LegacyWifiP2pGroupManager(
                 removeGroupBlocking(p2pChannel, 4_000)
             }
 
+            var operatingChannel = pinnedChannel
+            setOperatingChannel(p2pChannel, operatingChannel)
             var groupCreated = false
             var lastCreateFailure: IOException? = null
             var createAttempts = 0
@@ -97,6 +110,16 @@ internal class LegacyWifiP2pGroupManager(
                     if (failure.message?.contains("code=2") == true && createAttempts < 3 && !closed) {
                         diagnostic("Legacy Wi-Fi Direct createGroup busy (code=2); settling and retrying ($createAttempts/3)")
                         SystemClock.sleep(500)
+                    } else if (operatingChannel != 0 && !closed) {
+                        // The radio could not use the chosen channel (for example while its own Wi-Fi
+                        // stays on another one): let the system choose rather than fail the connection.
+                        diagnostic(
+                            "Legacy Wi-Fi Direct channel $operatingChannel refused (${failure.message}); " +
+                                "falling back to Auto",
+                        )
+                        operatingChannel = 0
+                        setOperatingChannel(p2pChannel, 0)
+                        createAttempts = 0
                     } else {
                         break
                     }
@@ -145,6 +168,9 @@ internal class LegacyWifiP2pGroupManager(
                 }
                 val frequency = frameworkFrequency ?: driverFrequency
                 val channelNumber = frequency?.let(::wifiFrequencyMhzToChannel) ?: 0
+                if (operatingChannel != 0 && channelNumber != 0 && channelNumber != operatingChannel) {
+                    diagnostic("Legacy Wi-Fi Direct asked for channel $operatingChannel but the group is on $channelNumber")
+                }
 
                 if (ssid == null || passphrase == null || hostAddress == null) {
                     lastReason =
@@ -194,6 +220,10 @@ internal class LegacyWifiP2pGroupManager(
         if (created && activeChannel != null) {
             runCatching { removeGroupBlocking(activeChannel, 2_000) }
         }
+        // Leave the supplicant free to use any channel again, for the car's own Wi-Fi Direct too.
+        if (pinnedChannel != 0 && activeChannel != null) {
+            runCatching { setOperatingChannel(activeChannel, 0) }
+        }
         channel = null
         created = false
         activeChannel?.let { ch ->
@@ -201,6 +231,38 @@ internal class LegacyWifiP2pGroupManager(
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2) thread?.quitSafely() else thread?.quit()
         thread = null
+    }
+
+    /**
+     * Pins the operating channel ([operating] 1-11), or clears the pin with 0. The listen channel
+     * is left as it is. Returns false when the hidden API is missing or the supplicant refuses.
+     */
+    private fun setOperatingChannel(channel: WifiP2pManager.Channel, operating: Int): Boolean {
+        val done = CountDownLatch(1)
+        val ok = AtomicReference<String?>(null)
+        val invoked = runCatching {
+            WifiP2pManager::class.java.getMethod(
+                "setWifiP2pChannels",
+                WifiP2pManager.Channel::class.java,
+                Int::class.javaPrimitiveType,
+                Int::class.javaPrimitiveType,
+                WifiP2pManager.ActionListener::class.java,
+            ).invoke(manager, channel, 0, operating, object : WifiP2pManager.ActionListener {
+                override fun onSuccess() {
+                    ok.set("ok")
+                    done.countDown()
+                }
+
+                override fun onFailure(reason: Int) {
+                    ok.set("failed code=$reason")
+                    done.countDown()
+                }
+            })
+        }
+        val result = invoked.exceptionOrNull()?.let { "unavailable ${it.javaClass.simpleName}" }
+            ?: if (await(done, CHANNEL_SET_TIMEOUT_MILLIS)) ok.get() else "timed out"
+        diagnostic("Legacy Wi-Fi Direct operating channel ${if (operating == 0) "auto" else operating}: $result")
+        return result == "ok"
     }
 
     private fun checkPrerequisites() {
@@ -279,5 +341,9 @@ internal class LegacyWifiP2pGroupManager(
     } catch (interrupted: InterruptedException) {
         Thread.currentThread().interrupt()
         throw IOException("Interrupted while waiting for legacy Wi-Fi Direct", interrupted)
+    }
+
+    private companion object {
+        const val CHANNEL_SET_TIMEOUT_MILLIS = 2_000L
     }
 }

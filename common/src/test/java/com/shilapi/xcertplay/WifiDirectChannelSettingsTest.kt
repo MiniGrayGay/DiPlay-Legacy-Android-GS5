@@ -30,6 +30,8 @@ class WifiDirectChannelSettingsTest {
         .getSharedPreferences("xcertplay_airplay", Context.MODE_PRIVATE)
 
     @Before fun setup() {
+        // These checks read the English interface; DiPlay itself defaults to Simplified Chinese.
+        AppLocale.save(org.robolectric.RuntimeEnvironment.getApplication(), AppLocale.ENGLISH)
         prefs.edit().clear().commit()
         activity = Robolectric.buildActivity(DiPlayActivity::class.java).get()
         activity.setTheme(android.R.style.Theme_Material_NoActionBar)

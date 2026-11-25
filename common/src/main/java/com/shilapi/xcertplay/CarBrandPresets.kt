@@ -28,6 +28,7 @@ data class CarBrandPreset(
 
 object CarBrandPresets {
     val ALL: List<CarBrandPreset> = listOf(
+        CarBrandPreset("trumpchi", "传祺", "Trumpchi", "传祺", "trumpchi.png"),
         CarBrandPreset("byd", "比亚迪", "BYD", "BYD", "byd.png"),
         CarBrandPreset("geely", "吉利", "Geely", "Geely", "geely.png"),
         CarBrandPreset("nissan", "日产", "Nissan", "Nissan", "nissan.png"),

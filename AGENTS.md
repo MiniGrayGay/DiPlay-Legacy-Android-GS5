@@ -57,7 +57,7 @@ Exception: a gated control that only its own audience sees, and that completes a
 Example: auto car hotspot appears only for car-hotspot users, so it is in Connection.
 
 Mark an experimental setting or card with the title suffix ` (experimental)`, never `· experimental`, a dash, or an `Experimental …` prefix.
-Each locale MUST use its existing form: `(تجريبي)`, `(experimental)`, `(экспериментально)`, `(експериментально)`, `（实验性）`, `（實驗性）`.
+Each locale MUST use its existing form: `(experimental)`, `（实验性）`.
 
 ### Add the code
 
@@ -71,7 +71,7 @@ Each locale MUST use its existing form: `(تجريبي)`, `(experimental)`, `(э
    A setting that only takes effect at the next connection MUST call `markReconnectNeeded()` after it saves.
    This shows the "Reconnect now" bar. It MUST NOT drop a running session without the driver's consent.
    Reconnect at once (`reconnectIfRunning()`) only after a dialog button that says "Apply and reconnect", or when the description says that the change reconnects CarPlay.
-6. Add each new string to `common/src/main/res/values/` and to every `values-xx` locale folder.
+6. Add each new string to `common/src/main/res/values/` (English) and `values-zh-rCN/` (Simplified Chinese). These are the only two languages: the app defaults to Simplified Chinese (`AppLocale.DEFAULT`) until the driver picks English, and `mobile` keeps only `en` and `zh-rCN` library resources (`localeFilters`). Do not add other `values-xx` folders.
    New Settings copy SHOULD use the `settings_` prefix. `SettingsTranslationsTest` fails when a `settings_*` string has no translation.
 7. A control that opens a choice uses `button()` with the text `"Title · Value"`.
    That form renders as a setting row with the value and a chevron, and Search indexes the title.
@@ -98,11 +98,15 @@ Switching `sharedUserId`, or installing the release id over the `.hudtest` id, i
 
 ### Wired link
 
-Kernel TUN and the system VPN are unusable on 3.0.35. Wired CarPlay uses the userspace lwIP relay in `shared/src/main/jni/lwip_ncm_relay.c`.
+The kernel TUN driver works on 3.0.35: OpenVPN runs in tun mode, and a Go 1.27 probe opened the device (`docs/go-netprobe车机测试报告.md` in the parent carlife tree). The node is `/dev/tun` (char 10,200, owner 1000:1016). There is no `/dev/net/tun` until something links it, and `/dev` is tmpfs, so the link must be made again after every boot (`mkdir -p /dev/net && ln -sf /dev/tun /dev/net/tun`, as the OpenVPN start script does). Creating an interface (`TUNSETIFF`) needs `CAP_NET_ADMIN`: root has it, DiPlay's uid 1000 does not.
+
+The system VPN can be brought up, but not the standard way. This ROM never sends `android.intent.action.USER_STARTING`, so `ConnectivityService.mVpns` stays empty until the app sends that broadcast itself. The ROM also has no `com.android.vpndialogs`, so `VpnService.prepare()` cannot show its consent screen, and preparing goes through Binder instead.
+
+Wired CarPlay still does not use TUN. The kernel `cdc_ncm` driver competes for the iPhone's NCM interface, and unbinding it needs root. The NCM bulk-out endpoint only becomes writable after the iPhone has stopped resending its SYN. Wired CarPlay therefore uses the userspace lwIP relay in `shared/src/main/jni/lwip_ncm_relay.c`. Details are in `docs/DiPlay-VPN-TUN修复记录.md` in the parent carlife tree.
 
 ### Wireless link
 
-A fresh install uses Wi-Fi Direct (`WirelessHotspotMode.WIFI_P2P`). That is the path `AirPlayPersistence.loadWirelessHotspotMode` treats as verified on this unit. API 19 starts it with `LegacyWifiP2pGroupManager`. `WifiP2pGroupManager` requires API 28 and is not this unit's path. The radio is an AR6003, 2.4 GHz only; `WifiP2pChannels.supportedChannels` is channels 1–11, and a 5 GHz choice falls back to Auto.
+A fresh install uses Wi-Fi Direct (`WirelessHotspotMode.WIFI_P2P`). That is the path `AirPlayPersistence.loadWirelessHotspotMode` treats as verified on this unit. API 19 starts it with `LegacyWifiP2pGroupManager`. `WifiP2pGroupManager` requires API 28 and is not this unit's path. The radio is an AR6003, 2.4 GHz only; `WifiP2pChannels.supportedChannels` is channels 1–11, and a 5 GHz choice falls back to Auto. On API 19 the preferred channel is pinned with the hidden `WifiP2pManager.setWifiP2pChannels` (the supplicant's `P2P_SET disallow_freq`); Auto clears the pin, a refused channel falls back to Auto, and the pin is cleared when the group closes. The ROM has no `iwconfig`, `iw` or `wpa_cli`, and as group owner the car does no legacy power save.
 
 `HOSTAPD` is the root hotspot opt-in. With that opt-in off, a stored `HOSTAPD` value resolves back to `WIFI_P2P`. When legacy Wi-Fi Direct fails with `createGroup code=1`, leave it and use Existing Wi-Fi / Same LAN or a cable. The ECARX car-hotspot helpers are still in the tree for other units; they are not this unit's default.
 

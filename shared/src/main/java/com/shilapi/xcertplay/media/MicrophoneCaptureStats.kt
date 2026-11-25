@@ -22,6 +22,7 @@ internal class MicrophoneCaptureStats(
     private var reads = 0L
     private var zeroReads = 0L
     private var readErrors = 0L
+    private var filledFrames = 0L
     private var readMaxNs = 0L
     private var encodedFrames = 0L
     private var emptyEncodedFrames = 0L
@@ -45,6 +46,9 @@ internal class MicrophoneCaptureStats(
     /** Call before the capture thread starts; [metadata] is not volatile. */
     fun useVoiceCommunicationSource() { metadata = "type=$type source=VOICE_COMMUNICATION $format" }
 
+    /** As [useVoiceCommunicationSource]; the audio comes from the standing recorder. */
+    fun useStandingMicrophone() { metadata = "type=$type source=STANDING $format" }
+
     fun reading() { readStart = nowNs() }
 
     fun read(count: Int) {
@@ -61,6 +65,9 @@ internal class MicrophoneCaptureStats(
         encodedFrames += frameCount.coerceAtLeast(0)
         emptyEncodedFrames += emptyCount.coerceAtLeast(0)
     }
+
+    /** Silence sent in place of audio the recorder did not deliver. */
+    fun filled(frames: Int) { filledFrames += frames }
 
     fun sent() {
         val now = nowNs()
@@ -108,13 +115,14 @@ internal class MicrophoneCaptureStats(
             "captureBytes=$capturedBytes reads=$reads zeroReads=$zeroReads readErrors=$readErrors " +
             "readMaxMs=${readMaxNs / 1_000_000} encodedFrames=$encodedFrames " +
             "emptyEncodedFrames=$emptyEncodedFrames udpSent=$udpSent sendErrors=$sendErrors " +
-            "sendGapMaxMs=${sendGapMaxNs / 1_000_000} silentFrames=$silentFrames " +
+            "sendGapMaxMs=${sendGapMaxNs / 1_000_000} filledFrames=$filledFrames silentFrames=$silentFrames " +
             "firstAudioMs=$firstAudioMs ended=$ended")
         windowStart = now
         capturedBytes = 0
         reads = 0
         zeroReads = 0
         readErrors = 0
+        filledFrames = 0
         readMaxNs = 0
         encodedFrames = 0
         emptyEncodedFrames = 0
