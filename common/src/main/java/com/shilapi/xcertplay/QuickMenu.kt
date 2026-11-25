@@ -6,9 +6,7 @@ import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.hardware.usb.UsbManager
 import android.os.Build
-import android.util.Log
 import android.view.Gravity
-import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
@@ -86,9 +84,8 @@ internal class QuickMenu(private val activity: ComponentActivity, private val ho
     private fun dp(value: Int) = activity.menuDp(value)
 
     /**
-     * Cluster map, car Bluetooth audio or no Bluetooth auto-connect (one excludes the other), music
-     * buffer and the Guangqi rows. Bottom left opens DiPlay settings or its home page; everything
-     * else lives there.
+     * Cluster map, car Bluetooth audio or no Bluetooth auto-connect (one excludes the other) and
+     * music buffer. Bottom left opens DiPlay settings or its home page; everything else lives there.
      */
     private fun build(): View {
         val overlay = FrameLayout(activity).apply {
@@ -217,45 +214,6 @@ internal class QuickMenu(private val activity: ComponentActivity, private val ho
             host.changedSession()
         })
 
-        // Guangqi: the volume keys go back to the car the moment this is off; no reconnect.
-        if (com.shilapi.xcertplay.orchestration.GuangqiVolumeTakeover.supported()) {
-            addRow(switchRow(activity.getString(R.string.settings_volume_takeover), activity.getString(R.string.quick_volume_takeover_note),
-                com.shilapi.xcertplay.orchestration.GuangqiVolumeTakeover.enabled(activity)) { enabled ->
-                com.shilapi.xcertplay.orchestration.GuangqiVolumeTakeover.setEnabled(activity, enabled)
-            })
-            addRow(switchRow(activity.getString(R.string.settings_standing_microphone), activity.getString(R.string.quick_standing_microphone_note),
-                com.shilapi.xcertplay.orchestration.GuangqiStandingMicrophone.enabled(activity)) { enabled ->
-                com.shilapi.xcertplay.orchestration.GuangqiStandingMicrophone.setEnabled(activity, enabled)
-            })
-            addRow(LinearLayout(activity).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                addView(LinearLayout(activity).apply {
-                    orientation = LinearLayout.VERTICAL
-                    addView(activity.menuText(activity.getString(R.string.car_self_test), 18f, Color.WHITE))
-                    addView(activity.menuText(activity.getString(R.string.quick_self_test_note), 14f, MENU_SECONDARY)
-                        .apply { setPadding(0, dp(4), dp(16), 0) })
-                }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-                addView(quickMenuButton(activity.getString(R.string.car_self_test_start), primary = false) {
-                    host.close()
-                    CarSelfTestActivity.open(activity)
-                }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(52)))
-            })
-            // The head unit follows the car's power and has no power button: without this a restart
-            // (for example to load a newer volume hook into system_server) needs the engine off.
-            addRow(LinearLayout(activity).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                addView(LinearLayout(activity).apply {
-                    orientation = LinearLayout.VERTICAL
-                    addView(activity.menuText(activity.getString(R.string.quick_reboot_head_unit), 18f, Color.WHITE))
-                    addView(activity.menuText(activity.getString(R.string.quick_reboot_head_unit_note), 14f, MENU_SECONDARY)
-                        .apply { setPadding(0, dp(4), dp(16), 0) })
-                }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-                addView(rebootHeadUnitButton(), LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(52)))
-            })
-        }
-
         val footer = LinearLayout(activity).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -278,64 +236,6 @@ internal class QuickMenu(private val activity: ComponentActivity, private val ho
             setMargins(dp(24), dp(24), dp(24), dp(24))
         })
         return overlay
-    }
-
-    /**
-     * The quick menu's restart button, for testing: a tap runs `svc power reboot` (Android's own
-     * restart: services are told and data is written first); held for [REBOOT_HOLD_MILLIS] it runs
-     * `setprop sys.powerctl reboot` (init restarts at once). This ROM's shutdown never tells the MCU
-     * to cut power, so the head unit comes back by itself while the car is on. DiPlay's uid (system)
-     * may do both.
-     */
-    private fun rebootHeadUnitButton(): Button {
-        val label = activity.getString(R.string.quick_reboot_head_unit_action)
-        val button = quickMenuButton(label, primary = false) {}
-        var held = false
-        val hard = Runnable {
-            held = true
-            button.text = label
-            rebootHeadUnit(hard = true)
-        }
-        button.setOnTouchListener { view, event ->
-            when (event.actionMasked) {
-                MotionEvent.ACTION_DOWN -> {
-                    held = false
-                    view.isPressed = true
-                    view.parent?.requestDisallowInterceptTouchEvent(true)
-                    button.text = activity.getString(R.string.quick_reboot_head_unit_holding)
-                    view.postDelayed(hard, REBOOT_HOLD_MILLIS)
-                }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    view.removeCallbacks(hard)
-                    view.isPressed = false
-                    button.text = label
-                    val inside = event.x >= 0 && event.y >= 0 && event.x <= view.width && event.y <= view.height
-                    if (event.actionMasked == MotionEvent.ACTION_UP && !held && inside) rebootHeadUnit(hard = false)
-                }
-            }
-            true
-        }
-        return button
-    }
-
-    private fun rebootHeadUnit(hard: Boolean) {
-        val command = if (hard) "setprop sys.powerctl reboot" else "svc power reboot diplay"
-        Log.i(TAG, "head unit restart from the quick menu: $command")
-        Thread({
-            val failure = runCatching {
-                val process = Runtime.getRuntime().exec(arrayOf("sh", "-c", command))
-                val output = (process.inputStream.bufferedReader().readText() +
-                    process.errorStream.bufferedReader().readText()).trim()
-                val code = process.waitFor()
-                // svc prints "Failed to reboot." when the power service refused.
-                if (code != 0 || output.contains("Failed")) "exit $code $output".trim() else null
-            }.getOrElse { it.toString() } ?: return@Thread
-            Log.w(TAG, "head unit restart failed: $command: $failure")
-            activity.runOnUiThread {
-                android.widget.Toast.makeText(activity, activity.getString(R.string.quick_reboot_head_unit_failed, failure),
-                    android.widget.Toast.LENGTH_LONG).show()
-            }
-        }, "diplay-reboot").start()
     }
 
     /** A title, a one-line note and one row of choices; [onSelect] gets the chosen index. */
@@ -383,11 +283,5 @@ internal class QuickMenu(private val activity: ComponentActivity, private val ho
         minWidth = dp(140)
         setPadding(dp(22), 0, dp(22), 0)
         setOnClickListener { click() }
-    }
-
-    private companion object {
-        const val TAG = "xcertplay-usb"
-        // The restart button: held this long it restarts at once (sys.powerctl).
-        const val REBOOT_HOLD_MILLIS = 3_000L
     }
 }
