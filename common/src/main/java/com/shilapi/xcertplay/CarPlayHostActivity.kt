@@ -2200,6 +2200,10 @@ class CarPlayHostActivity : ComponentActivity() {
                 com.shilapi.xcertplay.orchestration.GuangqiVolumeTakeover.enabled(this)) { enabled ->
                 com.shilapi.xcertplay.orchestration.GuangqiVolumeTakeover.setEnabled(this, enabled)
             })
+            addRow(switchRow(getString(R.string.settings_standing_microphone), getString(R.string.quick_standing_microphone_note),
+                com.shilapi.xcertplay.orchestration.GuangqiStandingMicrophone.enabled(this)) { enabled ->
+                com.shilapi.xcertplay.orchestration.GuangqiStandingMicrophone.setEnabled(this, enabled)
+            })
             // The head unit follows the car's power and has no power button: without this a restart
             // (for example to load a newer volume hook into system_server) needs the engine off.
             addRow(LinearLayout(this).apply {

@@ -921,6 +921,7 @@ class AndroidMediaSink(
                     echoReference = if (config.audioType == TELEPHONY_AUDIO_TYPE && !callMicCompatibility) callEchoReferences[id] else null,
                     callMicCompatibility = callMicCompatibility,
                     context = appContext,
+                    standing = com.shilapi.xcertplay.orchestration.GuangqiStandingMicrophone.current(),
                 )
             }
             if (!uplink.start()) {

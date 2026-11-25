@@ -45,6 +45,9 @@ internal class MicrophoneCaptureStats(
     /** Call before the capture thread starts; [metadata] is not volatile. */
     fun useVoiceCommunicationSource() { metadata = "type=$type source=VOICE_COMMUNICATION $format" }
 
+    /** As [useVoiceCommunicationSource]; the audio comes from the standing recorder. */
+    fun useStandingMicrophone() { metadata = "type=$type source=STANDING $format" }
+
     fun reading() { readStart = nowNs() }
 
     fun read(count: Int) {

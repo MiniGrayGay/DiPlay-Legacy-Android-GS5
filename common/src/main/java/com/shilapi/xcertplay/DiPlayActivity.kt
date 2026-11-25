@@ -1516,6 +1516,13 @@ class DiPlayActivity : ComponentActivity() {
                     takeover.setEnabled(this, it)
                 }
             }
+            if (com.shilapi.xcertplay.orchestration.GuangqiStandingMicrophone.supported()) {
+                val standing = com.shilapi.xcertplay.orchestration.GuangqiStandingMicrophone
+                toggle(card, getString(R.string.settings_standing_microphone),
+                    getString(R.string.settings_standing_microphone_description), standing.enabled(this)) {
+                    standing.setEnabled(this, it)
+                }
+            }
             if (resources.getBoolean(R.bool.config_advanced_audio_channel_mapping)) {
                 toggle(card, getString(R.string.advanced_audio_channel_mapping),
                     getString(R.string.use_usage_content_type_routing_instead_of_stream_type),
