@@ -232,7 +232,7 @@ class GuangqiSelfTest(context: Context, private val host: Host) {
         val notes = mutableListOf<String>()
         val granted = GuangqiVpnSubsystem.prepare(app) { notes += it; host.log("   $it") }
         val detail = notes.lastOrNull().orEmpty()
-        return if (granted) pass("$detail。真正连接要打开「有线内核网络」再插线") else fail(detail)
+        return if (granted) pass("$detail。真正连接要把「有线网络」选成 TUN 再插线") else fail(detail)
     }
 
     private fun wiredUplink(): Result0 = when {

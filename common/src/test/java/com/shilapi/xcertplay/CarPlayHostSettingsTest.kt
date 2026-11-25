@@ -354,6 +354,7 @@ class CarPlayHostSettingsTest {
     @Test fun switchingToUsbUserspaceDoesNotRequestUnneededSystemVpnConsent() {
         org.robolectric.shadows.ShadowVpnService.setPrepareResult(Intent("test.VPN_CONSENT"))
         attachController()
+        AirPlayPersistence.saveWiredKernelTun(activity, false)
         AirPlayPersistence.saveWirelessEnabled(activity, true)
         invoke("loadPersistedSettings")
         setField("vpnReady", true) // Previously granted permission may have been revoked.
