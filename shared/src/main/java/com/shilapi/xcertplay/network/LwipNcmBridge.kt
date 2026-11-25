@@ -1,5 +1,6 @@
 package com.shilapi.xcertplay.network
 
+import com.shilapi.xcertplay.airplay.WiredUdpUplink
 import android.os.Process
 import android.util.Log
 import com.shilapi.xcertplay.transport.EthernetIpv6Codec
@@ -27,7 +28,7 @@ class LwipNcmBridge(
     private val onDebugLog: (String) -> Unit = {},
     private val onError: (Throwable) -> Unit,
     @Volatile var mdnsResponder: WiredMdnsResponder? = null,
-) : Closeable {
+) : Closeable, WiredUdpUplink.Sender {
     init {
         require(hostMac.size == EthernetIpv6Codec.MAC_BYTES) { "hostMac must be 6 bytes" }
     }
@@ -156,6 +157,9 @@ class LwipNcmBridge(
             registeredTcpPortArray = registeredTcpPorts.toIntArray()
         }
     }
+
+    override fun sendUdp(localPort: Int, remotePort: Int, payload: ByteArray): Boolean =
+        lwipNative.sendUdp(localPort, remotePort, payload)
 
     /** The stream on [port] closed: frees its slot in the native tables. */
     fun unregisterPort(port: Int, isTcp: Boolean) {

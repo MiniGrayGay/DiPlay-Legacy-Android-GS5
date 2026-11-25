@@ -520,6 +520,8 @@
     <string name="settings_navigation_volume">导航音量</string>
     <string name="settings_stream_volume_description">当车机只有一个总音量时，在 DiPlay 内部调整媒体与导航的相对音量。</string>
     <string name="settings_direct_usbfs_mode_description">适用于系统 USB 列表始终看不到 iPhone 的车机：绕过系统列表直接枚举并打开设备节点，可能需要 root。会在下次连接时生效，并重新连接 CarPlay。</string>
+    <string name="settings_wired_kernel_tun">有线内核网络（实验性）</string>
+    <string name="settings_wired_kernel_tun_description">有线 CarPlay 改用系统 VPN 的内核网络（TUN），代替 DiPlay 内置的网络栈（lwIP）。用于对比测试，有线连不上时关闭即可恢复。下次连接时生效。</string>
     <string name="settings_root_hotspot_mode">Root 热点（hostapd）（实验性）</string>
     <string name="settings_carplay_auto_disconnect_bt">CarPlay 期间关闭蓝牙自动连接（实验性）</string>
     <string name="settings_carplay_auto_disconnect_bt_description">有线或无线 CarPlay 连上后，关掉车机蓝牙设置里的全局「自动连接」，避免手机断开通话蓝牙后车机马上再连上。同时像车机蓝牙设置里点「断开」那样，主动断开已连接的手机。蓝牙本身保持开着。会话结束时恢复原来的开关；如果应用异常退出，下次打开 DiPlay 会恢复。开启「通过车辆蓝牙播放 CarPlay 音频」时本开关不起作用。下次连接时生效。</string>
@@ -576,4 +578,12 @@
     <string name="settings_guidance_music_value_default">-%1$d dB · 默认</string>
     <string name="settings_guidance_music_value">-%1$d dB</string>
     <string name="settings_guidance_music_value_none">不压低</string>
+    <string name="car_self_test">车机自检</string>
+    <string name="car_self_test_note">约 2 分钟。会切到收音机，按一下音量加减；CarPlay 连着时会唤起 Siri。测试时请保持安静。没连 CarPlay 跑一次，连上再跑一次，才能测全。</string>
+    <string name="car_self_test_start">开始</string>
+    <string name="car_self_test_stop">停止</string>
+    <string name="car_self_test_heard">听到了</string>
+    <string name="car_self_test_not_heard">没听到</string>
+    <string name="car_self_test_summary">完成：通过 %1$d，失败 %2$d，不确定 %3$d，跳过 %4$d</string>
+    <string name="quick_self_test_note">测麦克风、Siri、收音机、音量键和有线 VPN。</string>
 </resources>

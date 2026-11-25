@@ -1358,6 +1358,9 @@ class DiPlayActivity : ComponentActivity() {
             }.apply { isEnabled = !exportInProgress }
             card.addView(exportButton, matchButton(10, 60))
             card.addView(button(getString(R.string.choose_save_location), false) { chooseReportDestination() }, matchButton(10, 60))
+            if (com.shilapi.xcertplay.orchestration.GuangqiSelfTest.supported()) {
+                card.addView(button(getString(R.string.car_self_test), false) { CarSelfTestActivity.open(this) }, matchButton(10, 60))
+            }
             // 蓝牙诊断：SDP/RFCOMM 有界探针，排查原生蓝牙配对冲突类问题（port 自 xiaomiren/DiPlay）。
             card.addView(button(getString(R.string.settings_bluetooth_diagnostic), false) {
                 openBluetoothDiagnostics()
@@ -1631,6 +1634,15 @@ class DiPlayActivity : ComponentActivity() {
                 AirPlayPersistence.loadDirectUsbfsMode(this)) {
                 AirPlayPersistence.saveDirectUsbfsMode(this, it)
                 reconnectIfRunning()
+            }
+            // Wired network stack: kernel TCP/IP through a system VPN TUN instead of the
+            // userspace lwIP bridge. On the Guangqi ROM the VPN table is repaired as the
+            // system uid first (GuangqiVpnSubsystem). Applies at the next connection.
+            toggle(card, getString(R.string.settings_wired_kernel_tun),
+                getString(R.string.settings_wired_kernel_tun_description),
+                AirPlayPersistence.loadWiredKernelTun(this)) {
+                AirPlayPersistence.saveWiredKernelTun(this, it)
+                markReconnectNeeded()
             }
             // The root hostapd hotspot and its Apple vendor IE are not offered: they run `su`,
             // and the Guangqi system image has none.
@@ -3426,7 +3438,7 @@ class DiPlayActivity : ComponentActivity() {
         appendLine("Head unit: ${Build.MANUFACTURER} ${Build.MODEL}")
         appendLine("Full report build failed: ${buildError.javaClass.simpleName}: ${buildError.message}")
         appendLine()
-        val names = listOf("bluetooth-diagnostic.log") + SessionLogFile.REPORT_NAMES.toList()
+        val names = listOf("bluetooth-diagnostic.log", CarSelfTestActivity.REPORT_NAME) + SessionLogFile.REPORT_NAMES.toList()
         names.forEach { name ->
             val file = File(filesDir, "logs/$name")
             if (file.isFile) {
@@ -3476,7 +3488,7 @@ class DiPlayActivity : ComponentActivity() {
         appendLine("--- Recent own-app process exits (Android 11+) ---")
         appendLine(ProcessExitDiagnostics.report(appContext))
         appendLine()
-        val logFiles = listOf("bluetooth-diagnostic.log") + SessionLogFile.REPORT_NAMES
+        val logFiles = listOf("bluetooth-diagnostic.log", CarSelfTestActivity.REPORT_NAME) + SessionLogFile.REPORT_NAMES
         for (name in logFiles) {
             val file = File(appContext.filesDir, "logs/$name")
             if (file.isFile) {

@@ -88,6 +88,7 @@ import com.shilapi.xcertplay.media.CarPlayTouchMapper
 import com.shilapi.xcertplay.media.CarPlayVideoLayout
 import com.shilapi.xcertplay.network.CarPlayVpnService
 import com.shilapi.xcertplay.orchestration.CarPlayController
+import com.shilapi.xcertplay.orchestration.GuangqiSelfTest
 import com.shilapi.xcertplay.orchestration.CarPlayRuntimeConfig
 import com.shilapi.xcertplay.network.WirelessStartupFailure
 import com.shilapi.xcertplay.network.WirelessStartupPolicy
@@ -237,6 +238,7 @@ class CarPlayHostActivity : ComponentActivity() {
         carplayAutoDisconnectBt = carplayAutoDisconnectBt,
         locationReportingEnabled = locationReportingEnabled,
         directUsbfsMode = AirPlayPersistence.loadDirectUsbfsMode(this),
+        userspaceNetworkEnabled = !AirPlayPersistence.loadWiredKernelTun(this),
     )
 
     private val vpnConsent =
@@ -1079,6 +1081,9 @@ class CarPlayHostActivity : ComponentActivity() {
             maybeStartCarPlay()
             return
         }
+        // Guangqi: the ROM never initialises its VPN table and has no consent dialog; repair
+        // both as the system uid before the standard prepare.
+        com.shilapi.xcertplay.network.GuangqiVpnSubsystem.prepare(this) { appendLog(it) }
         val consent = try {
             CarPlayVpnService.prepare(this)
         } catch (e: Exception) {
@@ -2820,6 +2825,7 @@ class CarPlayHostActivity : ComponentActivity() {
             },
             mediaBufferMillis = AirPlayPersistence.loadMediaBufferMillis(this),
             onAudioDiagnostic = { message ->
+                GuangqiSelfTest.onLogLine(message)
                 if (message.startsWith("Microphone: ")) {
                     AsyncDiagnosticLog.append(diagnosticLog, message)
                 } else {
@@ -2944,6 +2950,7 @@ class CarPlayHostActivity : ComponentActivity() {
             }
 
             override fun onDebugLog(message: String) {
+                GuangqiSelfTest.onLogLine(message)
                 // Session log output switch (issue #186): drop everything before formatting,
                 // redaction or file IO to spare old head units the collection cost.
                 if (!LoggingGate.enabled) return

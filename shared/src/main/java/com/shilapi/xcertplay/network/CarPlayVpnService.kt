@@ -18,6 +18,7 @@ import com.shilapi.xcertplay.airplay.AirPlayMediaHandler
 import com.shilapi.xcertplay.airplay.AirPlaySession
 import com.shilapi.xcertplay.airplay.AirPlaySessionListener
 import com.shilapi.xcertplay.airplay.PairingStore
+import com.shilapi.xcertplay.airplay.WiredUdpUplink
 import com.shilapi.xcertplay.mfi.MfiAuthenticator
 import com.shilapi.xcertplay.transport.NcmUsbBridge
 import java.io.IOException
@@ -349,6 +350,13 @@ class CarPlayVpnService : VpnService() {
             Log.i(TAG, "replacing stale attachment for userspace lwIP")
             releaseLocked()
         }
+        // releaseLocked keeps the TUN for a kernel-network retry; with lwIP chosen it would only
+        // leave its fe80::/10 route behind.
+        tun?.let { stale ->
+            runCatching { stale.close() }
+            tun = null
+            runCatching { listener.onDebugLog("wired VPN TUN closed; userspace lwIP selected") }
+        }
         active.set(true)
         val generation = ++attachGeneration
         lastAttachFailure = null
@@ -370,6 +378,7 @@ class CarPlayVpnService : VpnService() {
             attachStage = "NCM lwIP bridge startup"
             lwip.start()
             lwipBridge = lwip
+            WiredUdpUplink.install(lwip)
             runCatching { listener.onDebugLog("wired userspace lwIP bridge started") }
 
             attachStage = "AirPlay loopback listener bind"
@@ -756,6 +765,7 @@ class CarPlayVpnService : VpnService() {
         closeSessionsLocked()
         bridge?.close()
         bridge = null
+        lwipBridge?.let(WiredUdpUplink::clear)
         lwipBridge?.close()
         lwipBridge = null
         runCatching { wiredBonjour?.close() }

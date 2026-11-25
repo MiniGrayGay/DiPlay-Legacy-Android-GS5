@@ -74,6 +74,13 @@
             android:process=":btprobe" android:exported="false" />
         <activity android:name="com.shilapi.xcertplay.BluetoothDiagnosticActivity"
             android:exported="false" android:theme="@style/Theme.Xcertplay" />
+        <!-- 广汽车机自检：要切到收音机再回到本页，所以单独一个任务 -->
+        <activity android:name="com.shilapi.xcertplay.CarSelfTestActivity"
+            android:exported="false" android:launchMode="singleTask"
+            android:taskAffinity="${applicationId}.selftest"
+            android:excludeFromRecents="true"
+            android:configChanges="density|keyboardHidden|orientation|screenLayout|screenSize|smallestScreenSize|uiMode"
+            android:theme="@style/Theme.Xcertplay" />
 
         <activity
             android:name="com.shilapi.xcertplay.CarPlayHostActivity"

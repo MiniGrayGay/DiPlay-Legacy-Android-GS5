@@ -60,7 +60,7 @@ android {
         multiDexEnabled = true
         multiDexKeepProguard = file("multidex-config.pro")
         testInstrumentationRunner = "com.shilapi.xcertplay.T3LegacyInstrumentation"
-        versionCode = 175
+        versionCode = 176
         versionName = "0.4.6.14-alpha3"
 
         ndk {

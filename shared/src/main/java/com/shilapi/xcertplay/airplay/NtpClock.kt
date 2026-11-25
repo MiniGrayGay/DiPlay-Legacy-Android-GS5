@@ -92,7 +92,11 @@ class NtpClock(private val bindReference: InetAddress? = null) : Closeable {
         val t1 = syncedNtp()
         synchronized(clockLock) { pendingT1 = t1 }
         ntpBytes(t1).copyInto(packet, NTP_TRANSMIT_OFFSET)
-        currentSocket()?.send(DatagramPacket(packet, packet.size, destination))
+        val bound = currentSocket() ?: return
+        // On wired lwIP the peer address is loopback; only the bridge reaches the iPhone.
+        WiredUdpUplink.deliver(bound.localPort, destination.port, packet) { wire ->
+            bound.send(DatagramPacket(wire, wire.size, destination))
+        }
     }
 
     private fun runReceiver() {

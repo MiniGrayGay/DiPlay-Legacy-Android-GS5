@@ -227,6 +227,20 @@ internal class QuickMenu(private val activity: ComponentActivity, private val ho
                 com.shilapi.xcertplay.orchestration.GuangqiStandingMicrophone.enabled(activity)) { enabled ->
                 com.shilapi.xcertplay.orchestration.GuangqiStandingMicrophone.setEnabled(activity, enabled)
             })
+            addRow(LinearLayout(activity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                addView(LinearLayout(activity).apply {
+                    orientation = LinearLayout.VERTICAL
+                    addView(activity.menuText(activity.getString(R.string.car_self_test), 18f, Color.WHITE))
+                    addView(activity.menuText(activity.getString(R.string.quick_self_test_note), 14f, MENU_SECONDARY)
+                        .apply { setPadding(0, dp(4), dp(16), 0) })
+                }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                addView(quickMenuButton(activity.getString(R.string.car_self_test_start), primary = false) {
+                    host.close()
+                    CarSelfTestActivity.open(activity)
+                }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(52)))
+            })
             // The head unit follows the car's power and has no power button: without this a restart
             // (for example to load a newer volume hook into system_server) needs the engine off.
             addRow(LinearLayout(activity).apply {

@@ -44,11 +44,7 @@ internal object GuangqiMicrophoneHolder {
 
     /** Reports the holders and ends them. Blocks; not for the main thread. */
     fun evict(context: Context, log: (String) -> Unit) {
-        val holders = runCatching { recordingPids(dump()) }
-            .onFailure { Log.w(TAG, "could not read the recording clients", it) }
-            .getOrDefault(emptyList())
-            .filter { it != android.os.Process.myPid() }
-            .map { it to processName(it) }
+        val holders = holders()
         if (holders.isEmpty()) {
             log("Microphone holder: none found")
             return
@@ -63,6 +59,13 @@ internal object GuangqiMicrophoneHolder {
                 done.getOrElse { "could not be ended: ${it.cause ?: it}" })
         }
     }
+
+    /** The other processes that are recording, by pid. Blocks. */
+    fun holders(): List<Pair<Int, String>> = runCatching { recordingPids(dump()) }
+        .onFailure { Log.w(TAG, "could not read the recording clients", it) }
+        .getOrDefault(emptyList())
+        .filter { it != android.os.Process.myPid() }
+        .map { it to processName(it) }
 
     private fun dump(): String {
         val process = ProcessBuilder("dumpsys", "media.audio_flinger").redirectErrorStream(true).start()
