@@ -74,13 +74,15 @@ object GuangqiStandingMicrophone {
         val reason = "standing microphone ${++opened}"
         GuangqiStockAssistant.acquire(app, reason)
         val log = sessionLog
+        fun say(message: String) {
+            Log.i(TAG, message)
+            runCatching { log?.invoke(message) }
+        }
         microphone = StandingMicrophone(
             source = { if (callsUseMic(app)) MediaRecorder.AudioSource.MIC else MediaRecorder.AudioSource.VOICE_COMMUNICATION },
             makeRoom = { GuangqiStockAssistant.reassert(app) },
-            log = { message ->
-                Log.i(TAG, message)
-                runCatching { log?.invoke(message) }
-            },
+            evict = { GuangqiMicrophoneHolder.evict(app, ::say) },
+            log = ::say,
             onReleased = { GuangqiStockAssistant.release(app, reason) },
         ).start()
     }

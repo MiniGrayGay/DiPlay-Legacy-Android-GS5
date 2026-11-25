@@ -24,6 +24,8 @@ internal class StandingMicrophone(
     private val openRecorder: (source: Int) -> AudioRecord? = ::openDefault,
     private val source: () -> Int = { MediaRecorder.AudioSource.VOICE_COMMUNICATION },
     private val makeRoom: () -> Unit = {},
+    /** The microphone is still refused after [EVICT_AFTER] attempts, and every [EVICT_EVERY] after that. */
+    private val evict: () -> Unit = {},
     private val log: (String) -> Unit = {},
     /** The recorder is gone for good; on the worker. */
     private val onReleased: () -> Unit = {},
@@ -125,6 +127,10 @@ internal class StandingMicrophone(
             }
             recorder = null
             opened?.let { runCatching { it.release() } }
+            // Refused, not unable to open: asking did not help, so someone else really holds it.
+            if (opened == null && running && openFailures == 0 && attempts >= EVICT_AFTER &&
+                (attempts - EVICT_AFTER) % EVICT_EVERY == 0
+            ) runCatching(evict)
             if (running) pause()
         }
         log("Standing microphone: released")
@@ -193,6 +199,10 @@ internal class StandingMicrophone(
         private const val RETRY_MILLIS = 500L
         private const val MAKE_ROOM_MILLIS = 15_000L
         private const val MAX_OPEN_FAILURES = 3
+        /** 3 s of asking; the car was seen to let go within 1 s. */
+        const val EVICT_AFTER = 6
+        /** 30 s. */
+        private const val EVICT_EVERY = 60
 
         private fun openDefault(source: Int): AudioRecord? {
             val min = AudioRecord.getMinBufferSize(SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)

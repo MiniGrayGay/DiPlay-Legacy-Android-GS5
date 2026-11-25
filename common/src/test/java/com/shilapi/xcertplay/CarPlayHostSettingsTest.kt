@@ -82,6 +82,26 @@ class CarPlayHostSettingsTest {
         }
     }
 
+    @Test fun theWaitingScreenPassesTheSwipeToTheMenu() {
+        activity.window.decorView // Creates the window this bare activity has none of.
+        assertEquals("no picture yet", View.VISIBLE, (field("connectionPanel") as View).visibility)
+        fun window(action: Int, fingers: Int, y: Float) {
+            val properties = Array(fingers) { MotionEvent.PointerProperties().apply { id = it } }
+            val coords = Array(fingers) { MotionEvent.PointerCoords().apply { x = 100f + it * 50; this.y = y; pressure = 1f; size = 1f } }
+            val full = if (action == MotionEvent.ACTION_POINTER_DOWN) action or ((fingers - 1) shl MotionEvent.ACTION_POINTER_INDEX_SHIFT) else action
+            activity.dispatchTouchEvent(MotionEvent.obtain(0, 0, full, fingers, properties, coords, 0, 0, 1f, 1f, 0, 0, 0, 0))
+        }
+        window(MotionEvent.ACTION_DOWN, 1, 100f)
+        window(MotionEvent.ACTION_POINTER_DOWN, 2, 100f)
+        window(MotionEvent.ACTION_POINTER_DOWN, 3, 100f)
+        assertFalse(field("menuOpen") as Boolean)
+        window(MotionEvent.ACTION_MOVE, 3, 700f)
+        assertTrue(field("menuOpen") as Boolean)
+        window(MotionEvent.ACTION_UP, 1, 700f)
+        assertTrue("the end of the swipe does not close it", field("menuOpen") as Boolean)
+        invoke("cancelSettingsEdits")
+    }
+
     @Test fun wrongFingerCountsAndNonDownwardSwipesDoNotOpenTheMenu() {
         for (configured in 2..4) {
             AirPlayPersistence.saveSettingsGestureFingers(activity, configured)

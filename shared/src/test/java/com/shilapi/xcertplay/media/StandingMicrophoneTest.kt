@@ -49,8 +49,11 @@ class StandingMicrophoneTest {
         }
     }
 
+    private val evicted = AtomicInteger()
+
     private fun standing(open: (Int) -> AudioRecord?) = StandingMicrophone(
         openRecorder = { open(opened.incrementAndGet()) },
+        evict = { evicted.incrementAndGet() },
         makeRoom = { madeRoom.incrementAndGet() },
         onReleased = released::countDown,
         retryMillis = 20,
@@ -70,11 +73,19 @@ class StandingMicrophoneTest {
         val reader = mic.subscribe()!!
         assertEquals(StandingMicrophone.CHUNK_BYTES, reader.awaitAudio())
         assertEquals("three refusals, then held", 4, opened.get())
+        assertEquals("asking was enough", 0, evicted.get())
         val asked = madeRoom.get()
         assertTrue("asked before every attempt", asked >= 4)
         Thread.sleep(300)
         assertTrue("asked again while recording", madeRoom.get() > asked)
         assertEquals("one recorder throughout", 4, opened.get())
+    }
+
+    @Test fun theHolderIsEvictedOnlyAfterAskingDidNotHelp() {
+        val mic = standing { attempt -> FakeRecord(granted = attempt > StandingMicrophone.EVICT_AFTER) }.start()
+        assertEquals(StandingMicrophone.CHUNK_BYTES, mic.subscribe()!!.awaitAudio())
+        assertEquals(1, evicted.get())
+        assertEquals(StandingMicrophone.EVICT_AFTER + 1, opened.get())
     }
 
     @Test fun aReaderKeepsReadingWhenTheRecorderHasToBeOpenedAgain() {

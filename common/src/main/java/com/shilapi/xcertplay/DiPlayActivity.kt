@@ -35,6 +35,7 @@ import android.os.SystemClock
 import android.provider.Settings
 import android.util.Log
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.*
@@ -287,7 +288,8 @@ class DiPlayActivity : ComponentActivity() {
         }
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                if (page != "home") navigateBack()
+                if (quickMenu != null) closeQuickMenu()
+                else if (page != "home") navigateBack()
                 else { isEnabled = false; onBackPressedDispatcher.onBackPressed(); isEnabled = true }
             }
         })
@@ -422,6 +424,58 @@ class DiPlayActivity : ComponentActivity() {
             SettingsLayoutPolicy.isExpanded(it.screenWidthDp, it.screenHeightDp, it.fontScale)
         }
 
+    private var quickMenu: QuickMenu? = null
+    private val settingsSwipe = SettingsSwipe()
+
+    /** The settings swipe opens the quick menu here too, so it can be reached without CarPlay. */
+    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        val density = resources.displayMetrics.density
+        if (quickMenu == null) {
+            when (settingsSwipe.onTouch(event, AirPlayPersistence.loadSettingsGestureFingers(this), density)) {
+                SettingsSwipe.Result.PASS -> Unit
+                SettingsSwipe.Result.TAKEN -> {
+                    SettingsSwipe.cancelled(event) { super.dispatchTouchEvent(it) }
+                    return true
+                }
+                SettingsSwipe.Result.CONSUMED -> return true
+                SettingsSwipe.Result.OPEN -> {
+                    openQuickMenu()
+                    return true
+                }
+            }
+        } else if (settingsSwipe.active) {
+            settingsSwipe.onTouch(event, AirPlayPersistence.loadSettingsGestureFingers(this), density)
+            return true
+        }
+        return super.dispatchTouchEvent(event)
+    }
+
+    private fun openQuickMenu() {
+        if (quickMenu != null) return
+        quickMenu = QuickMenu(this, object : QuickMenu.Host {
+            // Nothing to reconnect here; a session in the background gets the reconnect bar.
+            override fun changedSession() = markReconnectNeeded()
+            override fun close() = closeQuickMenu()
+            override fun openDiPlay(page: String) {
+                this@DiPlayActivity.page = page
+                render()
+            }
+        }).also { showAbovePage(it.view) }
+    }
+
+    private fun showAbovePage(view: View) {
+        (view.parent as? ViewGroup)?.removeView(view)
+        findViewById<ViewGroup>(android.R.id.content).addView(view, ViewGroup.LayoutParams(-1, -1))
+    }
+
+    private fun closeQuickMenu() {
+        val menu = quickMenu ?: return
+        quickMenu = null
+        (menu.view.parent as? ViewGroup)?.removeView(menu.view)
+        // The page below shows the same settings.
+        render()
+    }
+
     private fun render() {
         enforceInterfaceSize()
         applyPalette()
@@ -468,6 +522,8 @@ class DiPlayActivity : ComponentActivity() {
             scroll
         }
         setContentView(root)
+        // The menu stays above a page that renders again below it.
+        quickMenu?.view?.let(::showAbovePage)
         renderedPage = page
         renderedSettingsCategory = settingsCategory.takeIf { page == "settings" }
         refreshStatus()
@@ -3225,11 +3281,6 @@ class DiPlayActivity : ComponentActivity() {
         AirPlayPersistence.saveCarplayAutoDisconnectBt(this, false)
         autoDisconnectBtSwitch?.isChecked = false
     }
-
-    private fun usbBluetoothDonglePresent(): Boolean = runCatching {
-        val usbManager = getSystemService(Context.USB_SERVICE) as? UsbManager ?: return false
-        UsbBtDongleDetector(applicationContext).findDongles(usbManager).isNotEmpty()
-    }.getOrDefault(false)
 
     private fun openBluetoothDiagnostics() {
         runCatching { startActivity(Intent(this, BluetoothDiagnosticActivity::class.java)) }
