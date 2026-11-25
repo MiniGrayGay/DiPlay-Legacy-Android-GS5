@@ -270,7 +270,7 @@ class GuangqiSelfTest(context: Context, private val host: Host) {
         val token = Any()
         return openMicrophone().use { mic ->
             val without = playAndListen(mic)
-            source.started(token) { host.log("   $it") }
+            source.started(token, "Siri") { host.log("   $it") }
             val during: Int?
             val with: Double
             try {

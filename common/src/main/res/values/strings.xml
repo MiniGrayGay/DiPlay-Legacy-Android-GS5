@@ -558,6 +558,7 @@
     <string name="settings_wired_network">Wired network</string>
     <string name="settings_wired_network_lwip">lwIP (userspace)</string>
     <string name="settings_wired_network_tun">TUN (kernel)</string>
+    <string name="settings_wired_network_fallback">Wired TUN did not connect; using lwIP this time</string>
     <string name="settings_wired_network_description">Which network stack wired CarPlay uses. TUN: the system kernel (default). lwIP: built into DiPlay; try it if wired CarPlay does not connect. Takes effect at the next connection.</string>
     <string name="settings_root_hotspot_mode">Root hotspot (hostapd) (experimental)</string>
     <string name="settings_carplay_auto_disconnect_bt">Turn off Bluetooth auto-connect while CarPlay is connected (experimental)</string>

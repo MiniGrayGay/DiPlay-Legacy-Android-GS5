@@ -238,7 +238,7 @@ class CarPlayHostActivity : ComponentActivity() {
         carplayAutoDisconnectBt = carplayAutoDisconnectBt,
         locationReportingEnabled = locationReportingEnabled,
         directUsbfsMode = AirPlayPersistence.loadDirectUsbfsMode(this),
-        userspaceNetworkEnabled = !AirPlayPersistence.loadWiredKernelTun(this),
+        userspaceNetworkEnabled = !WiredNetwork.kernelTun(this),
     )
 
     private val vpnConsent =
@@ -3856,6 +3856,12 @@ class CarPlayHostActivity : ComponentActivity() {
 
     private fun reconnectAfterLoss(reason: String, startupFailure: WirelessStartupFailure? = null) {
         if (!CarPlayBackgroundSession.isOwner(this)) return
+        // First: an attach failure is reported twice, and the reconnect may be scheduled already.
+        val tunFellBack = !wirelessEnabled && WiredNetwork.fallBack(this, reason)
+        if (tunFellBack) {
+            appendLog("wired TUN failed ($reason); the next attempt uses lwIP")
+            android.widget.Toast.makeText(this, R.string.settings_wired_network_fallback, android.widget.Toast.LENGTH_LONG).show()
+        }
         if (menuOpen) recoveryPendingAfterMenu = true
         if (shuttingDown.get() || menuOpen || handshakeResetInProgress || startupRetryStopped) return
         if (reconnectScheduled) return
@@ -3863,7 +3869,7 @@ class CarPlayHostActivity : ComponentActivity() {
         // uid/rule rejected with "Invalid argument" / "Device or resource busy" / "No such
         // device"), the app cannot clear it — every re-establish fails identically. Stop the
         // automatic retry loop instead of hammering a doomed establish; the user must reboot.
-        if (isUnrecoverableVpnState(reason)) {
+        if (!tunFellBack && isUnrecoverableVpnState(reason)) {
             appendLog("wired VPN netd state unrecoverable; automatic retry stopped, reboot required generation=$restartGeneration")
             setConnectionStage(reason)
             return
@@ -3875,7 +3881,8 @@ class CarPlayHostActivity : ComponentActivity() {
         // then stop and ask for a physical replug instead of looping forever. The
         // counter resets when a session activates, when the user taps Retry, or when
         // the controller reports it is waiting for a (re)plugged iPhone.
-        if (!wirelessEnabled && realSdkInt() < Build.VERSION_CODES.LOLLIPOP &&
+        // A TUN that gave way to lwIP is not counted: lwIP has not failed yet.
+        if (!tunFellBack && !wirelessEnabled && realSdkInt() < Build.VERSION_CODES.LOLLIPOP &&
             reason.contains("No AirPlay TCP after CarPlay StartSession")
         ) {
             wiredNoTcpFailures += 1

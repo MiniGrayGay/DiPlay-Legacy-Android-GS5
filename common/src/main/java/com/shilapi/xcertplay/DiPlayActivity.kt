@@ -1641,7 +1641,7 @@ class DiPlayActivity : ComponentActivity() {
             choice(card, getString(R.string.settings_wired_network),
                 listOf(getString(R.string.settings_wired_network_lwip), getString(R.string.settings_wired_network_tun)),
                 if (AirPlayPersistence.loadWiredKernelTun(this)) 1 else 0, reconnects = false) {
-                AirPlayPersistence.saveWiredKernelTun(this, it == 1)
+                WiredNetwork.choose(this, kernelTun = it == 1)
                 markReconnectNeeded()
             }
             card.addView(label(getString(R.string.settings_wired_network_description), 14, MUTED).apply { setPadding(0, 0, 0, dp(18)) })

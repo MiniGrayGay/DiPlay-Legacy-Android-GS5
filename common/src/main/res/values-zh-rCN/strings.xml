@@ -523,6 +523,7 @@
     <string name="settings_wired_network">有线网络</string>
     <string name="settings_wired_network_lwip">lwIP（用户态）</string>
     <string name="settings_wired_network_tun">TUN（内核态）</string>
+    <string name="settings_wired_network_fallback">有线 TUN 没连上，这次改用 lwIP</string>
     <string name="settings_wired_network_description">有线 CarPlay 用哪个网络栈。TUN：系统内核的网络（默认）。lwIP：DiPlay 内置的网络，有线连不上时可改用。下次连接时生效。</string>
     <string name="settings_root_hotspot_mode">Root 热点（hostapd）（实验性）</string>
     <string name="settings_carplay_auto_disconnect_bt">CarPlay 期间关闭蓝牙自动连接（实验性）</string>
