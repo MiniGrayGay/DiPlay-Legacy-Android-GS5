@@ -67,6 +67,10 @@ class NcmUsbBridge internal constructor(
     private var ncmWriteSubmittedChunks = 0
     private var ncmWriteCompletedChunks = 0
     private var ncmWriteSuccessBytes = 0
+    /** When this bridge first tried bulk OUT, and whether its first success was reported. */
+    private var firstWriteAttemptNs = 0L
+    private var firstWriteFailures = 0
+    private var firstWriteReported = false
 
     // Throughput timing for diagnostic reports. Read-side values are only touched by the reader
     // thread (under readLock); write-side values are guarded by perfLock.
@@ -162,6 +166,7 @@ class NcmUsbBridge internal constructor(
         }
         val block = build(sequence)
         val perfStarted = System.nanoTime()
+        if (firstWriteAttemptNs == 0L) firstWriteAttemptNs = perfStarted
         ensureWriteWatchdog()
         ensureStallWatchdog()
         writeInFlightSinceNs = System.nanoTime()
@@ -206,6 +211,15 @@ class NcmUsbBridge internal constructor(
                 perfWriteNanos += elapsed
                 if (elapsed > perfWriteMaxNanos) perfWriteMaxNanos = elapsed
             }
+        }
+        // How long bulk OUT took to come up on this link: the wired TUN and lwIP paths are
+        // compared on it (the TUN path once waited ~17 s here, docs/DiPlay-VPN-TUN修复记录.md).
+        if (transferred > 0 && !firstWriteReported) {
+            firstWriteReported = true
+            val waitedMs = (System.nanoTime() - firstWriteAttemptNs) / 1_000_000L
+            onDiagnostic("ncm first bulk-out completed after ${waitedMs}ms failedBefore=$firstWriteFailures bytes=$transferred")
+        } else if (transferred <= 0 && !firstWriteReported) {
+            firstWriteFailures++
         }
         // Before StartCarPlaySession the phone keeps the NCM data path NAKed. Android reports the
         // resulting timeout as -1; it is not a detach and later packets must be allowed to retry.

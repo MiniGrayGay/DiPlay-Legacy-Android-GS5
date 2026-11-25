@@ -5,3 +5,8 @@
 -keep class androidx.multidex.** { *; }
 -keep class com.shilapi.xcertplay.LoggingGate { *; }
 -keep class com.shilapi.xcertplay.FloatingDotOverlay { *; }
+# Guangqi volume hook: runs in system_server, which never installs the secondary dex files.
+-keep class com.shilapi.xcertplay.orchestration.GuangqiVolumeHook { *; }
+-keep class com.shilapi.xcertplay.orchestration.GuangqiVolumeHook$* { *; }
+-keep class com.shilapi.xcertplay.orchestration.GuangqiVolumeHookReceiver { *; }
+-keep class kotlin.jvm.internal.Intrinsics { *; }

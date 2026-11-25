@@ -62,6 +62,10 @@ internal class AudioFocusCoordinator(
     /** Guangqi: holds the car's navigation source while guidance plays; inert elsewhere. */
     private val guidanceSource = context?.let { runCatching { GuangqiNavigationSource.get(it) }.getOrNull() }
         ?.takeIf { it.available }
+    /** Guangqi: holds the car's voice source while Siri would not be heard; inert elsewhere. */
+    private val assistantSource = context?.let { runCatching { GuangqiAssistantSource.get(it) }.getOrNull() }
+        ?.takeIf { it.available }
+    private val assistantTracks = LinkedHashSet<AudioTrack>()
     /** Music lowered by [GuangqiNavigationSource] while the car switches to navigation. */
     private var switchDucking = false
     /** Wall clock of the last music PCM write; tells the switch whether music would be heard. */
@@ -161,6 +165,10 @@ internal class AudioFocusCoordinator(
         // registration also runs for the duck alone; refreshRequest() itself
         // stays gated on the focus setting and issues no request then.
         if (closed || manager == null) return
+        // Whatever the focus settings: without it Siri is silent over the radio.
+        if (channel == AudioChannel.ASSISTANT && assistantSource != null && assistantTracks.add(track)) {
+            assistantSource.started(track, report)
+        }
         // The Guangqi navigation switch lowers music through the same per-track bookkeeping.
         if (!enabled && !announcementDuckEnabled && guidanceSource == null) return
         active[track] = Entry(channel, attributes)
@@ -179,6 +187,7 @@ internal class AudioFocusCoordinator(
 
     @Synchronized
     fun release(track: AudioTrack) {
+        if (assistantTracks.remove(track)) assistantSource?.ended(track)
         if (active.remove(track) != null) refreshRequest()
     }
 
@@ -232,6 +241,8 @@ internal class AudioFocusCoordinator(
         if (closed) return
         closed = true
         guidanceSource?.releaseNow()
+        assistantSource?.endedAll(assistantTracks.toList())
+        assistantTracks.clear()
         active.clear()
         announcementDucking = false
         announcementTimerArmed = false
@@ -500,6 +511,8 @@ class AndroidMediaSink(
     private val onAudioDiagnostic: (String) -> Unit = {},
     /** True while any music ("media") audio stream is running; called from media threads. */
     private val onMediaAudioChanged: (Boolean) -> Unit = {},
+    /** A Siri stream opened or the last one closed. */
+    private val onSiriAudioChanged: (Boolean) -> Unit = {},
     /** Opt-in call echo cancellation, replacing a controllable platform canceller while available. */
     private val callEchoCancellation: Boolean = false,
     /** Cut the bass that head units add when they play a call as music. */
@@ -559,6 +572,7 @@ class AndroidMediaSink(
     internal var detachTimeoutNanos = 2_000_000_000L
     internal var detachGraceNanos = 500_000_000L
     private val mediaAudioTypes = mutableSetOf<AudioStreamId>()
+    private val siriAudio = mutableSetOf<AudioStreamId>()
     private val audioRenderers = ConcurrentHashMap<AudioStreamId, AudioRenderer>()
     private val microphoneUplinks = ConcurrentHashMap<AudioStreamId, MicrophoneUplink>()
     private val audioModeLock = Any()
@@ -859,6 +873,7 @@ class AndroidMediaSink(
     override fun onAudioStarted(id: AudioStreamId, format: AudioFormat, firstSample: Int) {
         audioRenderer(id, format).start()
         if (format.audioType == "media") updateMediaAudio(id, true)
+        if (format.audioType == SIRI_AUDIO_TYPE) updateSiriAudio(id, true)
     }
 
     override fun onAudioRtp(id: AudioStreamId, format: AudioFormat, rtp: ByteArray, sample: Int) {
@@ -870,7 +885,17 @@ class AndroidMediaSink(
             audioRenderers.remove(id)?.close()
             callEchoReferences.remove(id)
         }
+        updateSiriAudio(id, false)
         updateMediaAudio(id, false)
+    }
+
+    private fun updateSiriAudio(id: AudioStreamId, active: Boolean) {
+        val (before, after) = synchronized(siriAudio) {
+            val before = siriAudio.isNotEmpty()
+            if (active) siriAudio.add(id) else siriAudio.remove(id)
+            before to siriAudio.isNotEmpty()
+        }
+        if (before != after) onSiriAudioChanged(after)
     }
 
     private fun updateMediaAudio(id: AudioStreamId, active: Boolean) {
@@ -921,6 +946,7 @@ class AndroidMediaSink(
                     echoReference = if (config.audioType == TELEPHONY_AUDIO_TYPE && !callMicCompatibility) callEchoReferences[id] else null,
                     callMicCompatibility = callMicCompatibility,
                     context = appContext,
+                    standing = com.shilapi.xcertplay.orchestration.GuangqiStandingMicrophone.current(),
                 )
             }
             if (!uplink.start()) {
@@ -1099,6 +1125,8 @@ class AndroidMediaSink(
         audioRenderers.values.forEach(AudioRenderer::close)
         audioRenderers.clear()
         callEchoReferences.clear()
+        val hadSiri = synchronized(siriAudio) { siriAudio.isNotEmpty().also { siriAudio.clear() } }
+        if (hadSiri) onSiriAudioChanged(false)
         val hadMedia = synchronized(mediaAudioTypes) { mediaAudioTypes.isNotEmpty().also { mediaAudioTypes.clear() } }
         if (hadMedia) onMediaAudioChanged(false)
         try {
@@ -1178,6 +1206,7 @@ class AndroidMediaSink(
 
     internal companion object {
         const val TELEPHONY_AUDIO_TYPE = "telephony"
+        const val SIRI_AUDIO_TYPE = "speechrecognition"
     }
 }
 
@@ -2145,6 +2174,10 @@ private class AudioRenderer(
     private var statsWindowStartNs = 0L
     private var statsLastUnderruns = 0
     private var bytesPerSecond = 0
+    /** Guangqi: the car and its call sound were heard about a second late. */
+    private val callTrim = if (format.audioType == AndroidMediaSink.TELEPHONY_AUDIO_TYPE &&
+        com.shilapi.xcertplay.orchestration.GuangqiStandingMicrophone.supported()) CallPlaybackTrim() else null
+    private var callTrimReportedMillis = 0L
     private val bufferProgress = AudioBufferProgress(if (format.channels >= 2) 4 else 2)
     private var underrunsAtPlaybackStart = 0
     private var lastPcmWriteNs = 0L
@@ -2912,6 +2945,13 @@ private class AudioRenderer(
                 "audio first PCM type=${format.payloadType} bytes=$length",
             )
         }
+        if (callTrim != null && playbackStarted && length > 0) {
+            val frames = length / frameBytes
+            val played = track.playbackHeadPosition.toLong() and 0xffffffffL
+            val waiting = (totalWrittenFrames - played).coerceAtLeast(0L) + queue.size.toLong() * frames
+            if (callTrim.drop(waiting * 1_000L / format.sampleRate, frames * 1_000L / format.sampleRate,
+                    pcm16Peak(data, offset, length))) return
+        }
         voiceFilter?.process(data, offset, length)
         if (!fadeApplied) {
             applyFadeIn(data, offset, length)
@@ -3059,6 +3099,10 @@ private class AudioRenderer(
             "decoderDroppedTotal=$inputDropped outputBuffersTotal=$outputBuffers rebuffers=$rebufferCount ended=$force"
         Log.i(STATS_TAG, line)
         report(line)
+        callTrim?.droppedMillis?.takeIf { it != callTrimReportedMillis }?.let { total ->
+            report("Audio: call playback trimmed ms=${total - callTrimReportedMillis} totalMs=$total")
+            callTrimReportedMillis = total
+        }
         if (format.codec != AudioCodecKind.LPCM) {
             // Keep this separate: the exported diagnostic recorder caps each line at 700 characters.
             val decoderLine = "Audio: decoder stats audioType=${format.audioType} codec=${format.codec} " +

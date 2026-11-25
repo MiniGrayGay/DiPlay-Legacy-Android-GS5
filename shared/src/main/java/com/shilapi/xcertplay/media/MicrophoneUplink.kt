@@ -14,6 +14,7 @@ import com.shilapi.xcertplay.airplay.AudioCodecKind
 import com.shilapi.xcertplay.airplay.MicrophoneConfig
 import com.shilapi.xcertplay.airplay.MicrophoneCounters
 import com.shilapi.xcertplay.airplay.MicrophonePacketizer
+import com.shilapi.xcertplay.airplay.WiredUdpUplink
 import java.io.Closeable
 import java.net.DatagramPacket
 import java.net.DatagramSocket
@@ -24,8 +25,9 @@ import java.util.concurrent.atomic.AtomicBoolean
 /**
  * Captures one PCM microphone stream and sends it back to the phone as sealed CarPlay RTP.
  *
- * The recorder runs only while the matching audio stream is active, so callers start this after
- * the first downlink audio packet and close it on stream teardown.
+ * Its own recorder runs only while the matching audio stream is active, so callers start this after
+ * the first downlink audio packet and close it on stream teardown. With a [standing] microphone it
+ * reads that one instead and opens none.
  */
 internal class MicrophoneUplink(
     private val config: MicrophoneConfig,
@@ -37,8 +39,11 @@ internal class MicrophoneUplink(
     },
     private val callMicCompatibility: Boolean = false,
     private val context: android.content.Context? = null,
+    private val standing: StandingMicrophone? = null,
 ) : Closeable {
     private val running = AtomicBoolean(false)
+    /** The wired relay's first refusal is reported once; the counters carry the rest. */
+    @Volatile private var relayFailureReported = false
     private val stats = MicrophoneCaptureStats(config, report = { message ->
         Log.i(TAG, message)
         onDiagnostic(message)
@@ -54,6 +59,7 @@ internal class MicrophoneUplink(
         runCatching { onDiagnostic(message) }
     }
     @Volatile private var recorder: AudioRecord? = null
+    @Volatile private var standingReader: StandingMicrophone.Reader? = null
     @Volatile private var socket: DatagramSocket? = null
     @Volatile private var opusEncoder: OpusEncoder? = null
     @Volatile private var effects: List<AudioEffect> = emptyList()
@@ -66,6 +72,7 @@ internal class MicrophoneUplink(
     fun start(): Boolean {
         if (!running.compareAndSet(false, true)) return true
 
+        val reader = if (config.channels == 1 && config.sampleRate in STANDING_RATES) standing?.subscribe() else null
         val channelMask = if (config.channels >= 2) {
             AndroidAudioFormat.CHANNEL_IN_STEREO
         } else {
@@ -79,9 +86,10 @@ internal class MicrophoneUplink(
             32000 -> listOf(32000, 48000, 16000)
             else -> listOf(config.sampleRate)
         }
-        var selectedRate = config.sampleRate
+        var selectedRate = reader?.sampleRate ?: config.sampleRate
         var minBuffer = -1
         for (rate in candidateRates) {
+            if (reader != null) break
             val min = AudioRecord.getMinBufferSize(
                 rate,
                 channelMask,
@@ -93,7 +101,7 @@ internal class MicrophoneUplink(
                 break
             }
         }
-        if (minBuffer <= 0) {
+        if (reader == null && minBuffer <= 0) {
             Log.w(TAG, "microphone unavailable rate=${config.sampleRate} channels=${config.channels}")
             stats.failure(MicrophoneFailureStage.MIN_BUFFER, code = minBuffer)
             running.set(false)
@@ -124,6 +132,7 @@ internal class MicrophoneUplink(
         if (config.codec == AudioCodecKind.OPUS && nextEncoder == null) {
             Log.w(TAG, "microphone Opus encoder is unavailable")
             stats.failure(MicrophoneFailureStage.ENCODER)
+            reader?.close()
             running.set(false)
             return false
         }
@@ -136,14 +145,14 @@ internal class MicrophoneUplink(
         }
         val bufferSize = maxOf(minBuffer * 2, config.frameBytes * 4 * scale)
         // Some head units throw on VOICE_RECOGNITION at build(); VOICE_COMMUNICATION works there.
-        val nextRecorder = createRecorder(source, channelMask, bufferSize)
+        val nextRecorder = if (reader != null) null else createRecorder(source, channelMask, bufferSize)
             ?: if (source == MediaRecorder.AudioSource.VOICE_RECOGNITION) {
                 stats.useVoiceCommunicationSource()
                 createRecorder(MediaRecorder.AudioSource.VOICE_COMMUNICATION, channelMask, bufferSize)
             } else {
                 null
             }
-        if (nextRecorder == null) {
+        if (reader == null && nextRecorder == null) {
             nextEncoder?.close()
             running.set(false)
             return false
@@ -154,20 +163,25 @@ internal class MicrophoneUplink(
         } catch (error: Exception) {
             Log.e(TAG, "microphone socket creation failed", error)
             stats.failure(MicrophoneFailureStage.SOCKET_CREATION, error)
-            nextRecorder.release()
+            nextRecorder?.release()
+            reader?.close()
             nextEncoder?.close()
             running.set(false)
             return false
         }
 
         recorder = nextRecorder
-        usedSource = source
+        standingReader = reader
+        usedSource = reader?.audioSource ?: source
+        if (reader != null) stats.useStandingMicrophone()
         socket = nextSocket
         opusEncoder = nextEncoder
         return try {
             if (config.audioType == "telephony" && !callMicCompatibility) {
                 echoCanceller = createEchoCanceller()
-                effects = voiceEffects(nextRecorder.audioSessionId)
+                // While the standing recorder is still being opened there is nothing to attach to.
+                val session = nextRecorder?.audioSessionId ?: reader?.audioSessionId?.takeIf { it != 0 }
+                session?.let { effects = voiceEffects(it) }
                 // Report the final state (voiceEffects can still veto the software
                 // canceller when the platform AEC cannot be disabled).
                 diagnose(
@@ -175,9 +189,9 @@ internal class MicrophoneUplink(
                         "referencePresent=${echoReference != null} tail=${ECHO_TAIL_MILLIS}ms",
                 )
             }
-            nextRecorder.startRecording()
-            stats.started(routeType(nextRecorder))
-            thread = Thread({ capture(nextRecorder, nextSocket) }, "carplay-mic").apply {
+            nextRecorder?.startRecording()
+            stats.started(nextRecorder?.let(::routeType))
+            thread = Thread({ capture(nextRecorder, reader, nextSocket) }, "carplay-mic").apply {
                 isDaemon = true
                 start()
             }
@@ -307,7 +321,8 @@ internal class MicrophoneUplink(
         }
     }
 
-    private fun capture(recorder: AudioRecord, socket: DatagramSocket) {
+    /** From [recorder], or from the standing microphone when it is null. */
+    private fun capture(recorder: AudioRecord?, reader: StandingMicrophone.Reader?, socket: DatagramSocket) {
         val frame = ByteArray(config.frameBytes)
         val readBuffer = ByteArray(maxOf(frame.size, MIN_READ_BYTES))
         val rawBuffer = if (actualSampleRate != config.sampleRate) {
@@ -319,22 +334,27 @@ internal class MicrophoneUplink(
             readBuffer
         }
         val counters = MicrophoneCounters()
-        val routeInfo = { routeType(recorder) }
+        val routeInfo = { recorder?.let(::routeType) }
         var canceller = echoCanceller
         val clock = canceller?.let { CaptureClock(actualSampleRate) }
         val reference = canceller?.let { ShortArray(it.frameSamples) }
         var filled = 0
+        val gap = if (recorder == null) MicrophoneGap(config.frameMillis) else null
         try {
-            awaitRecording(recorder)
+            recorder?.let(::awaitRecording)
             while (running.get()) {
                 stats.reading()
-                val count = if (realSdkInt() >= android.os.Build.VERSION_CODES.M) {
-                    recorder.read(rawBuffer, 0, rawBuffer.size, AudioRecord.READ_BLOCKING)
-                } else {
-                    recorder.read(rawBuffer, 0, rawBuffer.size)
+                val count = when {
+                    recorder == null -> reader!!.read(rawBuffer)
+                    realSdkInt() >= android.os.Build.VERSION_CODES.M ->
+                        recorder.read(rawBuffer, 0, rawBuffer.size, AudioRecord.READ_BLOCKING)
+                    else -> recorder.read(rawBuffer, 0, rawBuffer.size)
                 }
                 stats.read(count)
-                if (count > 0) clock?.read(recorder, count / 2)
+                if (count > 0) {
+                    if (recorder != null) clock?.read(recorder, count / 2)
+                    else clock?.readEnded(reader!!.lastReadEndNs, count / 2)
+                }
                 if (count < 0) {
                     if (running.get()) {
                         Log.e(TAG, "microphone read failed code=$count")
@@ -343,9 +363,18 @@ internal class MicrophoneUplink(
                     return
                 }
                 if (count == 0) {
+                    val missing = gap?.idle(System.nanoTime()) ?: 0
+                    if (missing > 0) {
+                        // Frames the recorder will never deliver: without them every later packet's
+                        // timestamp is behind real time, and stays so until the stream ends.
+                        val silence = ByteArray(frame.size)
+                        repeat(missing) { sendFrame(socket, counters, silence, captured = false) }
+                        stats.filled(missing)
+                    }
                     stats.flush(routeType = routeInfo)
                     continue
                 }
+                gap?.heard(System.nanoTime())
                 val processedCount = when {
                     actualSampleRate == 48000 && config.sampleRate == 24000 ->
                         downsample48To24(rawBuffer, count, readBuffer)
@@ -355,6 +384,8 @@ internal class MicrophoneUplink(
                         downsample48To32(rawBuffer, count, readBuffer)
                     actualSampleRate == 16000 && config.sampleRate == 32000 ->
                         upsample16To32(rawBuffer, count, readBuffer)
+                    actualSampleRate == 48000 && config.sampleRate == 16000 ->
+                        downsample48To16(rawBuffer, count, readBuffer)
                     else -> count
                 }
                 var offset = 0
@@ -407,8 +438,8 @@ internal class MicrophoneUplink(
         return true
     }
 
-    private fun sendFrame(socket: DatagramSocket, counters: MicrophoneCounters, frame: ByteArray) {
-        stats.frameSilent(isFrameSilent(frame))
+    private fun sendFrame(socket: DatagramSocket, counters: MicrophoneCounters, frame: ByteArray, captured: Boolean = true) {
+        if (captured) stats.frameSilent(isFrameSilent(frame))
         val bodies = if (config.codec == AudioCodecKind.OPUS) {
             opusEncoder?.encode(frame).orEmpty()
         } else {
@@ -439,8 +470,19 @@ internal class MicrophoneUplink(
             samples = samples,
         )
         try {
-            socket.send(DatagramPacket(packet, packet.size, config.host, config.port))
-            stats.sent()
+            // On wired lwIP config.host is loopback; only the bridge reaches the iPhone.
+            val delivered = WiredUdpUplink.deliver(config.relayPort, config.port, packet) { wire ->
+                socket.send(DatagramPacket(wire, wire.size, config.host, config.port))
+            }
+            if (delivered) {
+                stats.sent()
+            } else {
+                stats.sendFailed()
+                if (!relayFailureReported) {
+                    relayFailureReported = true
+                    diagnose("Microphone: wired relay could not send to the iPhone port=${config.port} relayPort=${config.relayPort}")
+                }
+            }
         } catch (error: Exception) {
             stats.sendFailed()
             if (running.get()) throw error
@@ -499,7 +541,7 @@ internal class MicrophoneUplink(
             releaseEffect(aec)
         }
         enabledEffect("AEC") {
-            if (AcousticEchoCanceler.isAvailable()) AcousticEchoCanceler.create(recorder!!.audioSessionId) else null
+            if (AcousticEchoCanceler.isAvailable()) AcousticEchoCanceler.create(recorder?.audioSessionId ?: standingReader!!.audioSessionId) else null
         }?.let { effects = effects + it }
         Log.i(TAG, "microphone native echo processing stopped; using platform effects")
     }
@@ -519,6 +561,7 @@ internal class MicrophoneUplink(
             stats.silentFrameCount() >= BROKEN_SILENCE_FRAMES
         ) {
             voiceCommunicationSilentBroken = true
+            standing?.reopen()
             val msg = "microphone telephony VOICE_COMMUNICATION captured only silence" +
                 " (${stats.silentFrameCount()} frames); future telephony uplinks will use MIC"
             Log.w(TAG, msg)
@@ -530,6 +573,7 @@ internal class MicrophoneUplink(
                 }
             }
         }
+        standingReader?.close()
         try {
             recorder?.stop()
         } catch (_: Exception) {
@@ -559,6 +603,7 @@ internal class MicrophoneUplink(
         currentEffects.forEach(::releaseEffect)
         echoCanceller?.close()
         echoCanceller = null
+        standingReader?.close()
         val currentRecorder = recorder
         recorder = null
         try {
@@ -594,6 +639,8 @@ internal class MicrophoneUplink(
         @Volatile var voiceCommunicationSilentBroken = false
         /** Minimum silent frames before declaring VOICE_COMMUNICATION broken (~4s at 20ms). */
         const val BROKEN_SILENCE_FRAMES = 200L
+        /** Rates a standing 48 kHz capture converts to. */
+        private val STANDING_RATES = setOf(48_000, 32_000, 24_000, 16_000)
 
         internal fun downsample48To24(input: ByteArray, inputCount: Int, output: ByteArray): Int {
             val samplesIn = inputCount / 2
@@ -650,6 +697,21 @@ internal class MicrophoneUplink(
             return maxGroups * 4
         }
 
+        internal fun downsample48To16(input: ByteArray, inputCount: Int, output: ByteArray): Int {
+            val samplesOut = minOf(inputCount / 6, output.size / 2)
+            for (i in 0 until samplesOut) {
+                var sum = 0
+                for (k in 0 until 3) {
+                    val at = i * 6 + k * 2
+                    sum += ((input[at].toInt() and 0xFF) or (input[at + 1].toInt() shl 8)).toShort().toInt()
+                }
+                val avg = sum / 3
+                output[i * 2] = (avg and 0xFF).toByte()
+                output[i * 2 + 1] = ((avg shr 8) and 0xFF).toByte()
+            }
+            return samplesOut * 2
+        }
+
         internal fun upsample16To32(input: ByteArray, inputCount: Int, output: ByteArray): Int {
             val samplesIn = inputCount / 2
             val pairs = samplesIn / 2
@@ -699,6 +761,13 @@ internal class CaptureClock(private val sampleRate: Int) {
         } else {
             now - FALLBACK_LATENCY_NS
         }
+    }
+
+    /** A read whose capture time is known, from [StandingMicrophone.Reader]. */
+    fun readEnded(endNs: Long, samples: Int) {
+        samplesRead += samples
+        lastReadSamples = samples
+        lastReadEndNs = endNs
     }
 
     /** The capture time of the end of the first [samplesIntoRead] samples of the latest read. */

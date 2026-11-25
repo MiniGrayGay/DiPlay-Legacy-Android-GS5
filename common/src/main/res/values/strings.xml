@@ -555,6 +555,8 @@
     <string name="settings_navigation_volume">Navigation volume</string>
     <string name="settings_stream_volume_description">Balances each sound inside DiPlay when the head unit has a single volume for everything.</string>
     <string name="settings_direct_usbfs_mode_description">For head units whose system USB list never shows the iPhone: enumerates USB devices directly and opens the device node, which may require root. Applies at the next connection and restarts CarPlay.</string>
+    <string name="settings_wired_kernel_tun">Wired kernel network (experimental)</string>
+    <string name="settings_wired_kernel_tun_description">Wired CarPlay uses the kernel network of the system VPN (TUN) instead of the built-in DiPlay network stack (lwIP). For comparison testing; turn it off if the wired connection fails. Applies at the next connection.</string>
     <string name="settings_root_hotspot_mode">Root hotspot (hostapd) (experimental)</string>
     <string name="settings_carplay_auto_disconnect_bt">Turn off Bluetooth auto-connect while CarPlay is connected (experimental)</string>
     <string name="settings_carplay_auto_disconnect_bt_description">While CarPlay is connected by cable or wirelessly, turns off the car\'s global Bluetooth auto-connect so the car does not page the phone again after the phone drops the call link. DiPlay also disconnects the phone from the car\'s Bluetooth, as the car\'s Bluetooth page does. The Bluetooth radio stays on. The previous switch position comes back when the session ends, or the next time DiPlay opens if the app exits abnormally. Has no effect while CarPlay audio over the car\'s Bluetooth is on. Applies at the next connection.</string>
@@ -586,6 +588,13 @@
     <string name="quick_auto_connect_note">Keeps the car from paging the phone back onto its Bluetooth. Turns off car Bluetooth audio. Applies after reconnecting.</string>
     <string name="quick_car_bluetooth_audio_note">CarPlay sound plays over the car\'s Bluetooth. Turns off the auto-connect switch below. Applies after reconnecting.</string>
     <string name="quick_music_buffer_note">Longer is steadier over a weak link but answers later. Applies after reconnecting.</string>
+    <string name="quick_volume_takeover_note">Takes effect at once. Turn off to give the volume keys back to the car.</string>
+    <string name="quick_standing_microphone_note">Takes effect at once. The stock voice assistant does not work while CarPlay is connected.</string>
+    <string name="quick_reboot_head_unit">Restart the head unit</string>
+    <string name="quick_reboot_head_unit_note">For testing. Tap: normal restart (svc power reboot). Hold 3 s: immediate restart (setprop sys.powerctl reboot). CarPlay drops and comes back afterwards.</string>
+    <string name="quick_reboot_head_unit_holding">Keep holding…</string>
+    <string name="quick_reboot_head_unit_action">Restart</string>
+    <string name="quick_reboot_head_unit_failed">Could not restart: %1$s</string>
     <string name="quick_cluster_map_note">Applies after reconnecting.</string>
     <string name="quick_back_to_home">DiPlay home</string>
     <string name="wireless_mode_recommended">Recommended · verified on this car</string>
@@ -597,7 +606,20 @@
     <string name="station_wifi_pause_unknown_network">a network</string>
     <string name="settings_guidance_music_level">Lower music during navigation prompts (experimental)</string>
     <string name="settings_guidance_music_level_description">Guangqi units only. How far music drops while a prompt plays, measured from its level before the prompt, so it feels the same at any media volume. The car on its own drops music to one fixed level, which with the iPhone\'s own duck is almost silent at ordinary volumes. Applies from the next prompt.</string>
+    <string name="settings_volume_takeover">DiPlay takes the volume keys (experimental)</string>
+    <string name="settings_volume_takeover_description">Guangqi units only. While DiPlay runs, the wheel, panel and knob volume keys set the car\'s media volume, or the navigation volume during a prompt, through DiPlay, which shows its own volume bar instead of the car\'s. Reversing, the car\'s own calls and the stock voice assistant keep the car\'s handling. Takes effect at once. After updating DiPlay, restart the car to use the new version.</string>
+    <string name="settings_standing_microphone">Keep the microphone open</string>
+    <string name="settings_standing_microphone_description">Guangqi units only. While CarPlay is connected DiPlay keeps the microphone open, so calls and Siri do not wait for it and the stock voice assistant cannot take it back, for example after reversing. The stock voice assistant does not work until CarPlay disconnects. If another app will not let go of the microphone for 1.5 seconds, it is ended. On by default; takes effect at once.</string>
     <string name="settings_guidance_music_value_default">-%1$d dB · default</string>
     <string name="settings_guidance_music_value">-%1$d dB</string>
     <string name="settings_guidance_music_value_none">Not lowered</string>
+    <string name="car_self_test">Car self test</string>
+    <string name="car_self_test_note">Takes about 2 minutes. Run it once without CarPlay and once when the CarPlay screen is up. Presses volume up and down once and switches to the radio, which it leaves on. With CarPlay it pauses music and opens Siri: say “What time is it” then, and stay quiet otherwise. Without CarPlay it ends whichever app holds the microphone. Guangqi units only; results are in Chinese.</string>
+    <string name="car_self_test_start">Start</string>
+    <string name="car_self_test_earlier">Earlier results</string>
+    <string name="car_self_test_stop">Stop</string>
+    <string name="car_self_test_heard">I heard it</string>
+    <string name="car_self_test_not_heard">I did not</string>
+    <string name="car_self_test_summary">Done: %1$d passed, %2$d failed, %3$d unsure, %4$d skipped</string>
+    <string name="quick_self_test_note">Microphone, Siri, radio, volume keys and wired VPN.</string>
 </resources>

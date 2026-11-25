@@ -67,6 +67,8 @@ internal class GuangqiNavigationSource(
         fun abandon(sourceId: Int): Int
         /** Sets the music stream [duckDb] below the media level during guidance; returns what it did. */
         fun keepMusicLevel(duckDb: Int): String? = null
+        /** The DSP policy now in force, null when it cannot be read. */
+        fun dspPolicy(): Int? = null
     }
 
     /** The audio sink's side of the switch: its music, and how long its output buffer is. */
@@ -365,7 +367,7 @@ internal class GuangqiNavigationSource(
 
         private fun prefs(app: Context) = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
-        private fun reflectedApi(app: Context): CarAudioSourceApi? = runCatching {
+        internal fun reflectedApi(app: Context): CarAudioSourceApi? = runCatching {
             val managerClass = Class.forName(MANAGER_CLASS)
             val listenerClass = Class.forName(LISTENER_CLASS)
             val manager = managerClass.getConstructor(Context::class.java).newInstance(app)
@@ -388,6 +390,10 @@ internal class GuangqiNavigationSource(
                 }
 
                 override fun abandon(sourceId: Int): Int = abandon.invoke(manager, sourceId) as? Int ?: 0
+
+                override fun dspPolicy(): Int? = dsp?.let {
+                    it.javaClass.getMethod("getAudioStrategy").invoke(it) as? Int
+                }
 
                 override fun keepMusicLevel(duckDb: Int): String? {
                     val dspManager = dsp ?: return null

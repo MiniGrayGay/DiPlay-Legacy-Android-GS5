@@ -4,17 +4,35 @@ import android.content.Context
 import android.os.Build
 import com.shilapi.xcertplay.compat.realSdkInt
 import android.util.Log
-import androidx.multidex.MultiDexApplication
+import android.app.Application
+import androidx.multidex.MultiDex
+import com.shilapi.xcertplay.orchestration.GuangqiVolumeHook
+import com.shilapi.xcertplay.orchestration.GuangqiVolumeTakeover
 import com.shilapi.xcertplay.util.safeStackTrace
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-class DiPlayApplication : MultiDexApplication() {
+class DiPlayApplication : Application() {
+
+    /**
+     * Guangqi: [com.shilapi.xcertplay.orchestration.GuangqiVolumeHookReceiver] runs in system_server
+     * (`android:process="system"`), and Android creates this class there too. In that process it
+     * does nothing: no secondary dex, no crash handler (it would replace system_server's), no
+     * overlays. Kept free of Kotlin runtime calls beyond what the main dex already holds.
+     */
+    private var inSystemServer = false
+
+    override fun attachBaseContext(base: Context) {
+        inSystemServer = GuangqiVolumeHook.inSystemServer()
+        super.attachBaseContext(base)
+        if (!inSystemServer) MultiDex.install(this)
+    }
 
     override fun onCreate() {
         super.onCreate()
+        if (inSystemServer) return
         setupCrashHandler()
         // Session log output switch (issue #186): loaded once per process; toggling the
         // setting in Settings takes effect after restarting the app.
@@ -25,6 +43,12 @@ class DiPlayApplication : MultiDexApplication() {
         try {
             FloatingDotOverlay.restoreIfEnabled(this)
         } catch (ignored: Throwable) {
+        }
+        if (GuangqiVolumeHook.processName() == packageName) {
+            try {
+                GuangqiVolumeTakeover.start(this)
+            } catch (ignored: Throwable) {
+            }
         }
     }
 

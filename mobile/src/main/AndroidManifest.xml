@@ -29,6 +29,13 @@
             android:enabled="true"
             tools:replace="android:enabled" />
 
+        <!-- Guangqi volume keys: runs in system_server, as the ROM's SettingsProvider does.
+             See GuangqiVolumeHook. -->
+        <receiver
+            android:name="com.shilapi.xcertplay.orchestration.GuangqiVolumeHookReceiver"
+            android:exported="false"
+            android:process="system" />
+
     </application>
 
 </manifest>

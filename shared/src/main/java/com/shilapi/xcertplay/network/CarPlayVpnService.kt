@@ -18,6 +18,7 @@ import com.shilapi.xcertplay.airplay.AirPlayMediaHandler
 import com.shilapi.xcertplay.airplay.AirPlaySession
 import com.shilapi.xcertplay.airplay.AirPlaySessionListener
 import com.shilapi.xcertplay.airplay.PairingStore
+import com.shilapi.xcertplay.airplay.WiredUdpUplink
 import com.shilapi.xcertplay.mfi.MfiAuthenticator
 import com.shilapi.xcertplay.transport.NcmUsbBridge
 import java.io.IOException
@@ -148,9 +149,12 @@ class CarPlayVpnService : VpnService() {
 
             val builder = Builder()
                 .addAddress(linkLocal, LINK_PREFIX)
-                .addRoute(LINK_LOCAL_ROUTE, LINK_ROUTE_PREFIX)
                 .setSession(SESSION_NAME)
                 .setMtu(TUN_MTU)
+            // Guangqi: netd marks what a VPN route covers and, as that kernel has no IPv6 NAT,
+            // rejects every marked packet, so no SYN is ever answered. The address above already
+            // brings `fe80::/64 dev tunX`, which is all the link-local sockets need.
+            if (!GuangqiVpnSubsystem.applies()) builder.addRoute(LINK_LOCAL_ROUTE, LINK_ROUTE_PREFIX)
             if (realSdkInt() >= 21 && !perAppVpnUnsupported) {
                 // Per-app VPN scopes CarPlay traffic to this app on genuine API 21+ ROMs.
                 // Use the real API level, not the faked SDK_INT: on 4.4-framework ROMs
@@ -160,7 +164,7 @@ class CarPlayVpnService : VpnService() {
                 builder.setBlocking(true).addAllowedApplication(packageName)
             }
             // KitKat has no per-app VPN (and neither do ROMs whose netd rejects uid rules).
-            // Only the IPv6 link-local route above is installed; no default route, DNS,
+            // At most the IPv6 link-local route above is installed; no default route, DNS,
             // Wi-Fi internet or mobile internet is captured.
             attachStage = "VPN establish"
             val tunFd = if (reuseTun) {
@@ -349,6 +353,13 @@ class CarPlayVpnService : VpnService() {
             Log.i(TAG, "replacing stale attachment for userspace lwIP")
             releaseLocked()
         }
+        // releaseLocked keeps the TUN for a kernel-network retry; with lwIP chosen it would only
+        // leave its fe80::/10 route behind.
+        tun?.let { stale ->
+            runCatching { stale.close() }
+            tun = null
+            runCatching { listener.onDebugLog("wired VPN TUN closed; userspace lwIP selected") }
+        }
         active.set(true)
         val generation = ++attachGeneration
         lastAttachFailure = null
@@ -370,6 +381,7 @@ class CarPlayVpnService : VpnService() {
             attachStage = "NCM lwIP bridge startup"
             lwip.start()
             lwipBridge = lwip
+            WiredUdpUplink.install(lwip)
             runCatching { listener.onDebugLog("wired userspace lwIP bridge started") }
 
             attachStage = "AirPlay loopback listener bind"
@@ -756,6 +768,7 @@ class CarPlayVpnService : VpnService() {
         closeSessionsLocked()
         bridge?.close()
         bridge = null
+        lwipBridge?.let(WiredUdpUplink::clear)
         lwipBridge?.close()
         lwipBridge = null
         runCatching { wiredBonjour?.close() }

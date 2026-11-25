@@ -55,6 +55,7 @@ class CarPlayVpnScopeTest {
 
             assertEquals(CarPlayVpnService.AttachResult.Failed("VpnService.establish returned null"), result)
             assertEquals(listOf("allow:${service.packageName}", "establish"), VpnScopeBoundary.calls)
+            assertEquals("the Guangqi unit leaves the route out, others keep it", listOf("fe80::/10"), VpnScopeBoundary.routes)
             assertReleased(service)
         }
     }
@@ -151,11 +152,13 @@ class CarPlayVpnScopeTest {
 /** No TUN can be created here: rejected scoping must stop before this boundary is reached. */
 object VpnScopeBoundary {
     val calls = mutableListOf<String>()
+    val routes = mutableListOf<String>()
     var allowFailure: Exception? = null
     var establishFailure: Exception? = null
 
     fun reset() {
         calls.clear()
+        routes.clear()
         allowFailure = null
         establishFailure = null
     }
@@ -169,7 +172,10 @@ class VpnScopeBuilderShadow {
     // Control that platform plumbing while keeping scope/establish ordering in the real service.
     @Implementation fun addAddress(address: String, prefixLength: Int): VpnService.Builder = builder
 
-    @Implementation fun addRoute(address: String, prefixLength: Int): VpnService.Builder = builder
+    @Implementation fun addRoute(address: String, prefixLength: Int): VpnService.Builder {
+        VpnScopeBoundary.routes += "$address/$prefixLength"
+        return builder
+    }
 
     @Implementation fun addAllowedApplication(packageName: String): VpnService.Builder {
         VpnScopeBoundary.calls += "allow:$packageName"

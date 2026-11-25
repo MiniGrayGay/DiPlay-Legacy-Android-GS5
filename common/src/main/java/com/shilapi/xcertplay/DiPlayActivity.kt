@@ -35,6 +35,7 @@ import android.os.SystemClock
 import android.provider.Settings
 import android.util.Log
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.*
@@ -287,7 +288,8 @@ class DiPlayActivity : ComponentActivity() {
         }
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                if (page != "home") navigateBack()
+                if (quickMenu != null) closeQuickMenu()
+                else if (page != "home") navigateBack()
                 else { isEnabled = false; onBackPressedDispatcher.onBackPressed(); isEnabled = true }
             }
         })
@@ -422,6 +424,58 @@ class DiPlayActivity : ComponentActivity() {
             SettingsLayoutPolicy.isExpanded(it.screenWidthDp, it.screenHeightDp, it.fontScale)
         }
 
+    private var quickMenu: QuickMenu? = null
+    private val settingsSwipe = SettingsSwipe()
+
+    /** The settings swipe opens the quick menu here too, so it can be reached without CarPlay. */
+    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        val density = resources.displayMetrics.density
+        if (quickMenu == null) {
+            when (settingsSwipe.onTouch(event, AirPlayPersistence.loadSettingsGestureFingers(this), density)) {
+                SettingsSwipe.Result.PASS -> Unit
+                SettingsSwipe.Result.TAKEN -> {
+                    SettingsSwipe.cancelled(event) { super.dispatchTouchEvent(it) }
+                    return true
+                }
+                SettingsSwipe.Result.CONSUMED -> return true
+                SettingsSwipe.Result.OPEN -> {
+                    openQuickMenu()
+                    return true
+                }
+            }
+        } else if (settingsSwipe.active) {
+            settingsSwipe.onTouch(event, AirPlayPersistence.loadSettingsGestureFingers(this), density)
+            return true
+        }
+        return super.dispatchTouchEvent(event)
+    }
+
+    private fun openQuickMenu() {
+        if (quickMenu != null) return
+        quickMenu = QuickMenu(this, object : QuickMenu.Host {
+            // Nothing to reconnect here; a session in the background gets the reconnect bar.
+            override fun changedSession() = markReconnectNeeded()
+            override fun close() = closeQuickMenu()
+            override fun openDiPlay(page: String) {
+                this@DiPlayActivity.page = page
+                render()
+            }
+        }).also { showAbovePage(it.view) }
+    }
+
+    private fun showAbovePage(view: View) {
+        (view.parent as? ViewGroup)?.removeView(view)
+        findViewById<ViewGroup>(android.R.id.content).addView(view, ViewGroup.LayoutParams(-1, -1))
+    }
+
+    private fun closeQuickMenu() {
+        val menu = quickMenu ?: return
+        quickMenu = null
+        (menu.view.parent as? ViewGroup)?.removeView(menu.view)
+        // The page below shows the same settings.
+        render()
+    }
+
     private fun render() {
         enforceInterfaceSize()
         applyPalette()
@@ -468,6 +522,8 @@ class DiPlayActivity : ComponentActivity() {
             scroll
         }
         setContentView(root)
+        // The menu stays above a page that renders again below it.
+        quickMenu?.view?.let(::showAbovePage)
         renderedPage = page
         renderedSettingsCategory = settingsCategory.takeIf { page == "settings" }
         refreshStatus()
@@ -1302,6 +1358,9 @@ class DiPlayActivity : ComponentActivity() {
             }.apply { isEnabled = !exportInProgress }
             card.addView(exportButton, matchButton(10, 60))
             card.addView(button(getString(R.string.choose_save_location), false) { chooseReportDestination() }, matchButton(10, 60))
+            if (com.shilapi.xcertplay.orchestration.GuangqiSelfTest.supported()) {
+                card.addView(button(getString(R.string.car_self_test), false) { CarSelfTestActivity.open(this) }, matchButton(10, 60))
+            }
             // 蓝牙诊断：SDP/RFCOMM 有界探针，排查原生蓝牙配对冲突类问题（port 自 xiaomiren/DiPlay）。
             card.addView(button(getString(R.string.settings_bluetooth_diagnostic), false) {
                 openBluetoothDiagnostics()
@@ -1509,6 +1568,20 @@ class DiPlayActivity : ComponentActivity() {
                     setPadding(0, dp(4), 0, dp(8))
                 })
             }
+            if (com.shilapi.xcertplay.orchestration.GuangqiVolumeTakeover.supported()) {
+                val takeover = com.shilapi.xcertplay.orchestration.GuangqiVolumeTakeover
+                toggle(card, getString(R.string.settings_volume_takeover),
+                    getString(R.string.settings_volume_takeover_description), takeover.enabled(this)) {
+                    takeover.setEnabled(this, it)
+                }
+            }
+            if (com.shilapi.xcertplay.orchestration.GuangqiStandingMicrophone.supported()) {
+                val standing = com.shilapi.xcertplay.orchestration.GuangqiStandingMicrophone
+                toggle(card, getString(R.string.settings_standing_microphone),
+                    getString(R.string.settings_standing_microphone_description), standing.enabled(this)) {
+                    standing.setEnabled(this, it)
+                }
+            }
             if (resources.getBoolean(R.bool.config_advanced_audio_channel_mapping)) {
                 toggle(card, getString(R.string.advanced_audio_channel_mapping),
                     getString(R.string.use_usage_content_type_routing_instead_of_stream_type),
@@ -1561,6 +1634,15 @@ class DiPlayActivity : ComponentActivity() {
                 AirPlayPersistence.loadDirectUsbfsMode(this)) {
                 AirPlayPersistence.saveDirectUsbfsMode(this, it)
                 reconnectIfRunning()
+            }
+            // Wired network stack: kernel TCP/IP through a system VPN TUN instead of the
+            // userspace lwIP bridge. On the Guangqi ROM the VPN table is repaired as the
+            // system uid first (GuangqiVpnSubsystem). Applies at the next connection.
+            toggle(card, getString(R.string.settings_wired_kernel_tun),
+                getString(R.string.settings_wired_kernel_tun_description),
+                AirPlayPersistence.loadWiredKernelTun(this)) {
+                AirPlayPersistence.saveWiredKernelTun(this, it)
+                markReconnectNeeded()
             }
             // The root hostapd hotspot and its Apple vendor IE are not offered: they run `su`,
             // and the Guangqi system image has none.
@@ -3212,11 +3294,6 @@ class DiPlayActivity : ComponentActivity() {
         autoDisconnectBtSwitch?.isChecked = false
     }
 
-    private fun usbBluetoothDonglePresent(): Boolean = runCatching {
-        val usbManager = getSystemService(Context.USB_SERVICE) as? UsbManager ?: return false
-        UsbBtDongleDetector(applicationContext).findDongles(usbManager).isNotEmpty()
-    }.getOrDefault(false)
-
     private fun openBluetoothDiagnostics() {
         runCatching { startActivity(Intent(this, BluetoothDiagnosticActivity::class.java)) }
     }
@@ -3361,7 +3438,7 @@ class DiPlayActivity : ComponentActivity() {
         appendLine("Head unit: ${Build.MANUFACTURER} ${Build.MODEL}")
         appendLine("Full report build failed: ${buildError.javaClass.simpleName}: ${buildError.message}")
         appendLine()
-        val names = listOf("bluetooth-diagnostic.log") + SessionLogFile.REPORT_NAMES.toList()
+        val names = listOf("bluetooth-diagnostic.log", CarSelfTestActivity.REPORT_NAME) + SessionLogFile.REPORT_NAMES.toList()
         names.forEach { name ->
             val file = File(filesDir, "logs/$name")
             if (file.isFile) {
@@ -3411,7 +3488,7 @@ class DiPlayActivity : ComponentActivity() {
         appendLine("--- Recent own-app process exits (Android 11+) ---")
         appendLine(ProcessExitDiagnostics.report(appContext))
         appendLine()
-        val logFiles = listOf("bluetooth-diagnostic.log") + SessionLogFile.REPORT_NAMES
+        val logFiles = listOf("bluetooth-diagnostic.log", CarSelfTestActivity.REPORT_NAME) + SessionLogFile.REPORT_NAMES
         for (name in logFiles) {
             val file = File(appContext.filesDir, "logs/$name")
             if (file.isFile) {
