@@ -41,16 +41,15 @@ class GuangqiSelfTestMathTest {
     }
 
     /** As DiPlay writes it; the first line is from the car on 2026-11-25. */
-    private fun stats(sent: Int, errors: Int, first: Int, ended: Boolean) =
+    private fun stats(sent: Int, errors: Int, first: Int, ended: Boolean, silent: Int = 0, gap: Int = 0, filled: Int = 0) =
         "Microphone: stats type=speechrecognition source=VOICE_RECOGNITION codec=OPUS rate=48000 channels=1 frameMs=20 " +
             "routedDeviceType=unknown captureBytes=0 reads=1 zeroReads=0 readErrors=1 readMaxMs=0 encodedFrames=0 " +
-            "emptyEncodedFrames=0 udpSent=$sent sendErrors=$errors sendGapMaxMs=0 silentFrames=0 firstAudioMs=$first ended=$ended"
+            "emptyEncodedFrames=0 udpSent=$sent sendErrors=$errors sendGapMaxMs=$gap filledFrames=$filled silentFrames=$silent firstAudioMs=$first ended=$ended"
 
     @Test fun siriWithoutAMicrophone() {
         val siri = SelfTestSiri(listOf(stats(0, 0, -1, true)))
         assertTrue(siri.ended)
         assertFalse(siri.microphoneWorks)
-        assertEquals(1L, siri.readErrors)
     }
 
     @Test fun siriWithAMicrophone() {
@@ -61,6 +60,19 @@ class GuangqiSelfTestMathTest {
         assertTrue(siri.microphoneWorks && siri.downlink && siri.sourceHeld && !siri.sourceRefused)
         assertFalse(SelfTestSiri(listOf(stats(250, 3, 120, true))).microphoneWorks)
         assertFalse("silence", SelfTestSiri(listOf(stats(250, 0, -1, true))).microphoneWorks)
+    }
+
+    /** The three Siri runs on the car on 2026-11-26: nobody spoke, spoken with a 1 s gap, spoken. */
+    @Test fun siriSpokenAndBroken() {
+        val quiet = SelfTestSiri(listOf(stats(253, 0, 518, false, 251), stats(72, 0, 518, true, 72)))
+        assertEquals(2L, quiet.audible)
+        assertFalse(quiet.spoken || quiet.broken)
+        val gap = SelfTestSiri(listOf(stats(198, 0, 15, false, 64, 1063), stats(199, 0, 15, true, 93, 48)))
+        assertEquals(240L, gap.audible)
+        assertTrue(gap.spoken && gap.broken)
+        val good = SelfTestSiri(listOf(stats(251, 0, 12, false, 163, 65), stats(120, 0, 12, true, 5, 46)))
+        assertTrue(good.spoken && !good.broken)
+        assertTrue("filled with silence", SelfTestSiri(listOf(stats(250, 0, 12, true, 10, 200, 50))).broken)
     }
 
     @Test fun callsAreNotSiri() {

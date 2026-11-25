@@ -614,8 +614,9 @@
     <string name="settings_guidance_music_value">-%1$d dB</string>
     <string name="settings_guidance_music_value_none">Not lowered</string>
     <string name="car_self_test">Car self test</string>
-    <string name="car_self_test_note">Takes about 2 minutes. Switches to the radio, presses volume up and down once and opens Siri if CarPlay is connected; stay quiet meanwhile. Run it once without CarPlay and once connected. Guangqi units only; results are in Chinese.</string>
+    <string name="car_self_test_note">Takes about 2 minutes. Run it once without CarPlay and once when the CarPlay screen is up. Presses volume up and down once and switches to the radio, which it leaves on. With CarPlay it pauses music and opens Siri: say “What time is it” then, and stay quiet otherwise. Without CarPlay it ends whichever app holds the microphone. Guangqi units only; results are in Chinese.</string>
     <string name="car_self_test_start">Start</string>
+    <string name="car_self_test_earlier">Earlier results</string>
     <string name="car_self_test_stop">Stop</string>
     <string name="car_self_test_heard">I heard it</string>
     <string name="car_self_test_not_heard">I did not</string>

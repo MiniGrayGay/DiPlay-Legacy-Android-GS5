@@ -2833,6 +2833,7 @@ class CarPlayHostActivity : ComponentActivity() {
                 }
             },
             onMediaAudioChanged = CarPlayMediaKeys::onMediaAudioChanged,
+            onSiriAudioChanged = CarPlayMediaKeys::onSiriAudioChanged,
             callEchoCancellation = AirPlayPersistence.loadCallEchoCancellation(this),
             callVoiceFilter = AirPlayPersistence.loadCallVoiceFilter(this),
             callMicCompatibility = AirPlayPersistence.loadCallMicCompatibility(this),

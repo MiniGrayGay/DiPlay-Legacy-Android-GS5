@@ -10,7 +10,6 @@ import android.content.pm.PackageManager
 import android.media.AudioFormat
 import android.media.AudioManager
 import android.media.AudioTrack
-import android.media.MediaRecorder
 import com.shilapi.xcertplay.airplay.WiredUdpUplink
 import com.shilapi.xcertplay.media.GuangqiAssistantSource
 import com.shilapi.xcertplay.media.GuangqiNavigationSource
@@ -38,8 +37,14 @@ class GuangqiSelfTest(context: Context, private val host: Host) {
     class Result(val name: String, val outcome: Outcome, val detail: String)
 
     interface Host {
-        /** Presses Siri on the iPhone; null without a CarPlay session. */
+        /** Presses Siri on the iPhone; null without a CarPlay session that is up. */
         fun siri(): (() -> Boolean)?
+        /** A connection being made, which is not a session yet. */
+        fun connecting(): Boolean
+        /** The session is over the cable. */
+        fun wired(): Boolean
+        /** Pauses the iPhone's music. */
+        fun pauseMusic()
         fun started(step: String)
         fun finished(result: Result)
         fun log(line: String)
@@ -110,11 +115,12 @@ class GuangqiSelfTest(context: Context, private val host: Host) {
         val permission = app.checkPermission(Manifest.permission.RECORD_AUDIO, android.os.Process.myPid(), android.os.Process.myUid()) ==
             PackageManager.PERMISSION_GRANTED
         val detail = "DiPlay ${info.versionName}，uid ${android.os.Process.myUid()}，DSP 策略 ${policy()}，" +
-            "CarPlay ${if (host.siri() != null) "已连接" else "未连接"}，常开麦克风 ${onOff(GuangqiStandingMicrophone.enabled(app))}，" +
+            "CarPlay ${if (host.siri() != null) "已连接" else if (host.connecting()) "正在连接" else "未连接"}，常开麦克风 ${onOff(GuangqiStandingMicrophone.enabled(app))}，" +
             "正在录音 ${holders().ifEmpty { listOf("无") }.joinToString()}"
         return when {
             audio == null -> fail("$detail；找不到广汽音源管理器")
             !permission -> fail("$detail；没有麦克风权限")
+            host.siri() == null && host.connecting() -> unsure("$detail；正在连接，等 CarPlay 画面出来再跑，或回首页断开后再跑")
             else -> pass(detail)
         }
     }
@@ -231,8 +237,9 @@ class GuangqiSelfTest(context: Context, private val host: Host) {
 
     private fun wiredUplink(): Result0 = when {
         host.siri() == null -> skip("没有 CarPlay 会话")
+        !host.wired() -> skip("无线连接")
         WiredUdpUplink.current() != null -> pass("有线，走内置网络栈（lwIP）；能不能发出去看 Siri 那一步")
-        else -> skip("不是有线 lwIP（无线，或有线 TUN）")
+        else -> pass("有线，走内核网络（TUN）；能不能发出去看 Siri 那一步")
     }
 
     private fun tone(): Result0 {
@@ -244,6 +251,11 @@ class GuangqiSelfTest(context: Context, private val host: Host) {
 
     private fun radio(): Result0 {
         val car = audio ?: return skip("找不到广汽音源管理器")
+        if (host.siri() != null) {
+            // Music starting again takes the car's source back from the radio.
+            host.pauseMusic()
+            pause(AFTER_SIRI_MILLIS)
+        }
         if (policy() !in RADIO_POLICIES) {
             val launch = app.packageManager.getLaunchIntentForPackage(RADIO_PACKAGE) ?: return skip("没有收音机应用")
             app.startActivity(launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
@@ -253,6 +265,7 @@ class GuangqiSelfTest(context: Context, private val host: Host) {
         }
         pause(SETTLE_MILLIS)
         val before = policy()
+        if (before !in RADIO_POLICIES) return unsure("切到收音机后又被抢走（策略 $before）；暂停音乐、打开收音机再跑一次")
         val source = GuangqiAssistantSource.get(app)
         val token = Any()
         return openMicrophone().use { mic ->
@@ -290,7 +303,7 @@ class GuangqiSelfTest(context: Context, private val host: Host) {
             policy().let { if (it != before) during += it }
             SelfTestSiri(heard.toList()).ended
         }
-        if (radio) waitFor(RESTORE_MILLIS) { policy() == before }
+        if (before in RADIO_POLICIES) waitFor(RESTORE_MILLIS) { policy() == before }
         val after = policy()
         val siri = SelfTestSiri(heard.toList())
         val detail = "$siri；策略 $before" + (if (during.isEmpty()) "" else " → ${during.joinToString(" → ")}") + " → $after"
@@ -300,6 +313,8 @@ class GuangqiSelfTest(context: Context, private val host: Host) {
             before in RADIO_POLICIES && !siri.sourceHeld ->
                 fail("$detail；音源 25 ${if (siri.sourceRefused) "被拒" else "没有申请"}")
             before in RADIO_POLICIES && after != before -> fail("$detail；收音机没有恢复")
+            siri.broken -> fail("$detail；麦克风中断")
+            !siri.spoken -> unsure("$detail；没听到说话，Siri 弹出时请说「现在几点」")
             !siri.downlink -> unsure(detail)
             else -> pass(detail)
         }
@@ -341,7 +356,6 @@ class GuangqiSelfTest(context: Context, private val host: Host) {
         GuangqiStandingMicrophone.current()?.let { return Microphone(it, shared = true) {} }
         GuangqiStockAssistant.acquire(app, REASON)
         return Microphone(StandingMicrophone(
-            source = { MediaRecorder.AudioSource.VOICE_COMMUNICATION },
             makeRoom = { GuangqiStockAssistant.reassert(app) },
             evict = { GuangqiMicrophoneHolder.evict(app) { host.log("   $it") } },
             log = { host.log("   $it") },
@@ -468,6 +482,7 @@ class GuangqiSelfTest(context: Context, private val host: Host) {
         private const val STATE_MILLIS = 4_000L
         private const val RADIO_MILLIS = 10_000
         private const val SETTLE_MILLIS = 2_000
+        private const val AFTER_SIRI_MILLIS = 3_000
         private const val SWITCH_MILLIS = 1_500
         private const val RESTORE_MILLIS = 5_000
         private const val SIRI_MILLIS = 25_000

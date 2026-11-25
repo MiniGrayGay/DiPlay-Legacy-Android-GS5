@@ -79,7 +79,7 @@ object GuangqiStandingMicrophone {
             runCatching { log?.invoke(message) }
         }
         microphone = StandingMicrophone(
-            source = { if (callsUseMic(app)) MediaRecorder.AudioSource.MIC else MediaRecorder.AudioSource.VOICE_COMMUNICATION },
+            source = { if (callsUseMic(app)) MediaRecorder.AudioSource.MIC else StandingMicrophone.SOURCE },
             makeRoom = { GuangqiStockAssistant.reassert(app) },
             evict = { GuangqiMicrophoneHolder.evict(app, ::say) },
             log = ::say,

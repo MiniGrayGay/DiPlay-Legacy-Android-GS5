@@ -579,8 +579,9 @@
     <string name="settings_guidance_music_value">-%1$d dB</string>
     <string name="settings_guidance_music_value_none">不压低</string>
     <string name="car_self_test">车机自检</string>
-    <string name="car_self_test_note">约 2 分钟。会切到收音机，按一下音量加减；CarPlay 连着时会唤起 Siri。测试时请保持安静。没连 CarPlay 跑一次，连上再跑一次，才能测全。</string>
+    <string name="car_self_test_note">约 2 分钟。没连 CarPlay 跑一次，等 CarPlay 画面出来再跑一次，才能测全。会按一下音量加减，切到收音机并停在那里；CarPlay 连着时会暂停音乐、唤起 Siri，请在它弹出时说「现在几点」，其余时间保持安静。没连时会结束占用麦克风的程序（例如原车语音，之后会自己恢复）。</string>
     <string name="car_self_test_start">开始</string>
+    <string name="car_self_test_earlier">之前的结果</string>
     <string name="car_self_test_stop">停止</string>
     <string name="car_self_test_heard">听到了</string>
     <string name="car_self_test_not_heard">没听到</string>

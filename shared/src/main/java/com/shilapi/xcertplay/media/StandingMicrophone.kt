@@ -22,7 +22,7 @@ import java.util.concurrent.TimeUnit
  */
 internal class StandingMicrophone(
     private val openRecorder: (source: Int) -> AudioRecord? = ::openDefault,
-    private val source: () -> Int = { MediaRecorder.AudioSource.VOICE_COMMUNICATION },
+    private val source: () -> Int = { SOURCE },
     private val makeRoom: () -> Unit = {},
     /** The microphone is still refused after [EVICT_AFTER] attempts, and every [EVICT_EVERY] after that. */
     private val evict: () -> Unit = {},
@@ -191,6 +191,12 @@ internal class StandingMicrophone(
 
     companion object {
         private const val TAG = "xcertplay-usb"
+        /**
+         * Not VOICE_COMMUNICATION: each time the car's output starts after standby, its audio HAL
+         * (`audio.primary.imx6.so`, out_write) puts a recorder with that source into standby too, and a
+         * call or Siri then loses its first second. The microphones sound the same on this car.
+         */
+        const val SOURCE = MediaRecorder.AudioSource.VOICE_RECOGNITION
         const val SAMPLE_RATE = 48_000
         /** 20 ms; a multiple of 2 and 3 samples, so every converter takes whole chunks. */
         const val CHUNK_BYTES = SAMPLE_RATE / 50 * 2

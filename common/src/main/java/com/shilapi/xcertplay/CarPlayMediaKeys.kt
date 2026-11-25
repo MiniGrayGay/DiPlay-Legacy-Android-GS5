@@ -30,6 +30,7 @@ import com.shilapi.xcertplay.host.R
 import com.shilapi.xcertplay.hud.WheelIntegrationSettings
 import com.shilapi.xcertplay.media.CarPlayNowPlaying
 import com.shilapi.xcertplay.orchestration.CarPlayController
+import com.shilapi.xcertplay.orchestration.GuangqiStandingMicrophone
 import java.util.concurrent.Executors
 import java.util.concurrent.Executor
 import kotlin.math.roundToInt
@@ -80,6 +81,8 @@ internal object CarPlayMediaKeys {
     private var focusHeld = false
     private var appContext: Context? = null
     private var mediaAudioActive = false
+    /** Guangqi only: elsewhere a start always takes the car's source, as before. */
+    private val resumeGuard = SiriResumeGuard().takeIf { GuangqiStandingMicrophone.supported() }
     private var nowPlaying = CarPlayNowPlaying()
     private var elapsedUpdatedAt = 0L
     private var artwork: Bitmap? = null
@@ -116,11 +119,18 @@ internal object CarPlayMediaKeys {
         mainHandler.post { synchronized(this) { updateLocked(active) } }
     }
 
+    /** Siri's audio stream opened or closed; may run on any thread. */
+    fun onSiriAudioChanged(active: Boolean) {
+        mainHandler.post {
+            synchronized(this) { resumeGuard?.siri(active, SystemClock.elapsedRealtime(), nowPlaying.title) }
+        }
+    }
+
     /** The iPhone started or stopped playing; may run on any thread. */
     private fun onIphonePlaying(expected: CarPlayController, playing: Boolean) {
         if (playing) mainHandler.post {
             synchronized(this) {
-                if (controller === expected) regainFocusLocked()
+                if (controller === expected) regainUnlessResumedLocked()
             }
         }
     }
@@ -137,6 +147,8 @@ internal object CarPlayMediaKeys {
                 if (nowPlaying.elapsedMillis != update.elapsedMillis) elapsedUpdatedAt = SystemClock.elapsedRealtime()
                 val metadataChanged = metadataChanged(nowPlaying, update) || artwork !== previousArtwork
                 nowPlaying = update
+                if (update.playing && !focusHeld &&
+                    resumeGuard?.isRequested(SystemClock.elapsedRealtime(), update.title) == true) regainFocusLocked()
                 // The iPhone repeats NowPlayingUpdate about twice a second for the position alone.
                 // Republishing the metadata each time sent a copy of the artwork through system_server
                 // to every media listener, and on a DiLink 5.0 Tang that exhausted memory within
@@ -171,6 +183,14 @@ internal object CarPlayMediaKeys {
     // Another car app (its own Spotify, the radio) took audio focus and with it the steering-wheel
     // keys. When CarPlay starts playing again it becomes the car's media source again, as any player
     // would; only the start counts, so a car source picked while the iPhone plays on is not undone.
+    private fun regainUnlessResumedLocked() {
+        if (!focusHeld && resumeGuard?.isResume(SystemClock.elapsedRealtime()) == true) {
+            Log.i(TAG, "audio focus left to the car: the iPhone resumed music after Siri")
+        } else {
+            regainFocusLocked()
+        }
+    }
+
     private fun regainFocusLocked() {
         if (focusHeld) return
         val audio = if (realSdkInt() >= Build.VERSION_CODES.M) {
@@ -194,7 +214,8 @@ internal object CarPlayMediaKeys {
         val context = appContext ?: return
         if (controller == null) return
         mediaAudioActive = active
-        if (active && focusOwner == null) start(context) else if (active) regainFocusLocked()
+        if (active && focusOwner == null) start(context) else if (active) regainUnlessResumedLocked()
+        resumeGuard?.music(active, SystemClock.elapsedRealtime())
         publishPlaybackStateLocked()
     }
 

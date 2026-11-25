@@ -74,7 +74,12 @@ internal class SelfTestSiri(lines: List<String>) {
     val ended = microphone.any { it.endsWith("ended=true") }
     val sent = microphone.sumOf { number(it, "udpSent") ?: 0L }
     val sendErrors = microphone.sumOf { number(it, "sendErrors") ?: 0L }
-    val readErrors = microphone.sumOf { number(it, "readErrors") ?: 0L }
+    private val silent = microphone.sumOf { number(it, "silentFrames") ?: 0L }
+    private val filled = microphone.sumOf { number(it, "filledFrames") ?: 0L }
+    /** Packets louder than silence: enough of them is someone speaking. */
+    val audible = (sent - silent - filled).coerceAtLeast(0L)
+    /** The longest the iPhone went without a packet, or got silence in place of one. */
+    val gapMs = maxOf(microphone.maxOfOrNull { number(it, "sendGapMaxMs") ?: 0L } ?: 0L, filled * FRAME_MILLIS)
     /** When sound was first captured; -1 for a microphone that only gave silence. */
     val firstAudioMs = microphone.mapNotNull { number(it, "firstAudioMs") }.lastOrNull { it >= 0 } ?: -1L
     /** Whether the iPhone's side reached the car. */
@@ -83,11 +88,20 @@ internal class SelfTestSiri(lines: List<String>) {
     val sourceRefused = lines.any { "Siri source" in it && "requested" in it && "held=true" !in it }
 
     val microphoneWorks get() = sent > 0 && sendErrors == 0L && firstAudioMs >= 0
+    val spoken get() = audible >= SPOKEN_PACKETS
+    val broken get() = gapMs >= GAP_MILLIS
 
-    override fun toString() = "发出 $sent 包，发送错误 $sendErrors，读取错误 $readErrors，" +
+    override fun toString() = "发出 $sent 包（有声 $audible），发送错误 $sendErrors，最长中断 $gapMs ms，" +
         (if (firstAudioMs >= 0) "${firstAudioMs} ms 后有声音" else "一直是静音") +
         if (downlink) "，收到 iPhone 的声音" else "，没收到 iPhone 的声音"
 
     private fun number(line: String, key: String): Long? =
         Regex("(?:^| )$key=(-?\\d+)").find(line)?.groupValues?.get(1)?.toLongOrNull()
+
+    private companion object {
+        const val FRAME_MILLIS = 20L
+        /** Half a second of speech. */
+        const val SPOKEN_PACKETS = 25L
+        const val GAP_MILLIS = 400L
+    }
 }

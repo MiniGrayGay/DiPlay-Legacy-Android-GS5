@@ -15,7 +15,9 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import androidx.activity.ComponentActivity
+import com.shilapi.xcertplay.airplay.CarPlayMediaButton
 import com.shilapi.xcertplay.host.R
+import com.shilapi.xcertplay.orchestration.CarPlayTransport
 import com.shilapi.xcertplay.orchestration.GuangqiSelfTest
 import java.io.File
 import java.text.SimpleDateFormat
@@ -26,8 +28,9 @@ import java.util.concurrent.TimeUnit
 
 /**
  * [GuangqiSelfTest] with a start button and its results. The run belongs to the process, not to this
- * screen: it switches to the radio and Siri may bring CarPlay forward. The report is
- * `logs/self-test.log`, which the exported diagnostic report includes.
+ * screen: it switches to the radio and Siri may bring CarPlay forward. Each run is added to
+ * `logs/self-test.log`, which the exported diagnostic report includes; the screen also shows the
+ * latest earlier runs from it.
  */
 class CarSelfTestActivity : ComponentActivity() {
     private lateinit var start: Button
@@ -56,6 +59,7 @@ class CarSelfTestActivity : ComponentActivity() {
         scroll = ScrollView(this).apply { addView(list) }
         root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
         setContentView(root)
+        Run.load(applicationContext)
         Run.watch(this)
         if (savedInstanceState == null) startIfAsked(intent)
     }
@@ -97,17 +101,28 @@ class CarSelfTestActivity : ComponentActivity() {
                     LinearLayout.LayoutParams(-2, menuDp(60)).apply { marginStart = menuDp(16) })
             })
         }
+        var summary: View? = null
         if (!Run.running && Run.results.isNotEmpty()) {
             fun count(outcome: GuangqiSelfTest.Outcome) = Run.results.count { it.outcome == outcome }
-            row(getString(R.string.car_self_test_summary, count(GuangqiSelfTest.Outcome.PASS), count(GuangqiSelfTest.Outcome.FAIL),
+            summary = row(getString(R.string.car_self_test_summary, count(GuangqiSelfTest.Outcome.PASS), count(GuangqiSelfTest.Outcome.FAIL),
                 count(GuangqiSelfTest.Outcome.UNSURE), count(GuangqiSelfTest.Outcome.SKIPPED)), Color.WHITE, null)
         }
-        scroll.post { scroll.fullScroll(View.FOCUS_DOWN) }
+        if (!Run.running && Run.earlier.isNotEmpty()) {
+            row(getString(R.string.car_self_test_earlier), MENU_ACCENT, null)
+            row("", Color.WHITE, Run.earlier)
+        }
+        // Earlier runs stand below the summary, which is what a finished run should show.
+        scroll.post {
+            if (Run.running) scroll.fullScroll(View.FOCUS_DOWN)
+            else scroll.scrollTo(0, ((summary?.bottom ?: 0) - scroll.height).coerceAtLeast(0))
+        }
     }
 
-    private fun row(title: String, color: Int, detail: String?) {
-        list.addView(menuText(title, 18f, color).apply { setPadding(0, menuDp(10), 0, 0) })
+    private fun row(title: String, color: Int, detail: String?): View {
+        val line = menuText(title, 18f, color).apply { setPadding(0, menuDp(10), 0, 0) }
+        list.addView(line)
         if (detail != null) list.addView(menuText(detail, 14f, MENU_SECONDARY).apply { setPadding(menuDp(26), menuDp(3), 0, 0) })
+        return line
     }
 
     private fun button(text: String, primary: Boolean, onClick: () -> Unit) = Button(this).apply {
@@ -133,6 +148,9 @@ class CarSelfTestActivity : ComponentActivity() {
         private var file: File? = null
         private val clock = SimpleDateFormat("HH:mm:ss.SSS", Locale.US)
         val results = mutableListOf<GuangqiSelfTest.Result>()
+        /** The runs before the one on the screen, newest first. */
+        var earlier = ""
+            private set
         var step: String? = null
             private set
         var question: String? = null
@@ -149,15 +167,29 @@ class CarSelfTestActivity : ComponentActivity() {
             if (screen === activity) screen = null
         }
 
+        private fun report(context: Context) = File(context.filesDir, "logs/$REPORT_NAME")
+
+        /** After DiPlay was restarted the results are only in the report. */
+        fun load(context: Context) {
+            if (!running && results.isEmpty()) earlier = summary(SelfTestReport.runs(read(report(context))))
+        }
+
+        private fun read(report: File) = runCatching { report.readText() }.getOrDefault("")
+
+        private fun summary(runs: List<String>) = runs.takeLast(SHOWN_RUNS).reversed().joinToString("\n\n") { it.trim() }
+
         fun begin(context: Context) {
             running = true
             app = context
             results.clear()
             step = null
-            val report = File(context.filesDir, "logs/$REPORT_NAME").also { file = it }
+            val report = report(context).also { file = it }
             runCatching {
                 report.parentFile?.mkdirs()
-                report.writeText("DiPlay self test ${SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())}\n")
+                val runs = SelfTestReport.runs(read(report)).takeLast(KEPT_RUNS - 1)
+                earlier = summary(runs)
+                report.writeText(runs.joinToString("") + SelfTestReport.HEADER +
+                    SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date()) + "\n")
             }
             val created = GuangqiSelfTest(context, this).also { test = it }
             screen?.render()
@@ -183,7 +215,17 @@ class CarSelfTestActivity : ComponentActivity() {
         }
 
         override fun siri(): (() -> Boolean)? =
-            CarPlayBackgroundSession.snapshot()?.controller?.let { controller -> { controller.requestSiri() } }
+            controller()?.let { controller -> { controller.requestSiri() } }
+
+        private fun controller() = CarPlayBackgroundSession.snapshot()?.controller?.takeIf { CarPlayBackgroundSession.active }
+
+        override fun connecting() = CarPlayBackgroundSession.hasSession() && !CarPlayBackgroundSession.active
+
+        override fun wired() = controller()?.transport == CarPlayTransport.WIRED
+
+        override fun pauseMusic() {
+            controller()?.sendMediaButton(CarPlayMediaButton.PAUSE)
+        }
 
         override fun started(step: String) = update { this.step = step }
 
@@ -227,6 +269,8 @@ class CarSelfTestActivity : ComponentActivity() {
         const val REPORT_NAME = "self-test.log"
         private const val EXTRA_RUN = "run"
         private const val ANSWER_SECONDS = 45L
+        private const val KEPT_RUNS = 6
+        private const val SHOWN_RUNS = 2
 
         fun open(context: Context) {
             context.startActivity(Intent(context, CarSelfTestActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))

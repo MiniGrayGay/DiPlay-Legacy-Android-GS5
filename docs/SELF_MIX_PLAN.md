@@ -125,7 +125,7 @@
 - 起因（2026-11-25 实车，0.4.6.12-alpha2，无线）：Siri 和电话没有麦克风，日志是 `recorder did not start; another app may hold the microphone`。Android 4.4 同时只允许一路录音，原车语音的唤醒词占着；DiPlay 拿着语音键时只发过一次暂停（102）。实测发 102 后约 0.5–1 秒原车放开，发 101 又占上。
 - 不开这个开关时：每次开麦克风都重发 102（dev `dc47ccc`）。
 - 打开时：CarPlay 会话期间一直开着一路 48 kHz 单声道录音（`StandingMicrophone`），通话和 Siri 从它分数据，没人用时丢掉。抢不到就重发 102、每 0.5 秒重试到拿到为止；读失败会重开，正在进行的通话接着用；录音中每 15 秒再发一次 102，免得原车语音在后面一直重试。
-- 录音来源用 `VOICE_COMMUNICATION`（通话兼容模式开着时用 `MIC`）。这台车的 `/system/vendor/etc/audio_effects.conf` 给所有来源挂的是同一套降噪、增益和回声消除。
+- 录音来源（alpha4 起）用 `VOICE_RECOGNITION`（通话兼容模式开着时用 `MIC`）。原来用 `VOICE_COMMUNICATION`，通话和 Siri 开头有时断 1 秒：`audio.primary.imx6.so` 的 `out_write` 在喇叭输出从休眠启动时，只要录音来源是 7（`VOICE_COMMUNICATION`）就强制录音待机（0x3e36：`active_input->source == 7`）。2026-11-26 实车三次断都发生在输出休眠后，四次没断都是输出还醒着。断流超过 180 ms 时用静音补上，免得后面每个包的时间戳都落后。这台车的 `/system/vendor/etc/audio_effects.conf` 给所有来源挂的是同一套降噪、增益和回声消除。
 - 最后手段（alpha3 起）：第一次加 3 次重试（1.5 秒）都被拒，就查 `dumpsys media.audio_flinger` 里正在录音的进程，**不管是谁都结束**（`killApplicationProcess`，system uid 可用，不要 root），150 ms 后抢占；还拿不到就每 10 秒再来一次。原车蓝牙电话由 Parrot 直接驱动麦克风，不经过安卓录音，不会被误伤；`GaeiEcallBcall` 也没有录音代码。只有 DiPlay 自己和 `system_server` 不动（后者结束会让整个系统重启）。alpha2 只结束 `com.tencent.wecarspeech`。
 - 放开：会话结束立即放开；关开关时如果正在通话，等这一路结束再放开。放开后恢复原车语音。
 - 代价：CarPlay 连着时原车语音助手不能用；一直录音加预处理的 CPU 占用要上车看。
@@ -138,8 +138,17 @@
 - 不用 `[CarPlay_PHONE]` 28：它是策略 5，`dsp.imx6.so` 里对应蓝牙电话（Parrot）输入。不用音频焦点：会和 CarPlay 音乐共用 18 这条记录，放掉时把音乐的也放了。
 - 没做：收音机时的 CarPlay 电话。原因相同，很可能也没声音，要先上车确认；策略 3 期间导航播报会被拒，通话时间长，不能直接照搬。
 
+- 2026-11-26 实车确认：策略 2 → 3 → 2，两次 Siri 都能听到，放开后收音机恢复。
+- Siri 结束后 iPhone 会恢复它打断的音乐；音源已被收音机拿走时，这种恢复不再把音源抢回（alpha4，`SiriResumeGuard`）。Siri 前没在放、或之后换了歌的，视为用户要求的，照旧抢回。
+
+### D13. 通话延迟（0.4.6.14-alpha4）
+iPhone 在通话开头一次多发约 0.2 秒，原来会一直积到通话结束，播放缓冲长期装满（245–360 ms，另有排队）。现在待播超过 160 ms 时丢掉安静的包，超过 300 ms 时直接丢（`CallPlaybackTrim`，只在广汽、只对通话）。效果要上车听。
+
+### D14. 有线内核网络（TUN，0.4.6.14-alpha4）
+2026-11-26 实车：SYN 到了，7000 在监听，但没有应答。VPN 加 `fe80::/10` 路由后，netd 给这些包打 0x3c 标记；内核没有 IPv6 NAT（MASQUERADE 失败），`st_filter_OUTPUT` 拒绝所有带标记的包，计数与打标记的包数相同。临时删掉打标记的规则后连上，音乐和通话都通。改为广汽上不加这条路由，地址自带的 `fe80::/64 dev tunX` 就够。不加路由、由系统自己建 TUN 的情况还没上车验证。
+
 ### D12. 车机自检（0.4.6.14-alpha3）
-三指菜单或「诊断」设置里点「车机自检」，约 2 分钟，走的就是会话里用的那些类。没连 CarPlay 跑一次（能测结束占用者、原车语音恢复、TUN 授权），连上再跑一次（能测 Siri、有线上行）。会切到收音机、按一次音量加减。提示音用麦克风听，车机的回声消除可能把它消掉，那时在屏幕上问听没听到。报告在 `files/logs/self-test.log`，也在导出的诊断报告里。远程启动：`am start -n com.shihab.diplay/com.shilapi.xcertplay.CarSelfTestActivity --ez run true`。不测：通话、听感音量、TUN 真正连接、倒车。
+三指菜单或「诊断」设置里点「车机自检」，约 2 分钟，走的就是会话里用的那些类。没连 CarPlay 跑一次（能测结束占用者、原车语音恢复、TUN 授权），连上再跑一次（能测 Siri、有线上行）。会切到收音机、按一次音量加减。提示音用麦克风听，车机的回声消除可能把它消掉，那时在屏幕上问听没听到。报告在 `files/logs/self-test.log`（alpha4 起保留最近 6 次，页面也显示之前两次），也在导出的诊断报告里。远程启动：`am start -n com.shihab.diplay/com.shilapi.xcertplay.CarSelfTestActivity --ez run true`。不测：通话、听感音量、TUN 真正连接、倒车。
 
 ## 4. 实现步骤
 

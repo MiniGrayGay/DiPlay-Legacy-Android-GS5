@@ -149,9 +149,12 @@ class CarPlayVpnService : VpnService() {
 
             val builder = Builder()
                 .addAddress(linkLocal, LINK_PREFIX)
-                .addRoute(LINK_LOCAL_ROUTE, LINK_ROUTE_PREFIX)
                 .setSession(SESSION_NAME)
                 .setMtu(TUN_MTU)
+            // Guangqi: netd marks what a VPN route covers and, as that kernel has no IPv6 NAT,
+            // rejects every marked packet, so no SYN is ever answered. The address above already
+            // brings `fe80::/64 dev tunX`, which is all the link-local sockets need.
+            if (!GuangqiVpnSubsystem.applies()) builder.addRoute(LINK_LOCAL_ROUTE, LINK_ROUTE_PREFIX)
             if (realSdkInt() >= 21 && !perAppVpnUnsupported) {
                 // Per-app VPN scopes CarPlay traffic to this app on genuine API 21+ ROMs.
                 // Use the real API level, not the faked SDK_INT: on 4.4-framework ROMs
@@ -161,7 +164,7 @@ class CarPlayVpnService : VpnService() {
                 builder.setBlocking(true).addAllowedApplication(packageName)
             }
             // KitKat has no per-app VPN (and neither do ROMs whose netd rejects uid rules).
-            // Only the IPv6 link-local route above is installed; no default route, DNS,
+            // At most the IPv6 link-local route above is installed; no default route, DNS,
             // Wi-Fi internet or mobile internet is captured.
             attachStage = "VPN establish"
             val tunFd = if (reuseTun) {

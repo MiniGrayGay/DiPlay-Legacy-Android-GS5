@@ -339,6 +339,7 @@ internal class MicrophoneUplink(
         val clock = canceller?.let { CaptureClock(actualSampleRate) }
         val reference = canceller?.let { ShortArray(it.frameSamples) }
         var filled = 0
+        val gap = if (recorder == null) MicrophoneGap(config.frameMillis) else null
         try {
             recorder?.let(::awaitRecording)
             while (running.get()) {
@@ -362,9 +363,18 @@ internal class MicrophoneUplink(
                     return
                 }
                 if (count == 0) {
+                    val missing = gap?.idle(System.nanoTime()) ?: 0
+                    if (missing > 0) {
+                        // Frames the recorder will never deliver: without them every later packet's
+                        // timestamp is behind real time, and stays so until the stream ends.
+                        val silence = ByteArray(frame.size)
+                        repeat(missing) { sendFrame(socket, counters, silence, captured = false) }
+                        stats.filled(missing)
+                    }
                     stats.flush(routeType = routeInfo)
                     continue
                 }
+                gap?.heard(System.nanoTime())
                 val processedCount = when {
                     actualSampleRate == 48000 && config.sampleRate == 24000 ->
                         downsample48To24(rawBuffer, count, readBuffer)
@@ -428,8 +438,8 @@ internal class MicrophoneUplink(
         return true
     }
 
-    private fun sendFrame(socket: DatagramSocket, counters: MicrophoneCounters, frame: ByteArray) {
-        stats.frameSilent(isFrameSilent(frame))
+    private fun sendFrame(socket: DatagramSocket, counters: MicrophoneCounters, frame: ByteArray, captured: Boolean = true) {
+        if (captured) stats.frameSilent(isFrameSilent(frame))
         val bodies = if (config.codec == AudioCodecKind.OPUS) {
             opusEncoder?.encode(frame).orEmpty()
         } else {
