@@ -92,9 +92,9 @@ android {
             signingConfig = signingConfigs.getByName("release")
         }
         release {
-            optimization {
-                enable = false
-            }
+            isMinifyEnabled = true
+            isShrinkResources = false
+            proguardFiles("shrink.pro")
             signingConfig = signingConfigs.getByName("release")
         }
     }
