@@ -25,6 +25,8 @@ internal object GuangqiCluster {
     const val SERVICE_PACKAGE = "gaei.cluster.service"
     const val ACTION = "AUTONAVI_STANDARD_BROADCAST_SEND"
     const val KEY_TYPE_NAVI_STATE = 10019
+    /** AMap's guidance broadcast: the cluster draws the turn, its distance and the route left itself. */
+    const val KEY_TYPE_GUIDANCE = 10001
     const val STATE_INIT = 1
     const val STATE_EXIT = 2
     const val STATE_FOREGROUND = 3
@@ -125,6 +127,60 @@ internal object GuangqiCluster {
         .putExtra("KEY_TYPE", KEY_TYPE_NAVI_STATE)
         .putExtra("EXTRA_STATE", state)
 
+    /**
+     * CarPlay's next turn in AMap's guidance broadcast. `gaei.cluster.service` turns ICON (with
+     * ROUND_ABOUT_NUM for roundabouts) into its own arrow through `/system/gaeiform/AutoNaviTbt.map`
+     * and sends it, the distance and the route left to the cluster, which draws them where it draws
+     * AMap's. [totalMeters] and [totalSeconds] are the route's size for the progress bar. Null
+     * [guidance] clears what the cluster shows. No speed limit: the iPhone sends none.
+     */
+    fun guidanceIntent(guidance: com.shilapi.xcertplay.hud.ClusterTurnGuidance?, totalMeters: Long, totalSeconds: Long): Intent =
+        Intent(ACTION).setPackage(SERVICE_PACKAGE).putExtra("KEY_TYPE", KEY_TYPE_GUIDANCE).apply {
+            putExtra("ICON", guidance?.icon ?: 0)
+            if (guidance != null && guidance.roundaboutExit > 0) {
+                putExtra("ROUND_ABOUT_NUM", guidance.roundaboutExit)
+                putExtra("ROUNG_ABOUT_NUM", guidance.roundaboutExit) // AMap's own misspelling, read as well
+            }
+            putExtra("SEG_REMAIN_DIS", guidance?.distanceMeters ?: 0)
+            putExtra("NEXT_ROAD_NAME", guidance?.road.orEmpty())
+            putExtra("CUR_ROAD_NAME", "")
+            putExtra("ROUTE_REMAIN_DIS", guidance?.remainingMeters?.toInt() ?: 0)
+            putExtra("ROUTE_REMAIN_TIME", guidance?.remainingSeconds?.toInt() ?: 0)
+            putExtra("ROUTE_ALL_DIS", if (guidance == null) 0 else totalMeters.toInt())
+            putExtra("ROUTE_ALL_TIME", if (guidance == null) 0 else totalSeconds.toInt())
+            putExtra("CAMERA_TYPE", -1)
+        }
+
+    /** Sends each change of CarPlay's next turn to the cluster. Main thread. */
+    class GuidanceSender(private val context: Context, private val log: (String) -> Unit) {
+        private var active = false
+        private var totalMeters = 0L
+        private var totalSeconds = 0L
+
+        fun update(guidance: com.shilapi.xcertplay.hud.ClusterTurnGuidance?, enabled: Boolean) {
+            val shown = guidance?.takeIf { enabled && it.icon != 0 }
+            if (shown == null && !active) return
+            if (shown == null) {
+                totalMeters = 0
+                totalSeconds = 0
+            } else {
+                // A new route starts from its largest remainder: the progress bar is measured on it.
+                totalMeters = maxOf(totalMeters, shown.remainingMeters ?: 0)
+                totalSeconds = maxOf(totalSeconds, shown.remainingSeconds ?: 0)
+            }
+            try {
+                context.sendBroadcast(guidanceIntent(shown, totalMeters, totalSeconds))
+            } catch (error: RuntimeException) {
+                Log.w(TAG, "cluster guidance broadcast failed", error)
+                return
+            }
+            if (active != (shown != null)) {
+                active = shown != null
+                log(if (active) "Cluster map: turn-by-turn sent to the cluster" else "Cluster map: turn-by-turn cleared on the cluster")
+            }
+        }
+    }
+
     /** Reports ready while DiPlay's cluster layer shows, and exit when it goes away. Main thread. */
     class ReadyReporter(private val context: Context, private val log: (String) -> Unit) {
         var reported = false
@@ -132,6 +188,23 @@ internal object GuangqiCluster {
 
         fun update(ready: Boolean) {
             if (ready == reported) return
+            send(ready)
+        }
+
+        /**
+         * Says ready again while the layer shows. The cluster can lose it (a mode change on the car,
+         * for one), and the layer, kept across DiPlay's own reconnects, never changed to say it again:
+         * the placeholder stayed until a full disconnect. Called when a session or its cluster stream
+         * starts.
+         */
+        fun refresh(ready: Boolean, why: String) {
+            if (!ready) return update(false)
+            if (!present(context)) return
+            log("Cluster map: navigation ready again ($why)")
+            send(true)
+        }
+
+        private fun send(ready: Boolean) {
             if (ready && !present(context)) return
             reported = ready
             val states = if (ready) listOf(STATE_INIT, STATE_FOREGROUND) else listOf(STATE_EXIT)

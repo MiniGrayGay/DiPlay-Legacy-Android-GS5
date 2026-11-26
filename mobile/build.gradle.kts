@@ -60,8 +60,8 @@ android {
         multiDexEnabled = true
         multiDexKeepProguard = file("multidex-config.pro")
         testInstrumentationRunner = "com.shilapi.xcertplay.T3LegacyInstrumentation"
-        versionCode = 180
-        versionName = "0.5.0"
+        versionCode = 186
+        versionName = "0.5.2"
 
         ndk {
             abiFilters += "armeabi-v7a"
@@ -92,9 +92,9 @@ android {
             signingConfig = signingConfigs.getByName("release")
         }
         release {
-            optimization {
-                enable = false
-            }
+            isMinifyEnabled = true
+            isShrinkResources = false
+            proguardFiles("shrink.pro")
             signingConfig = signingConfigs.getByName("release")
         }
     }

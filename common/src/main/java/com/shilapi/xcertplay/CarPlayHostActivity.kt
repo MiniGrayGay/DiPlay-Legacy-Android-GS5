@@ -238,7 +238,7 @@ class CarPlayHostActivity : ComponentActivity() {
         carplayAutoDisconnectBt = carplayAutoDisconnectBt,
         locationReportingEnabled = locationReportingEnabled,
         directUsbfsMode = AirPlayPersistence.loadDirectUsbfsMode(this),
-        userspaceNetworkEnabled = !AirPlayPersistence.loadWiredKernelTun(this),
+        userspaceNetworkEnabled = !WiredNetwork.kernelTun(this),
     )
 
     private val vpnConsent =
@@ -579,10 +579,15 @@ class CarPlayHostActivity : ComponentActivity() {
     private var clusterPresentation: ClusterMapPresentation? = null
     private var clusterSurface: Surface? = null
     private var clusterTurnGuidance: com.shilapi.xcertplay.hud.ClusterTurnGuidance? = null
+    private val guangqiClusterGuidance by lazy { GuangqiCluster.GuidanceSender(this, ::appendLog) }
     private val clusterTurnOverlayListener: (com.shilapi.xcertplay.hud.ClusterTurnGuidance?) -> Unit = { guidance ->
         runOnUiThread {
             clusterTurnGuidance = guidance
             applyClusterTurnOverlay()
+            if (GuangqiCluster.present(this)) {
+                guangqiClusterGuidance.update(guidance, AirPlayPersistence.loadClusterMapEnabled(this) &&
+                    AirPlayPersistence.loadClusterTurnInfo(this))
+            }
         }
     }
     // Copies of stream 111 outside the dashboard (centre card, launcher maps) each get their own decoder.
@@ -1361,6 +1366,7 @@ class CarPlayHostActivity : ComponentActivity() {
                 clusterPresentation = retained
                 updateClusterMapShown()
                 retained.setStreamActive(SCREEN_TYPE_ALT in activeScreenStreamTypes)
+                retained.setSessionActive(activeAirPlaySession != null)
                 applyClusterTurnOverlay()
                 appendLog("Cluster map: reclaimed retained guangqi presentation")
                 return
@@ -1387,6 +1393,7 @@ class CarPlayHostActivity : ComponentActivity() {
             if (guangqi) ClusterMapPresentation.retainGuangqi(presentation)
             updateClusterMapShown()
             presentation.setStreamActive(SCREEN_TYPE_ALT in activeScreenStreamTypes)
+            presentation.setSessionActive(activeAirPlaySession != null)
             applyClusterTurnOverlay()
             Log.i(ClusterMapPresentation.TAG, "cluster presentation shown display=${display.displayId} name=${display.name}")
             // Not "name=": DiagnosticRedactor drops lines that look like a device name.
@@ -1703,6 +1710,10 @@ class CarPlayHostActivity : ComponentActivity() {
         // The cluster takes DiPlay's layer as soon as it shows, with the dark placeholder until the
         // CarPlay map arrives; it goes back to its own screen when the layer goes away.
         guangqiClusterReady.update(clusterPresentation?.isShowing == true)
+    }
+
+    private fun refreshGuangqiClusterReady(why: String) {
+        guangqiClusterReady.refresh(clusterPresentation?.isShowing == true, why)
     }
 
     // The dashboard map pause must not stop the stream while a copy of the map is on screen.
@@ -2864,6 +2875,8 @@ class CarPlayHostActivity : ComponentActivity() {
                     clearStartupRetryStop()
                     logThemeState(ThemeModeDiagnostics.Source.SESSION_ACTIVE, resources.configuration)
                     syncAirPlayDarkMode(ThemeModeDiagnostics.Source.SESSION_ACTIVE)
+                    clusterPresentation?.setSessionActive(true)
+                    refreshGuangqiClusterReady("session active")
                     if (menuOpen) return@runOnUiThread
                     appendLog("AirPlay session active")
                 }
@@ -2910,6 +2923,7 @@ class CarPlayHostActivity : ComponentActivity() {
                     invalidateMainPicture()
                     activeAirPlaySession = null
                     CarPlayBackgroundSession.active = false
+                    clusterPresentation?.setSessionActive(false)
                     if (menuOpen) {
                         recoveryPendingAfterMenu = true
                         return@runOnUiThread
@@ -3856,6 +3870,12 @@ class CarPlayHostActivity : ComponentActivity() {
 
     private fun reconnectAfterLoss(reason: String, startupFailure: WirelessStartupFailure? = null) {
         if (!CarPlayBackgroundSession.isOwner(this)) return
+        // First: an attach failure is reported twice, and the reconnect may be scheduled already.
+        val tunFellBack = !wirelessEnabled && WiredNetwork.fallBack(this, reason)
+        if (tunFellBack) {
+            appendLog("wired TUN failed ($reason); the next attempt uses lwIP")
+            android.widget.Toast.makeText(this, R.string.settings_wired_network_fallback, android.widget.Toast.LENGTH_LONG).show()
+        }
         if (menuOpen) recoveryPendingAfterMenu = true
         if (shuttingDown.get() || menuOpen || handshakeResetInProgress || startupRetryStopped) return
         if (reconnectScheduled) return
@@ -3863,7 +3883,7 @@ class CarPlayHostActivity : ComponentActivity() {
         // uid/rule rejected with "Invalid argument" / "Device or resource busy" / "No such
         // device"), the app cannot clear it — every re-establish fails identically. Stop the
         // automatic retry loop instead of hammering a doomed establish; the user must reboot.
-        if (isUnrecoverableVpnState(reason)) {
+        if (!tunFellBack && isUnrecoverableVpnState(reason)) {
             appendLog("wired VPN netd state unrecoverable; automatic retry stopped, reboot required generation=$restartGeneration")
             setConnectionStage(reason)
             return
@@ -3875,7 +3895,8 @@ class CarPlayHostActivity : ComponentActivity() {
         // then stop and ask for a physical replug instead of looping forever. The
         // counter resets when a session activates, when the user taps Retry, or when
         // the controller reports it is waiting for a (re)plugged iPhone.
-        if (!wirelessEnabled && realSdkInt() < Build.VERSION_CODES.LOLLIPOP &&
+        // A TUN that gave way to lwIP is not counted: lwIP has not failed yet.
+        if (!tunFellBack && !wirelessEnabled && realSdkInt() < Build.VERSION_CODES.LOLLIPOP &&
             reason.contains("No AirPlay TCP after CarPlay StartSession")
         ) {
             wiredNoTcpFailures += 1
@@ -4176,6 +4197,8 @@ class CarPlayHostActivity : ComponentActivity() {
         sink = null
         sessionDisplay = null
         Log.i(TAG, "shutdown reason=$reason terminateProcess=$terminateProcess")
+        // A disconnect or leaving DiPlay, not an automatic reconnect: the car's Wi-Fi comes back.
+        com.shilapi.xcertplay.network.StationWifiPause.finish(this) { appendLog(it) }
         teardownExecutor.execute {
             oldController?.close()
             val clean = oldController?.awaitClosed(CONTROLLER_CLOSE_TIMEOUT_MILLIS) ?: true
@@ -4550,7 +4573,7 @@ class CarPlayHostActivity : ComponentActivity() {
                 appendLog("Cluster map: stream active=$active")
                 clusterPresentation?.setStreamActive(active)
                 MapMirrors.setStreamActive(active)
-                syncGuangqiClusterReady()
+                if (active) refreshGuangqiClusterReady("cluster stream started") else syncGuangqiClusterReady()
                 if (active) {
                     mainHandler.removeCallbacks(hideIdleCenterMap)
                     if (!CenterMapOverlay.shown) CenterMapOverlay.scheduleShow()

@@ -41,7 +41,7 @@ class GuangqiAssistantSourceTest {
 
     private fun idle(millis: Long = 0) = ShadowLooper.idleMainLooper(millis, TimeUnit.MILLISECONDS)
 
-    private fun start(stream: Any) = source.started(stream) {}.also { idle() }
+    private fun start(stream: Any) = source.started(stream, "Siri") {}.also { idle() }
 
     private fun end(stream: Any) = source.ended(stream).also { idle() }
 
@@ -95,5 +95,15 @@ class GuangqiAssistantSourceTest {
         idle(30_000)
         end("siri")
         assertEquals(List(3) { "request 25" }, calls)
+    }
+
+    @Test fun aCallOverTheRadioHoldsItToo() {
+        val lines = mutableListOf<String>()
+        source.started("call", "call") { lines += it }
+        idle()
+        end("call")
+        assertEquals(listOf("request 25", "abandon 25"), calls)
+        assertTrue(lines.toString(), lines.any { it.startsWith("Audio: call source 25 requested") })
+        assertTrue(lines.toString(), lines.any { "call ended" in it })
     }
 }

@@ -7,15 +7,15 @@ import android.os.Looper
 import android.util.Log
 
 /**
- * Guangqi head unit: Siri heard over the radio and over Bluetooth music.
+ * Guangqi head unit: Siri and CarPlay calls heard over the radio and over Bluetooth music.
  *
  * The DSP plays one input per policy. Music from any Android app is policy 0 (the head unit's own
  * output); the radio is 2 and Bluetooth music 4, and with those the DSP takes the tuner or the
  * Bluetooth module and Android's output is not heard at all. CarPlay music gets the DSP back through
- * audio focus and guidance through source 27 ([GuangqiNavigationSource]), but Siri asked for
- * nothing, so over the radio it listened and answered in silence.
+ * audio focus and guidance through source 27 ([GuangqiNavigationSource]), but Siri and
+ * calls asked for nothing, so over the radio they listened and answered in silence.
  *
- * While a Siri stream is open and the policy is one of those two, this holds `[CarLife_VR]` 25 of
+ * While a Siri or call stream is open and the policy is one of those two, this holds `[CarLife_VR]` 25 of
  * `/system/etc/sources_conf.xml`: DSP policy 3, which is the car's own voice assistant's, at the
  * voice volume. The arbitration table pauses the radio and Bluetooth music for it, and abandoning it
  * starts them again. The service checks the table, not the package, as with 27. Not
@@ -38,14 +38,16 @@ internal class GuangqiAssistantSource(
     private var refusals = 0
     private var lastPolicy: Int? = null
     private var report: (String) -> Unit = {}
+    private var kind = "Siri"
     private val check = Runnable { check() }
 
-    /** A Siri stream opened; [stream] identifies it. */
-    fun started(stream: Any, report: (String) -> Unit) {
+    /** A stream of [kind], Siri or a call, opened; [stream] identifies it. */
+    fun started(stream: Any, kind: String, report: (String) -> Unit) {
         if (api == null) return
         handler.post {
             this.report = report
             if (!streams.add(stream)) return@post
+            this.kind = kind
             refusals = 0
             handler.removeCallbacks(check)
             check()
@@ -54,7 +56,7 @@ internal class GuangqiAssistantSource(
 
     fun ended(stream: Any) {
         if (api == null) return
-        handler.post { if (streams.remove(stream) && streams.isEmpty()) release("Siri ended") }
+        handler.post { if (streams.remove(stream) && streams.isEmpty()) release("$kind ended") }
     }
 
     /** The audio sink with these [streams] closed. */
@@ -68,12 +70,12 @@ internal class GuangqiAssistantSource(
             val result = runCatching { car.request(SOURCE_CARLIFE_VR) { action -> onChange(action) } }
             held = result.getOrNull()?.let { it and GuangqiNavigationSource.ASR_REQUEST_GRANTED != 0 } == true
             if (held) prefs?.edit()?.putBoolean(KEY_HELD, true)?.apply()
-            log("Siri source $SOURCE_CARLIFE_VR requested over DSP policy $policy: " +
+            log("$kind source $SOURCE_CARLIFE_VR requested over DSP policy $policy: " +
                 (result.exceptionOrNull()?.let { "failed ${it.javaClass.simpleName}" }
                     ?: "result=0x${Integer.toHexString(result.getOrDefault(0))} held=$held"))
             if (!held && ++refusals >= MAX_REFUSALS) return
         } else if (refusals == 0 && policy != lastPolicy) {
-            log("Siri source: not needed, DSP policy $policy")
+            log("$kind source: not needed, DSP policy $policy")
         }
         lastPolicy = policy
         handler.postDelayed(check, CHECK_MILLIS)
@@ -86,13 +88,13 @@ internal class GuangqiAssistantSource(
         held = false
         val result = runCatching { api?.abandon(SOURCE_CARLIFE_VR) }
         prefs?.edit()?.putBoolean(KEY_HELD, false)?.apply()
-        log("Siri source $SOURCE_CARLIFE_VR released ($reason) " +
+        log("$kind source $SOURCE_CARLIFE_VR released ($reason) " +
             (result.exceptionOrNull()?.let { "failed ${it.javaClass.simpleName}" } ?: "result=${result.getOrNull()}"))
     }
 
     private fun onChange(action: Int) {
-        // Something stronger, such as a call: the car gives the DSP back itself. Kept until Siri ends.
-        log("Siri source $SOURCE_CARLIFE_VR change action=0x${Integer.toHexString(action)}")
+        // Something stronger, such as a call: the car gives the DSP back itself. Kept until the stream ends.
+        log("$kind source $SOURCE_CARLIFE_VR change action=0x${Integer.toHexString(action)}")
     }
 
     private fun log(message: String) {
