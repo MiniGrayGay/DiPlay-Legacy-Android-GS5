@@ -132,6 +132,23 @@ internal object GuangqiCluster {
 
         fun update(ready: Boolean) {
             if (ready == reported) return
+            send(ready)
+        }
+
+        /**
+         * Says ready again while the layer shows. The cluster can lose it (a mode change on the car,
+         * for one), and the layer, kept across DiPlay's own reconnects, never changed to say it again:
+         * the placeholder stayed until a full disconnect. Called when a session or its cluster stream
+         * starts.
+         */
+        fun refresh(ready: Boolean, why: String) {
+            if (!ready) return update(false)
+            if (!present(context)) return
+            log("Cluster map: navigation ready again ($why)")
+            send(true)
+        }
+
+        private fun send(ready: Boolean) {
             if (ready && !present(context)) return
             reported = ready
             val states = if (ready) listOf(STATE_INIT, STATE_FOREGROUND) else listOf(STATE_EXIT)

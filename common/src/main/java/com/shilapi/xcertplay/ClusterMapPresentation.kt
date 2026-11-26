@@ -40,6 +40,7 @@ internal class ClusterMapPresentation(
     private var waitingLabel: TextView? = null
     private var turnCardView: ClusterTurnCardView? = null
     private var streamActive = false
+    private var sessionActive = false
     var outputSurface: Surface? = null
         private set
 
@@ -71,7 +72,7 @@ internal class ClusterMapPresentation(
         })
         root.addView(surfaceView, videoParams)
         waitingLabel = TextView(context).apply {
-            text = context.getString(R.string.cluster_waiting_for_map)
+            text = waitingText()
             setTextColor(if (guangqi) GUANGQI_PLACEHOLDER_TEXT else Color.DKGRAY)
             setBackgroundColor(placeholder)
             textSize = 26f
@@ -90,6 +91,16 @@ internal class ClusterMapPresentation(
         }
         setContentView(root)
     }
+
+    /** What the placeholder says: no CarPlay yet, or CarPlay without its cluster stream yet. */
+    fun setSessionActive(active: Boolean) {
+        if (sessionActive == active) return
+        sessionActive = active
+        waitingLabel?.text = waitingText()
+    }
+
+    private fun waitingText(): String =
+        context.getString(if (sessionActive) R.string.cluster_waiting_for_map else R.string.cluster_waiting_for_carplay)
 
     /** Cross-fades the waiting placeholder over the live map; the SurfaceView stays visible under it. */
     fun setStreamActive(active: Boolean) {

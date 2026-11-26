@@ -1361,6 +1361,7 @@ class CarPlayHostActivity : ComponentActivity() {
                 clusterPresentation = retained
                 updateClusterMapShown()
                 retained.setStreamActive(SCREEN_TYPE_ALT in activeScreenStreamTypes)
+                retained.setSessionActive(activeAirPlaySession != null)
                 applyClusterTurnOverlay()
                 appendLog("Cluster map: reclaimed retained guangqi presentation")
                 return
@@ -1387,6 +1388,7 @@ class CarPlayHostActivity : ComponentActivity() {
             if (guangqi) ClusterMapPresentation.retainGuangqi(presentation)
             updateClusterMapShown()
             presentation.setStreamActive(SCREEN_TYPE_ALT in activeScreenStreamTypes)
+            presentation.setSessionActive(activeAirPlaySession != null)
             applyClusterTurnOverlay()
             Log.i(ClusterMapPresentation.TAG, "cluster presentation shown display=${display.displayId} name=${display.name}")
             // Not "name=": DiagnosticRedactor drops lines that look like a device name.
@@ -1703,6 +1705,10 @@ class CarPlayHostActivity : ComponentActivity() {
         // The cluster takes DiPlay's layer as soon as it shows, with the dark placeholder until the
         // CarPlay map arrives; it goes back to its own screen when the layer goes away.
         guangqiClusterReady.update(clusterPresentation?.isShowing == true)
+    }
+
+    private fun refreshGuangqiClusterReady(why: String) {
+        guangqiClusterReady.refresh(clusterPresentation?.isShowing == true, why)
     }
 
     // The dashboard map pause must not stop the stream while a copy of the map is on screen.
@@ -2864,6 +2870,8 @@ class CarPlayHostActivity : ComponentActivity() {
                     clearStartupRetryStop()
                     logThemeState(ThemeModeDiagnostics.Source.SESSION_ACTIVE, resources.configuration)
                     syncAirPlayDarkMode(ThemeModeDiagnostics.Source.SESSION_ACTIVE)
+                    clusterPresentation?.setSessionActive(true)
+                    refreshGuangqiClusterReady("session active")
                     if (menuOpen) return@runOnUiThread
                     appendLog("AirPlay session active")
                 }
@@ -2910,6 +2918,7 @@ class CarPlayHostActivity : ComponentActivity() {
                     invalidateMainPicture()
                     activeAirPlaySession = null
                     CarPlayBackgroundSession.active = false
+                    clusterPresentation?.setSessionActive(false)
                     if (menuOpen) {
                         recoveryPendingAfterMenu = true
                         return@runOnUiThread
@@ -4559,7 +4568,7 @@ class CarPlayHostActivity : ComponentActivity() {
                 appendLog("Cluster map: stream active=$active")
                 clusterPresentation?.setStreamActive(active)
                 MapMirrors.setStreamActive(active)
-                syncGuangqiClusterReady()
+                if (active) refreshGuangqiClusterReady("cluster stream started") else syncGuangqiClusterReady()
                 if (active) {
                     mainHandler.removeCallbacks(hideIdleCenterMap)
                     if (!CenterMapOverlay.shown) CenterMapOverlay.scheduleShow()

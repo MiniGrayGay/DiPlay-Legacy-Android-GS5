@@ -50,6 +50,19 @@ class GuangqiClusterTest {
         assertFalse(reporter.reported)
     }
 
+    @Test fun aRefreshSaysReadyAgainWhileTheLayerShows() {
+        installClusterService()
+        val reporter = GuangqiCluster.ReadyReporter(context) {}
+        reporter.update(true)
+        reporter.refresh(true, "session active")
+        val sent = shadowOf(RuntimeEnvironment.getApplication()).broadcastIntents.map { it.getIntExtra("EXTRA_STATE", -1) }
+        assertEquals(listOf(1, 3, 1, 3), sent)
+        reporter.refresh(false, "gone")
+        assertFalse(reporter.reported)
+        reporter.refresh(false, "gone")
+        assertEquals("exit once", 5, shadowOf(RuntimeEnvironment.getApplication()).broadcastIntents.size)
+    }
+
     @Test fun otherHeadUnitsNeverReportReady() {
         val reporter = GuangqiCluster.ReadyReporter(context) {}
         reporter.update(true)

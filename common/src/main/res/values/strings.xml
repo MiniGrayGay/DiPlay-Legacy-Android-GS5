@@ -363,6 +363,7 @@
     <string name="wpa3_transition">WPA3 transition</string>
     <string name="your_iphone_isn_t_available_unlock_it_and_check_bluetooth">Your iPhone isn’t available. Unlock it and check Bluetooth.</string>
     <string name="your_report_was_saved_to_the_selected_location">Your report was saved to the selected location.</string>
+    <string name="cluster_waiting_for_carplay">DiPlay · waiting for CarPlay</string>
     <string name="cluster_waiting_for_map">DiPlay · waiting for the CarPlay map</string>
     <string name="option_size_huge">Huge</string>
     <string name="option_size_extra_large">Extra large</string>
