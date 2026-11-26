@@ -324,6 +324,8 @@
     <string name="wpa3_transition">WPA3 过渡模式</string>
     <string name="your_iphone_isn_t_available_unlock_it_and_check_bluetooth">暂时找不到 iPhone。请解锁手机并检查蓝牙。</string>
     <string name="your_report_was_saved_to_the_selected_location">报告已保存到所选位置。</string>
+    <string name="cluster_turn_info">仪表显示转向提示（实验性）</string>
+    <string name="cluster_turn_info_description">把 CarPlay 的下一个路口转向、距离和剩余里程发给原车仪表，显示在原车高德导航用的位置。限速 iPhone 不提供，不会显示。立即生效。</string>
     <string name="cluster_waiting_for_carplay">DiPlay · 等待 CarPlay 连接</string>
     <string name="cluster_waiting_for_map">DiPlay · 等待 CarPlay 地图</string>
     <string name="option_size_huge">超大</string>

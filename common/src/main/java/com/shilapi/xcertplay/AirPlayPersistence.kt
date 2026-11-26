@@ -104,6 +104,7 @@ object AirPlayPersistence {
     private const val KEY_DIRECT_USBFS_MODE = "direct_usbfs_mode"
     private const val KEY_WIRED_KERNEL_TUN = "wired_kernel_tun"
     private const val KEY_CLUSTER_MAP = "cluster_map_enabled"
+    private const val KEY_CLUSTER_TURN_INFO = "cluster_turn_info"
     private const val KEY_CENTER_MAP_OVERLAY = "center_map_overlay"
     private const val KEY_FLOATING_DOT = "floating_dot"
     private const val KEY_CENTER_MAP_AUTO_HIDE = "center_map_auto_hide"
@@ -920,6 +921,14 @@ object AirPlayPersistence {
     }
 
     /** On by default on Guangqi, whose cluster is a plain presentation display; off elsewhere. */
+    /** Guangqi: CarPlay's next turn drawn by the cluster itself, where it draws AMap's. */
+    fun loadClusterTurnInfo(context: Context): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_CLUSTER_TURN_INFO, true)
+
+    fun saveClusterTurnInfo(context: Context, enabled: Boolean) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_CLUSTER_TURN_INFO, enabled).apply()
+    }
+
     fun loadClusterMapEnabled(context: Context): Boolean =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getBoolean(KEY_CLUSTER_MAP, GuangqiCluster.present(context))

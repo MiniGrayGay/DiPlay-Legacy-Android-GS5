@@ -1743,6 +1743,10 @@ class DiPlayActivity : ComponentActivity() {
                 else FloatingDotOverlay.setEnabled(this, it)
                 render()
             }
+            if (clusterMapEnabled && GuangqiCluster.present(this)) {
+                toggle(card, getString(R.string.cluster_turn_info), getString(R.string.cluster_turn_info_description),
+                    AirPlayPersistence.loadClusterTurnInfo(this)) { AirPlayPersistence.saveClusterTurnInfo(this, it) }
+            }
             if (clusterMapEnabled) {
                 resolutionSettingControl(
                     card, R.string.cluster_resolution, R.string.cluster_resolution_hint,

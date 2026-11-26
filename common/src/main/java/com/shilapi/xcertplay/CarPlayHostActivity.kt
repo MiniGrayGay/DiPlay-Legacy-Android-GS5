@@ -579,10 +579,15 @@ class CarPlayHostActivity : ComponentActivity() {
     private var clusterPresentation: ClusterMapPresentation? = null
     private var clusterSurface: Surface? = null
     private var clusterTurnGuidance: com.shilapi.xcertplay.hud.ClusterTurnGuidance? = null
+    private val guangqiClusterGuidance by lazy { GuangqiCluster.GuidanceSender(this, ::appendLog) }
     private val clusterTurnOverlayListener: (com.shilapi.xcertplay.hud.ClusterTurnGuidance?) -> Unit = { guidance ->
         runOnUiThread {
             clusterTurnGuidance = guidance
             applyClusterTurnOverlay()
+            if (GuangqiCluster.present(this)) {
+                guangqiClusterGuidance.update(guidance, AirPlayPersistence.loadClusterMapEnabled(this) &&
+                    AirPlayPersistence.loadClusterTurnInfo(this))
+            }
         }
     }
     // Copies of stream 111 outside the dashboard (centre card, launcher maps) each get their own decoder.

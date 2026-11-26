@@ -363,6 +363,8 @@
     <string name="wpa3_transition">WPA3 transition</string>
     <string name="your_iphone_isn_t_available_unlock_it_and_check_bluetooth">Your iPhone isn’t available. Unlock it and check Bluetooth.</string>
     <string name="your_report_was_saved_to_the_selected_location">Your report was saved to the selected location.</string>
+    <string name="cluster_turn_info">Turn-by-turn on the cluster (experimental)</string>
+    <string name="cluster_turn_info_description">Sends CarPlay\'s next turn, its distance and the distance left to the car\'s cluster, which shows them where it shows the stock navigation\'s. The iPhone sends no speed limit. Takes effect at once.</string>
     <string name="cluster_waiting_for_carplay">DiPlay · waiting for CarPlay</string>
     <string name="cluster_waiting_for_map">DiPlay · waiting for the CarPlay map</string>
     <string name="option_size_huge">Huge</string>

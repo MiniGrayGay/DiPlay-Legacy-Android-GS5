@@ -63,6 +63,34 @@ class GuangqiClusterTest {
         assertEquals("exit once", 5, shadowOf(RuntimeEnvironment.getApplication()).broadcastIntents.size)
     }
 
+    @Test fun aTurnGoesToTheClusterTheAmapWayAndIsClearedOnce() {
+        val logs = mutableListOf<String>()
+        val sender = GuangqiCluster.GuidanceSender(context, logs::add)
+        val turn = com.shilapi.xcertplay.hud.ClusterTurnGuidance(2, 0, 120, "Main St", remainingSeconds = 600, remainingMeters = 5_000)
+        sender.update(turn, enabled = true)
+        sender.update(turn.copy(distanceMeters = 80, remainingMeters = 4_960, remainingSeconds = 590), enabled = true)
+        val roundabout = turn.copy(icon = 11, roundaboutExit = 3)
+        sender.update(roundabout, enabled = true)
+        sender.update(null, enabled = true)
+        sender.update(null, enabled = true)
+        val sent = shadowOf(RuntimeEnvironment.getApplication()).broadcastIntents
+        assertEquals(4, sent.size)
+        assertTrue(sent.all { it.`package` == "gaei.cluster.service" && it.getIntExtra("KEY_TYPE", -1) == 10001 })
+        assertEquals(2, sent[0].getIntExtra("ICON", -1))
+        assertEquals(120, sent[0].getIntExtra("SEG_REMAIN_DIS", -1))
+        assertEquals("Main St", sent[0].getStringExtra("NEXT_ROAD_NAME"))
+        assertEquals("the progress bar keeps the route's size", 5_000, sent[1].getIntExtra("ROUTE_ALL_DIS", -1))
+        assertEquals(4_960, sent[1].getIntExtra("ROUTE_REMAIN_DIS", -1))
+        assertEquals(3, sent[2].getIntExtra("ROUND_ABOUT_NUM", -1))
+        assertEquals(0, sent[3].getIntExtra("ICON", -1))
+        assertEquals(listOf("Cluster map: turn-by-turn sent to the cluster", "Cluster map: turn-by-turn cleared on the cluster"), logs)
+    }
+
+    @Test fun turnedOffSendsNothing() {
+        GuangqiCluster.GuidanceSender(context) {}.update(com.shilapi.xcertplay.hud.ClusterTurnGuidance(2, 0, 120, ""), enabled = false)
+        assertTrue(shadowOf(RuntimeEnvironment.getApplication()).broadcastIntents.isEmpty())
+    }
+
     @Test fun otherHeadUnitsNeverReportReady() {
         val reporter = GuangqiCluster.ReadyReporter(context) {}
         reporter.update(true)
