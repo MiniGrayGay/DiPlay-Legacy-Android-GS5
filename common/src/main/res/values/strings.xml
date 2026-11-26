@@ -596,7 +596,7 @@
     <string name="wireless_mode_recommended">Recommended · verified on this car</string>
     <string name="wireless_mode_not_recommended">Other ways · not verified on this car, not recommended</string>
     <string name="station_wifi_pause_title">Pausing the car\'s Wi-Fi</string>
-    <string name="station_wifi_pause_message">The car\'s Wi-Fi is connected to %1$s. Wireless CarPlay uses Wi-Fi Direct on the same single 2.4 GHz radio, and the two connections take turns. The car\'s Wi-Fi will disconnect in %2$d s for a steadier connection; it reconnects when CarPlay ends.</string>
+    <string name="station_wifi_pause_message">The car\'s Wi-Fi is connected to %1$s. Wireless CarPlay uses Wi-Fi Direct on the same single 2.4 GHz radio, and the two connections take turns. The car\'s Wi-Fi will disconnect in %2$d s for a steadier connection and stay off until you disconnect CarPlay or leave DiPlay. Your choice also applies to automatic reconnects.</string>
     <string name="station_wifi_pause_keep">Keep Wi-Fi</string>
     <string name="station_wifi_pause_now">Disconnect now</string>
     <string name="station_wifi_pause_unknown_network">a network</string>

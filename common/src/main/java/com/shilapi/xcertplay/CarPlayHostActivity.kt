@@ -4183,6 +4183,8 @@ class CarPlayHostActivity : ComponentActivity() {
         sink = null
         sessionDisplay = null
         Log.i(TAG, "shutdown reason=$reason terminateProcess=$terminateProcess")
+        // A disconnect or leaving DiPlay, not an automatic reconnect: the car's Wi-Fi comes back.
+        com.shilapi.xcertplay.network.StationWifiPause.finish(this) { appendLog(it) }
         teardownExecutor.execute {
             oldController?.close()
             val clean = oldController?.awaitClosed(CONTROLLER_CLOSE_TIMEOUT_MILLIS) ?: true
